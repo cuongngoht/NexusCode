@@ -4,12 +4,7 @@ import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
 import { GitStatusPanel } from './GitStatusPanel';
 import { IconSparkle, IconChevronRight } from '../NexusIcons';
-
-const SUGGESTIONS = [
-  'Refactor the selected code for readability',
-  'Add unit tests for the open file',
-  'Explain what this function does',
-];
+import { useT } from '../i18n';
 
 interface Props {
   conversation: Conversation;
@@ -20,17 +15,18 @@ interface Props {
 }
 
 function EmptyState({ onSend }: { onSend: (text: string) => void }) {
+  const t = useT();
+  const suggestions = [t.emptyState.suggestion1, t.emptyState.suggestion2, t.emptyState.suggestion3];
+
   return (
     <div className="fl-empty">
       <div className="fl-empty-orb">
         <IconSparkle size={26} />
       </div>
-      <div className="fl-empty-title">Start a conversation</div>
-      <div className="fl-empty-sub">
-        Ask Nexus to build, research, or review the open file.
-      </div>
+      <div className="fl-empty-title">{t.emptyState.title}</div>
+      <div className="fl-empty-sub">{t.emptyState.subtitle}</div>
       <div className="fl-suggest">
-        {SUGGESTIONS.map(s => (
+        {suggestions.map(s => (
           <button
             key={s}
             type="button"

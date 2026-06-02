@@ -1,4 +1,5 @@
 import type { Conversation } from '../messages';
+import { useT } from '../i18n';
 
 interface Props {
   conversations: Conversation[];
@@ -7,8 +8,9 @@ interface Props {
 }
 
 export function ConversationHistory({ conversations, activeId, onSelect }: Props) {
+  const t = useT();
   return (
-    <nav className="nx-history fl-scroll" aria-label="Conversation history">
+    <nav className="nx-history fl-scroll" aria-label={t.history.ariaLabel}>
       <ul className="nx-history-list">
         {conversations.map(conv => {
           const isActive = conv.id === activeId;

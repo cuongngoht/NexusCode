@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconChevron, IconCheck } from './NexusIcons';
+import { useT } from './i18n';
 
 export interface DropdownOption {
   value: string;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function NexusDropdown({ value, options, placeholder, onChange, disabled }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -44,7 +46,7 @@ export function NexusDropdown({ value, options, placeholder, onChange, disabled 
         <span className="fl-dd-value">
           {selected?.icon && <selected.icon size={14} />}
           <span className={`dd-label${selected ? '' : ' fl-dd-ph'}`}>
-            {selected ? selected.label : (placeholder ?? 'Select…')}
+            {selected ? selected.label : (placeholder ?? t.dropdown.select)}
           </span>
           {selected?.badge && <span className="fl-dd-badge">{selected.badge}</span>}
         </span>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
 import { reducer, createInitialState, type AppAction, type ExtMsg } from './messages';
@@ -7,9 +7,11 @@ import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
 import { ConversationHistory } from './components/ConversationHistory';
 import { Composer } from './components/Composer';
+import { I18nContext, LOCALES, type Locale } from './i18n';
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
+  const [locale, setLocale] = useState<Locale>('vi');
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const activeConv = state.conversations.find(c => c.id === state.activeConvId)!;
@@ -59,49 +61,53 @@ export function App() {
   const handleOpenScm = useCallback(() => getVsCodeApi().postMessage({ type: 'openSourceControl' }), []);
 
   return (
-    <FluentProvider theme={getBaseTheme()}>
-      <div className="nx-panel">
-        <AppToolbar
-          provider={state.provider}
-          selectedModel={state.selectedModel}
-          mode={state.mode}
-          availableProviders={state.availableProviders}
-          providerDetection={state.providerDetection}
-          isRunning={state.isRunning}
-          showHistory={state.showHistory}
-          conversationCount={state.conversations.length}
-          onProviderChange={v => dispatch({ type: 'setProvider', value: v })}
-          onModelChange={v => dispatch({ type: 'setModel', value: v })}
-          onModeChange={v => dispatch({ type: 'setMode', value: v })}
-          onNewConversation={() => dispatch({ type: 'newConversation' })}
-          onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
-        />
-
-        {state.showHistory && (
-          <ConversationHistory
-            conversations={state.conversations}
-            activeId={state.activeConvId}
-            onSelect={id => dispatch({ type: 'selectConversation', id })}
+    <I18nContext.Provider value={LOCALES[locale]}>
+      <FluentProvider theme={getBaseTheme()}>
+        <div className="nx-panel">
+          <AppToolbar
+            provider={state.provider}
+            selectedModel={state.selectedModel}
+            mode={state.mode}
+            availableProviders={state.availableProviders}
+            providerDetection={state.providerDetection}
+            isRunning={state.isRunning}
+            showHistory={state.showHistory}
+            conversationCount={state.conversations.length}
+            locale={locale}
+            onProviderChange={v => dispatch({ type: 'setProvider', value: v })}
+            onModelChange={v => dispatch({ type: 'setModel', value: v })}
+            onModeChange={v => dispatch({ type: 'setMode', value: v })}
+            onNewConversation={() => dispatch({ type: 'newConversation' })}
+            onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
+            onLocaleChange={setLocale}
           />
-        )}
 
-        <MessageList
-          conversation={activeConv}
-          isRunning={state.isRunning}
-          onOpenScm={handleOpenScm}
-          onCloseGit={() => {
-            dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
-          }}
-          onSendSuggestion={handleRun}
-        />
+          {state.showHistory && (
+            <ConversationHistory
+              conversations={state.conversations}
+              activeId={state.activeConvId}
+              onSelect={id => dispatch({ type: 'selectConversation', id })}
+            />
+          )}
 
-        <Composer
-          isRunning={state.isRunning}
-          elapsed={state.elapsed}
-          onRun={handleRun}
-          onStop={handleStop}
-        />
-      </div>
-    </FluentProvider>
+          <MessageList
+            conversation={activeConv}
+            isRunning={state.isRunning}
+            onOpenScm={handleOpenScm}
+            onCloseGit={() => {
+              dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
+            }}
+            onSendSuggestion={handleRun}
+          />
+
+          <Composer
+            isRunning={state.isRunning}
+            elapsed={state.elapsed}
+            onRun={handleRun}
+            onStop={handleStop}
+          />
+        </div>
+      </FluentProvider>
+    </I18nContext.Provider>
   );
 }

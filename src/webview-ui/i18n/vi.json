@@ -1,0 +1,101 @@
+{
+  "toolbar": {
+    "brand": "NEXUS",
+    "newConversation": "Cuộc trò chuyện mới",
+    "history": "Lịch sử ({{count}})",
+    "more": "Thêm",
+    "switchLang": "Switch to English"
+  },
+  "provider": {
+    "autoDetect": "Tự động phát hiện",
+    "autoDetectBadge": "Mặc định",
+    "customCli": "CLI tùy chỉnh"
+  },
+  "mode": {
+    "ask": {
+      "label": "Hỏi đáp",
+      "desc": "Chỉ chat · không dùng công cụ"
+    },
+    "edit": {
+      "label": "Agent lập trình",
+      "desc": "Chỉnh sửa code, chạy công cụ"
+    },
+    "research": {
+      "label": "Agent nghiên cứu",
+      "desc": "Tìm kiếm web + tổng hợp"
+    },
+    "review": {
+      "label": "Đánh giá code",
+      "desc": "Đọc & nhận xét"
+    },
+    "debug": {
+      "label": "Agent debug",
+      "desc": "Tìm & sửa lỗi"
+    },
+    "plan": {
+      "label": "Lập kế hoạch",
+      "desc": "Lên kế hoạch trước khi thực hiện"
+    },
+    "test": {
+      "label": "Agent kiểm thử",
+      "desc": "Viết & chạy test"
+    },
+    "scan-project": {
+      "label": "Quét dự án",
+      "desc": "Phân tích workspace"
+    }
+  },
+  "agent": {
+    "name": "Nexus",
+    "modeLabel": {
+      "ask": "Hỏi đáp",
+      "edit": "Agent lập trình",
+      "research": "Agent nghiên cứu",
+      "review": "Đánh giá code",
+      "debug": "Agent debug",
+      "plan": "Lập kế hoạch",
+      "test": "Agent kiểm thử",
+      "scan-project": "Quét dự án"
+    },
+    "statusRunning": "Đang chạy",
+    "statusDone": "✓ Xong",
+    "statusError": "✖ Lỗi",
+    "statusStopped": "⏹ Đã dừng",
+    "statusFailed": "✖ Thất bại ({{code}})",
+    "copy": "Sao chép",
+    "goodResponse": "Phản hồi tốt",
+    "badResponse": "Phản hồi kém",
+    "retry": "Thử lại"
+  },
+  "composer": {
+    "placeholder": "Hỏi Nexus về file này…  (⌘↵ để gửi)",
+    "promptAriaLabel": "Nhập câu hỏi",
+    "attachFile": "Đính kèm file",
+    "mention": "Đề cập",
+    "addFileContext": "Thêm ngữ cảnh file",
+    "removeAttachment": "Xóa {{name}}",
+    "hintToSend": "để gửi",
+    "working": "Nexus đang xử lý… {{elapsed}}s",
+    "stop": "Dừng",
+    "send": "Gửi"
+  },
+  "emptyState": {
+    "title": "Bắt đầu cuộc trò chuyện",
+    "subtitle": "Yêu cầu Nexus xây dựng, nghiên cứu, hoặc đánh giá file đang mở.",
+    "suggestion1": "Tái cấu trúc code đã chọn để dễ đọc hơn",
+    "suggestion2": "Thêm unit test cho file đang mở",
+    "suggestion3": "Giải thích chức năng của hàm này"
+  },
+  "history": {
+    "ariaLabel": "Lịch sử trò chuyện"
+  },
+  "git": {
+    "changedFiles": "Tệp đã thay đổi",
+    "close": "Đóng",
+    "noChanges": "Không có thay đổi.",
+    "openScm": "Mở Source Control"
+  },
+  "dropdown": {
+    "select": "Chọn…"
+  }
+}

@@ -1,5 +1,6 @@
 import type { GitChange } from '../messages';
 import { IconBranch, IconClose } from '../NexusIcons';
+import { useT } from '../i18n';
 
 interface Props {
   changes: GitChange[];
@@ -17,16 +18,17 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export function GitStatusPanel({ changes, message, onOpenScm, onClose }: Props) {
+  const t = useT();
   return (
-    <section className="nx-git" aria-label="Changed files">
+    <section className="nx-git" aria-label={t.git.changedFiles}>
       <div className="nx-git-header">
-        <span className="nx-git-title">Changed files</span>
+        <span className="nx-git-title">{t.git.changedFiles}</span>
         <button
           type="button"
           className="fl-iconbtn"
           style={{ width: 22, height: 22 }}
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t.git.close}
         >
           <IconClose size={13} />
         </button>
@@ -34,7 +36,7 @@ export function GitStatusPanel({ changes, message, onOpenScm, onClose }: Props) 
 
       {changes.length === 0 ? (
         <p style={{ fontSize: 12, color: 'var(--colorNeutralForeground4)', fontStyle: 'italic', margin: '0 0 8px' }}>
-          {message ?? 'No changes.'}
+          {message ?? t.git.noChanges}
         </p>
       ) : (
         <ul className="nx-git-list">
@@ -54,7 +56,7 @@ export function GitStatusPanel({ changes, message, onOpenScm, onClose }: Props) 
 
       <button type="button" className="nx-git-scm-btn" onClick={onOpenScm}>
         <IconBranch size={14} />
-        Open Source Control
+        {t.git.openScm}
       </button>
     </section>
   );

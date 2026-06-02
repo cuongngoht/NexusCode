@@ -1,0 +1,101 @@
+{
+  "toolbar": {
+    "brand": "NEXUS",
+    "newConversation": "New conversation",
+    "history": "History ({{count}})",
+    "more": "More",
+    "switchLang": "Chuyển sang tiếng Việt"
+  },
+  "provider": {
+    "autoDetect": "Auto-detect",
+    "autoDetectBadge": "Default",
+    "customCli": "Custom CLI"
+  },
+  "mode": {
+    "ask": {
+      "label": "Ask",
+      "desc": "Chat only · no tools"
+    },
+    "edit": {
+      "label": "Build Agent",
+      "desc": "Edits code, runs tools"
+    },
+    "research": {
+      "label": "Research Agent",
+      "desc": "Web search + synthesis"
+    },
+    "review": {
+      "label": "Code Reviewer",
+      "desc": "Reads & critiques"
+    },
+    "debug": {
+      "label": "Debug Agent",
+      "desc": "Find & fix bugs"
+    },
+    "plan": {
+      "label": "Planner",
+      "desc": "Plan before executing"
+    },
+    "test": {
+      "label": "Test Agent",
+      "desc": "Write & run tests"
+    },
+    "scan-project": {
+      "label": "Scan Project",
+      "desc": "Analyse the workspace"
+    }
+  },
+  "agent": {
+    "name": "Nexus",
+    "modeLabel": {
+      "ask": "Ask",
+      "edit": "Build Agent",
+      "research": "Research Agent",
+      "review": "Code Reviewer",
+      "debug": "Debug Agent",
+      "plan": "Planner",
+      "test": "Test Agent",
+      "scan-project": "Scan Project"
+    },
+    "statusRunning": "Running",
+    "statusDone": "✓ Done",
+    "statusError": "✖ Error",
+    "statusStopped": "⏹ Stopped",
+    "statusFailed": "✖ Failed ({{code}})",
+    "copy": "Copy",
+    "goodResponse": "Good response",
+    "badResponse": "Bad response",
+    "retry": "Retry"
+  },
+  "composer": {
+    "placeholder": "Ask Nexus about this file…  (⌘↵ to send)",
+    "promptAriaLabel": "Prompt input",
+    "attachFile": "Attach file",
+    "mention": "Mention",
+    "addFileContext": "Add file context",
+    "removeAttachment": "Remove {{name}}",
+    "hintToSend": "to send",
+    "working": "Nexus is working… {{elapsed}}s",
+    "stop": "Stop",
+    "send": "Send"
+  },
+  "emptyState": {
+    "title": "Start a conversation",
+    "subtitle": "Ask Nexus to build, research, or review the open file.",
+    "suggestion1": "Refactor the selected code for readability",
+    "suggestion2": "Add unit tests for the open file",
+    "suggestion3": "Explain what this function does"
+  },
+  "history": {
+    "ariaLabel": "Conversation history"
+  },
+  "git": {
+    "changedFiles": "Changed files",
+    "close": "Close",
+    "noChanges": "No changes.",
+    "openScm": "Open Source Control"
+  },
+  "dropdown": {
+    "select": "Select…"
+  }
+}
