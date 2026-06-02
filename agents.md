@@ -8,23 +8,25 @@ Common design blueprint for all agents in NexusCode. Every agent — current and
 
 1. [Overview](#overview)
 2. [Clean Architecture Layers](#clean-architecture-layers)
-3. [Domain Layer](#domain-layer)
-4. [Application Layer](#application-layer)
-5. [Infrastructure Layer](#infrastructure-layer)
-6. [Interface Layer](#interface-layer)
+3. [Domain Layer — Files](#domain-layer--files)
+4. [Application Layer — Files](#application-layer--files)
+5. [Infrastructure Layer — Files](#infrastructure-layer--files)
+6. [Interface Layer — Files](#interface-layer--files)
 7. [SOLID Principles Applied](#solid-principles-applied)
 8. [Class Hierarchy](#class-hierarchy)
 9. [Agent Lifecycle](#agent-lifecycle)
 10. [Adding a New Agent](#adding-a-new-agent)
-11. [File Structure](#file-structure)
+11. [Full File Tree](#full-file-tree)
 
 ---
 
 ## Overview
 
-NexusCode routes user prompts to CLI-based coding agents (Claude, Codex, Gemini, etc.). The agent system follows **Clean Architecture** so each layer is independently testable and replaceable. **SOLID principles** enforce a stable contract that lets any agent be swapped, extended, or combined without touching unrelated code.
+NexusCode routes user prompts to CLI-based coding agents (Claude, Codex, Gemini, etc.).
+The agent system follows **Clean Architecture** so each layer is independently testable and replaceable.
+**SOLID principles** enforce a stable contract that lets any agent be swapped, extended, or combined without touching unrelated code.
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │                Interface Layer                  │  ← VS Code Webview / UI
 ├─────────────────────────────────────────────────┤
@@ -44,23 +46,26 @@ NexusCode routes user prompts to CLI-based coding agents (Claude, Codex, Gemini,
 ## Clean Architecture Layers
 
 | Layer | Location | Responsibility |
-|-------|----------|----------------|
+| --- | --- | --- |
 | Domain | `src/core/` | Contracts, entities, value objects — no I/O |
 | Application | `src/application/` | Use cases, orchestration, routing |
 | Infrastructure | `src/providers/` | Concrete agents, process execution |
-| Interface | `src/webview/` `src/webview-ui/` | VS Code API, React UI |
+| Interface | `src/webview/` + `src/webview-ui/` | VS Code API, React UI |
 
 ---
 
-## Domain Layer
+## Domain Layer — Files
 
-Contains only **interfaces**, **entities**, and **value objects**. Zero dependencies on Node.js I/O, VS Code API, or any external library.
+Contains only **interfaces**, **entities**, and **value objects**.
+Zero dependencies on Node.js I/O, VS Code API, or any external library.
 
-### `IAgent` — Core Contract
+---
+
+### `src/core/agent/IAgent.ts`
+
+The core contract every agent must satisfy.
 
 ```typescript
-// src/core/agent/IAgent.ts
-
 export interface IAgent {
   readonly id: AgentId
   readonly displayName: string
@@ -72,21 +77,25 @@ export interface IAgent {
 }
 ```
 
-### `IDetectable` — Detection Contract
+---
+
+### `src/core/agent/IDetectable.ts`
+
+Separate detection contract — not all agents need custom detection logic.
 
 ```typescript
-// src/core/agent/IDetectable.ts
-
 export interface IDetectable {
   detect(): Promise<DetectionResult>
 }
 ```
 
-### `IStreamable` — Streaming Contract
+---
+
+### `src/core/agent/IStreamable.ts`
+
+For agents that produce incremental output.
 
 ```typescript
-// src/core/agent/IStreamable.ts
-
 export interface IStreamable {
   onStdout(handler: (chunk: string) => void): void
   onStderr(handler: (chunk: string) => void): void
@@ -94,27 +103,29 @@ export interface IStreamable {
 }
 ```
 
-### `IStoppable` — Cancellation Contract
+---
+
+### `src/core/agent/IStoppable.ts`
+
+For agents that support mid-task cancellation.
 
 ```typescript
-// src/core/agent/IStoppable.ts
-
 export interface IStoppable {
   stop(): Promise<void>
 }
 ```
 
-> **Interface Segregation (ISP)**: Each interface has exactly one responsibility. An agent implements only the interfaces that match its capabilities. A read-only research agent implements `IAgent + IDetectable`; a long-running file editor additionally implements `IStreamable + IStoppable`.
+> **Interface Segregation (ISP)**: each interface has exactly one responsibility.
+> A read-only research agent implements `IAgent` only.
+> A long-running file editor additionally implements `IStreamable + IStoppable`.
 
 ---
 
-### Value Objects
+### `src/core/agent/AgentCapabilities.ts`
 
-Value objects are immutable and compared by value, not reference.
+Immutable value object describing what an agent can do.
 
 ```typescript
-// src/core/agent/AgentCapabilities.ts
-
 export class AgentCapabilities {
   constructor(
     readonly canEditFiles: boolean,
@@ -135,9 +146,13 @@ export class AgentCapabilities {
 }
 ```
 
-```typescript
-// src/core/agent/AgentCommand.ts
+---
 
+### `src/core/agent/AgentCommand.ts`
+
+Immutable value object representing a shell command to run.
+
+```typescript
 export class AgentCommand {
   constructor(
     readonly executable: string,
@@ -147,9 +162,13 @@ export class AgentCommand {
 }
 ```
 
-```typescript
-// src/core/agent/AgentResult.ts
+---
 
+### `src/core/agent/AgentResult.ts`
+
+Immutable value object holding the outcome of a completed task.
+
+```typescript
 export class AgentResult {
   constructor(
     readonly exitCode: number,
@@ -166,15 +185,13 @@ export class AgentResult {
 
 ---
 
-### Entities
+### `src/core/agent/AgentTask.ts`
 
-Entities have identity and mutable state.
+Entity with identity. Owns its own state transitions.
 
 ```typescript
-// src/core/agent/AgentTask.ts
-
-export type AgentId = 'claude' | 'codex' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto'
-export type TaskMode = 'edit' | 'debug' | 'test' | 'refactor' | 'research' | 'ask'
+export type AgentId    = 'claude' | 'codex' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto'
+export type TaskMode   = 'edit' | 'debug' | 'test' | 'refactor' | 'research' | 'ask'
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export class AgentTask {
@@ -193,11 +210,12 @@ export class AgentTask {
     this.startedAt = Date.now()
   }
 
-  get status(): TaskStatus { return this._status }
+  get status(): TaskStatus          { return this._status }
   get result(): AgentResult | undefined { return this._result }
 
-  start(): void { this._status = 'running' }
+  start():  void { this._status = 'running' }
   cancel(): void { this._status = 'cancelled' }
+
   complete(result: AgentResult): void {
     this._result = result
     this._status = result.succeeded ? 'completed' : 'failed'
@@ -207,15 +225,75 @@ export class AgentTask {
 
 ---
 
-## Application Layer
+### `src/core/agent/index.ts`
 
-Orchestrates domain objects. Has **no knowledge** of how agents are implemented or how output is displayed.
-
-### `AgentRegistry`
+Barrel export — all domain types come from one import path.
 
 ```typescript
-// src/application/AgentRegistry.ts
+export type { IAgent }       from './IAgent'
+export type { IDetectable }  from './IDetectable'
+export type { IStreamable }  from './IStreamable'
+export type { IStoppable }   from './IStoppable'
+export { AgentCapabilities } from './AgentCapabilities'
+export { AgentCommand }      from './AgentCommand'
+export { AgentResult }       from './AgentResult'
+export { AgentTask }         from './AgentTask'
+export type { AgentId, TaskMode, TaskStatus } from './AgentTask'
+```
 
+---
+
+### `src/core/events/IEventBus.ts`
+
+Decouples task execution from the UI.
+
+```typescript
+export type NexusEvent =
+  | { kind: 'task_started';   task: AgentTask }
+  | { kind: 'stdout';         task: AgentTask; chunk: string }
+  | { kind: 'stderr';         task: AgentTask; chunk: string }
+  | { kind: 'task_completed'; task: AgentTask; result: AgentResult }
+  | { kind: 'task_error';     task: AgentTask; error: string }
+  | { kind: 'git_status';     output: string }
+
+export interface IEventBus {
+  emit(event: NexusEvent): void
+  on(kind: NexusEvent['kind'], handler: (event: NexusEvent) => void): void
+  off(kind: NexusEvent['kind'], handler: (event: NexusEvent) => void): void
+}
+```
+
+---
+
+### `src/core/runner/IProcessRunner.ts`
+
+Abstracts process spawning so use cases never touch Node.js directly.
+
+```typescript
+export interface RunOptions {
+  onStdout?: (chunk: string) => void
+  onStderr?: (chunk: string) => void
+}
+
+export interface IProcessRunner {
+  run(command: AgentCommand, options?: RunOptions): Promise<AgentResult>
+  stop(): Promise<void>
+}
+```
+
+---
+
+## Application Layer — Files
+
+Orchestrates domain objects. No knowledge of how agents are implemented or how output is displayed.
+
+---
+
+### `src/application/AgentRegistry.ts`
+
+Stores and retrieves agent instances by id.
+
+```typescript
 import type { IAgent, AgentId } from '../core/agent'
 
 export class AgentRegistry {
@@ -240,13 +318,13 @@ export class AgentRegistry {
 }
 ```
 
-### `AgentRouter`
+---
 
-Routes tasks to the best available agent for a given mode and capability set.
+### `src/application/AgentRouter.ts`
+
+Picks the best available agent for a given mode and required capabilities.
 
 ```typescript
-// src/application/AgentRouter.ts
-
 import type { IAgent, AgentId, TaskMode, AgentCapabilities } from '../core/agent'
 import { AgentRegistry } from './AgentRegistry'
 
@@ -269,7 +347,7 @@ export class AgentRouter {
       throw new Error(`Agent '${agentId}' is not available`)
     }
 
-    const required = CAPABILITY_BY_MODE[mode]
+    const required  = CAPABILITY_BY_MODE[mode]
     const available = await this.findAvailable(required)
     if (!available) throw new Error(`No agent available for mode '${mode}'`)
     return available
@@ -278,9 +356,9 @@ export class AgentRouter {
   private async findAvailable(
     required: Partial<AgentCapabilities>,
   ): Promise<IAgent | undefined> {
-    const candidates = this.registry.getAll().filter(a =>
-      a.capabilities.supports(required),
-    )
+    const candidates = this.registry
+      .getAll()
+      .filter(a => a.capabilities.supports(required))
 
     for (const agent of candidates) {
       if (await agent.isAvailable()) return agent
@@ -290,27 +368,27 @@ export class AgentRouter {
 }
 ```
 
-### `RunAgentUseCase`
+---
 
-The single entry point for executing a task. Orchestrates detection, routing, execution, and event emission.
+### `src/application/usecases/RunAgentUseCase.ts`
+
+Single entry point for executing one task end-to-end.
 
 ```typescript
-// src/application/usecases/RunAgentUseCase.ts
-
 import type { AgentTask, AgentResult } from '../../core/agent'
-import type { IEventBus } from '../../core/events'
-import type { IProcessRunner } from '../../core/runner'
-import { AgentRouter } from '../AgentRouter'
+import type { IEventBus }              from '../../core/events'
+import type { IProcessRunner }         from '../../core/runner'
+import { AgentRouter }                 from '../AgentRouter'
 
 export class RunAgentUseCase {
   constructor(
-    private readonly router: AgentRouter,
-    private readonly runner: IProcessRunner,
+    private readonly router:   AgentRouter,
+    private readonly runner:   IProcessRunner,
     private readonly eventBus: IEventBus,
   ) {}
 
   async execute(task: AgentTask): Promise<AgentResult> {
-    const agent = await this.router.resolve(task.agentId, task.mode)
+    const agent   = await this.router.resolve(task.agentId, task.mode)
     const command = agent.buildCommand(task)
 
     task.start()
@@ -335,20 +413,20 @@ export class RunAgentUseCase {
 }
 ```
 
-### `DetectAgentsUseCase`
+---
+
+### `src/application/usecases/DetectAgentsUseCase.ts`
 
 Discovers which agents are installed on the user's machine.
 
 ```typescript
-// src/application/usecases/DetectAgentsUseCase.ts
-
-import type { AgentId } from '../../core/agent'
+import type { AgentId }  from '../../core/agent'
 import { AgentRegistry } from '../AgentRegistry'
 
 export interface DetectedAgent {
-  id: AgentId
+  id:          AgentId
   displayName: string
-  available: boolean
+  available:   boolean
 }
 
 export class DetectAgentsUseCase {
@@ -357,9 +435,9 @@ export class DetectAgentsUseCase {
   async execute(): Promise<DetectedAgent[]> {
     const results = await Promise.allSettled(
       this.registry.getAll().map(async agent => ({
-        id: agent.id,
+        id:          agent.id,
         displayName: agent.displayName,
-        available: await agent.isAvailable(),
+        available:   await agent.isAvailable(),
       })),
     )
 
@@ -372,31 +450,34 @@ export class DetectAgentsUseCase {
 
 ---
 
-## Infrastructure Layer
+## Infrastructure Layer — Files
 
-Contains **concrete** agent implementations. Each one extends `BaseAgent` and overrides only what is unique to that CLI tool.
+Concrete implementations. Depends on domain interfaces; never imported by application or domain layers.
 
-### `BaseAgent` — Abstract Template
+---
+
+### `src/providers/base/BaseAgent.ts`
+
+Abstract base — shared `isAvailable()` logic. Subclasses override only what differs.
 
 ```typescript
-// src/providers/base/BaseAgent.ts
-
-import type { IAgent, AgentId, AgentTask, AgentCommand, AgentOutput, AgentCapabilities } from '../../core/agent'
-import { exec } from 'child_process'
+import type {
+  IAgent, AgentId, AgentTask, AgentCommand, AgentOutput, AgentCapabilities,
+} from '../../core/agent'
+import { exec }     from 'child_process'
 import { promisify } from 'util'
 
 const execAsync = promisify(exec)
 
 export abstract class BaseAgent implements IAgent {
-  abstract readonly id: AgentId
-  abstract readonly displayName: string
+  abstract readonly id:           AgentId
+  abstract readonly displayName:  string
   abstract readonly capabilities: AgentCapabilities
 
   protected abstract get executableName(): string
   abstract buildCommand(task: AgentTask): AgentCommand
-  abstract parseOutput(raw: string): AgentOutput
+  abstract parseOutput(raw: string):      AgentOutput
 
-  // isAvailable is shared — override only if the check differs
   async isAvailable(): Promise<boolean> {
     try {
       await execAsync(`which ${this.executableName}`)
@@ -408,28 +489,25 @@ export abstract class BaseAgent implements IAgent {
 }
 ```
 
-> **Open/Closed (OCP)**: `BaseAgent` is closed for modification. Adding a new agent only requires a new subclass — zero changes to existing code.
->
-> **Liskov Substitution (LSP)**: Any concrete agent can be passed wherever `IAgent` is expected. `BaseAgent` never strengthens preconditions or weakens postconditions in subclasses.
+> **Open/Closed (OCP)**: `BaseAgent` is closed for modification.
+> Adding a new agent only requires a new subclass — zero changes to existing code.
 
 ---
 
-### Concrete Agent Example — `ClaudeAgent`
+### `src/providers/claude/ClaudeAgent.ts`
 
 ```typescript
-// src/providers/claude/ClaudeAgent.ts
-
-import { BaseAgent } from '../base/BaseAgent'
+import { BaseAgent }                                          from '../base/BaseAgent'
 import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
 
 export class ClaudeAgent extends BaseAgent {
-  readonly id = 'claude' as const
-  readonly displayName = 'Claude (Anthropic)'
+  readonly id           = 'claude' as const
+  readonly displayName  = 'Claude (Anthropic)'
   readonly capabilities = new AgentCapabilities(
-    /*canEditFiles*/   true,
-    /*canRunShell*/    true,
-    /*canSearchWeb*/   false,
-    /*supportsStreaming*/ true,
+    /* canEditFiles      */ true,
+    /* canRunShell       */ true,
+    /* canSearchWeb      */ false,
+    /* supportsStreaming */ true,
   )
 
   protected get executableName() { return 'claude' }
@@ -444,22 +522,47 @@ export class ClaudeAgent extends BaseAgent {
 }
 ```
 
-### Concrete Agent Example — `GeminiAgent`
+---
+
+### `src/providers/codex/CodexAgent.ts`
 
 ```typescript
-// src/providers/gemini/GeminiAgent.ts
+import { BaseAgent }                                          from '../base/BaseAgent'
+import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
 
-import { BaseAgent } from '../base/BaseAgent'
+export class CodexAgent extends BaseAgent {
+  readonly id           = 'codex' as const
+  readonly displayName  = 'Codex (OpenAI)'
+  readonly capabilities = new AgentCapabilities(true, true, false, true)
+
+  protected get executableName() { return 'codex' }
+
+  buildCommand(task: AgentTask): AgentCommand {
+    return new AgentCommand('codex', [task.enhancedPrompt])
+  }
+
+  parseOutput(raw: string): AgentOutput {
+    return { content: raw.trim(), format: 'markdown' }
+  }
+}
+```
+
+---
+
+### `src/providers/gemini/GeminiAgent.ts`
+
+```typescript
+import { BaseAgent }                                          from '../base/BaseAgent'
 import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
 
 export class GeminiAgent extends BaseAgent {
-  readonly id = 'gemini' as const
-  readonly displayName = 'Gemini (Google)'
+  readonly id           = 'gemini' as const
+  readonly displayName  = 'Gemini (Google)'
   readonly capabilities = new AgentCapabilities(
-    /*canEditFiles*/   true,
-    /*canRunShell*/    false,
-    /*canSearchWeb*/   true,    // unique to Gemini
-    /*supportsStreaming*/ true,
+    /* canEditFiles      */ true,
+    /* canRunShell       */ false,
+    /* canSearchWeb      */ true,
+    /* supportsStreaming */ true,
   )
 
   protected get executableName() { return 'gemini' }
@@ -478,24 +581,118 @@ export class GeminiAgent extends BaseAgent {
 
 ---
 
-## Interface Layer
+### `src/providers/copilot/CopilotAgent.ts`
+
+```typescript
+import { BaseAgent }                                          from '../base/BaseAgent'
+import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
+
+export class CopilotAgent extends BaseAgent {
+  readonly id           = 'copilot' as const
+  readonly displayName  = 'Copilot (GitHub)'
+  readonly capabilities = new AgentCapabilities(true, false, false, true)
+
+  protected get executableName() { return 'copilot' }
+
+  buildCommand(task: AgentTask): AgentCommand {
+    return new AgentCommand('copilot', [task.enhancedPrompt])
+  }
+
+  parseOutput(raw: string): AgentOutput {
+    return { content: raw.trim(), format: 'markdown' }
+  }
+}
+```
+
+---
+
+### `src/providers/aider/AiderAgent.ts`
+
+```typescript
+import { BaseAgent }                                          from '../base/BaseAgent'
+import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
+
+export class AiderAgent extends BaseAgent {
+  readonly id           = 'aider' as const
+  readonly displayName  = 'Aider'
+  readonly capabilities = new AgentCapabilities(true, true, false, true)
+
+  protected get executableName() { return 'aider' }
+
+  buildCommand(task: AgentTask): AgentCommand {
+    return new AgentCommand('aider', ['--message', task.enhancedPrompt])
+  }
+
+  parseOutput(raw: string): AgentOutput {
+    return { content: raw.trim(), format: 'text' }
+  }
+}
+```
+
+---
+
+### `src/providers/custom/CustomAgent.ts`
+
+Reads command + args from VS Code settings at runtime.
+
+```typescript
+import * as vscode                                            from 'vscode'
+import { BaseAgent }                                          from '../base/BaseAgent'
+import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
+
+export class CustomAgent extends BaseAgent {
+  readonly id           = 'custom' as const
+  readonly displayName  = 'Custom'
+  readonly capabilities = new AgentCapabilities(true, true, false, true)
+
+  protected get executableName(): string {
+    return vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? ''
+  }
+
+  buildCommand(task: AgentTask): AgentCommand {
+    const cfg      = vscode.workspace.getConfiguration('nexus')
+    const command  = cfg.get<string>('customProvider.command') ?? ''
+    const template = cfg.get<string[]>('customProvider.args') ?? ['{{prompt}}']
+    const args     = template.map(a => a.replace('{{prompt}}', task.enhancedPrompt))
+    return new AgentCommand(command, args)
+  }
+
+  parseOutput(raw: string): AgentOutput {
+    return { content: raw.trim(), format: 'text' }
+  }
+}
+```
+
+---
+
+## Interface Layer — Files
 
 Consumes application-layer use cases. Handles VS Code API calls and React UI events.
 
+---
+
+### `src/webview/ChatController.ts` (simplified)
+
+Bridges VS Code webview messages to application use cases.
+
 ```typescript
-// src/webview/ChatController.ts  (simplified)
+import { RunAgentUseCase }     from '../application/usecases/RunAgentUseCase'
+import { DetectAgentsUseCase } from '../application/usecases/DetectAgentsUseCase'
+import { AgentTask }           from '../core/agent'
+import type { IEventBus }      from '../core/events'
+import { PromptBuilder }       from '../context/PromptBuilder'
 
 export class ChatController {
   constructor(
-    private readonly runAgent: RunAgentUseCase,
-    private readonly detectAgents: DetectAgentsUseCase,
+    private readonly runAgent:      RunAgentUseCase,
+    private readonly detectAgents:  DetectAgentsUseCase,
     private readonly promptBuilder: PromptBuilder,
-    private readonly eventBus: IEventBus,
+    private readonly eventBus:      IEventBus,
   ) {}
 
   async handleRunTask(message: RunTaskMessage): Promise<void> {
     const enhanced = await this.promptBuilder.build(message.prompt, message.mode)
-    const task = new AgentTask(message.prompt, enhanced, message.provider, message.mode)
+    const task     = new AgentTask(message.prompt, enhanced, message.provider, message.mode)
     await this.runAgent.execute(task)
   }
 
@@ -504,20 +701,66 @@ export class ChatController {
     this.postMessage({ type: 'availableProviders', providers: agents })
   }
 
-  private postMessage(msg: unknown): void { /* ... */ }
+  private postMessage(msg: unknown): void { /* postMessage to webview */ }
 }
 ```
 
-> **Dependency Inversion (DIP)**: `ChatController` never imports `ClaudeAgent` or `GeminiAgent` directly. It depends on `RunAgentUseCase`, which depends on `IAgent`. Concrete agents are injected at startup in `extension.ts`.
+> **Dependency Inversion (DIP)**: `ChatController` never imports `ClaudeAgent` or `GeminiAgent` directly.
+> It depends on `RunAgentUseCase`, which depends on `IAgent`.
+> Concrete agents are injected at startup in `extension.ts`.
+
+---
+
+### `src/extension.ts` — Composition Root
+
+The only place where `new ConcreteClass()` is called.
+
+```typescript
+import * as vscode            from 'vscode'
+import { AgentRegistry }      from './application/AgentRegistry'
+import { AgentRouter }        from './application/AgentRouter'
+import { RunAgentUseCase }    from './application/usecases/RunAgentUseCase'
+import { DetectAgentsUseCase } from './application/usecases/DetectAgentsUseCase'
+import { ClaudeAgent }        from './providers/claude/ClaudeAgent'
+import { CodexAgent }         from './providers/codex/CodexAgent'
+import { GeminiAgent }        from './providers/gemini/GeminiAgent'
+import { CopilotAgent }       from './providers/copilot/CopilotAgent'
+import { AiderAgent }         from './providers/aider/AiderAgent'
+import { CustomAgent }        from './providers/custom/CustomAgent'
+import { ProcessRunner }      from './runner/ProcessRunner'
+import { EventBus }           from './core/events/EventBus'
+import { ChatController }     from './webview/ChatController'
+import { PromptBuilder }      from './context/PromptBuilder'
+
+export function activate(context: vscode.ExtensionContext): void {
+  const registry = new AgentRegistry()
+  registry.register(new ClaudeAgent())
+  registry.register(new CodexAgent())
+  registry.register(new GeminiAgent())
+  registry.register(new CopilotAgent())
+  registry.register(new AiderAgent())
+  registry.register(new CustomAgent())
+
+  const eventBus      = new EventBus()
+  const runner        = new ProcessRunner()
+  const router        = new AgentRouter(registry)
+  const runUseCase    = new RunAgentUseCase(router, runner, eventBus)
+  const detectUseCase = new DetectAgentsUseCase(registry)
+  const builder       = new PromptBuilder()
+
+  const controller = new ChatController(runUseCase, detectUseCase, builder, eventBus)
+  // ... register controller with ChatViewProvider
+}
+```
 
 ---
 
 ## SOLID Principles Applied
 
-### S — Single Responsibility Principle
+### S — Single Responsibility
 
 | Class | Single Responsibility |
-|-------|----------------------|
+| --- | --- |
 | `IAgent` | Declares the agent contract |
 | `AgentRegistry` | Stores and retrieves agent instances |
 | `AgentRouter` | Picks the right agent for a task |
@@ -527,53 +770,53 @@ export class ChatController {
 | `ClaudeAgent` | Claude-specific command construction |
 | `ChatController` | Bridges VS Code messages to use cases |
 
-### O — Open/Closed Principle
+### O — Open/Closed
 
 Adding a new agent requires:
+
 1. Create `src/providers/<name>/<Name>Agent.ts` extending `BaseAgent`
 2. Register it in `extension.ts`
 
 No changes to `AgentRouter`, `AgentRegistry`, `RunAgentUseCase`, or any existing agent.
 
-### L — Liskov Substitution Principle
+### L — Liskov Substitution
 
-`AgentRouter.resolve()` returns `IAgent`. The caller never needs to know which concrete class it received. Every `BaseAgent` subclass:
+`AgentRouter.resolve()` returns `IAgent`. The caller never needs to know the concrete class. Every `BaseAgent` subclass:
+
 - Always returns a valid `AgentCommand` from `buildCommand()`
-- Always returns a boolean from `isAvailable()` (never throws)
+- Always returns a `boolean` from `isAvailable()` — never throws
 - Never adds required arguments beyond what `IAgent` declares
 
-### I — Interface Segregation Principle
+### I — Interface Segregation
 
-Interfaces are small and focused:
-
-```
+```text
 IAgent       ← isAvailable, buildCommand, parseOutput
 IDetectable  ← detect()
 IStreamable  ← onStdout, onStderr, onComplete
 IStoppable   ← stop()
 ```
 
-A simple one-shot agent implements only `IAgent`. A long-running interactive agent also implements `IStreamable + IStoppable`. No agent is forced to implement methods it doesn't need.
+A simple one-shot agent implements only `IAgent`. A long-running interactive agent also implements `IStreamable + IStoppable`. No agent is forced to implement methods it does not need.
 
-### D — Dependency Inversion Principle
+### D — Dependency Inversion
 
-```
-extension.ts (composition root)
+```text
+extension.ts  (composition root)
   │
-  ├── creates ClaudeAgent, GeminiAgent, ...  (concrete)
-  ├── registers them in AgentRegistry        (concrete)
+  ├── creates ClaudeAgent, GeminiAgent, ...  ← concrete
+  ├── registers them in AgentRegistry        ← concrete
   │
-  └── injects into RunAgentUseCase           (depends on IAgent via Registry)
-        └── injected into ChatController     (depends on RunAgentUseCase interface)
+  └── injects into RunAgentUseCase           ← depends on IAgent via Registry
+        └── injected into ChatController     ← depends on RunAgentUseCase
 ```
 
-`ChatController` and `RunAgentUseCase` are tested by injecting mock agents — no spawning of real processes.
+`ChatController` and `RunAgentUseCase` are tested by injecting mock agents — no real processes spawned.
 
 ---
 
 ## Class Hierarchy
 
-```
+```text
 IAgent (interface)
  └── BaseAgent (abstract)
       ├── ClaudeAgent
@@ -587,28 +830,26 @@ IDetectable (interface)
  └── BaseAgent (partial implementation)
 
 IStreamable (interface)
- └── implemented by RunAgentUseCase (wraps ProcessRunner)
+ └── RunAgentUseCase (wraps ProcessRunner streams)
 
 IStoppable (interface)
- └── implemented by RunAgentUseCase (calls ProcessRunner.stop)
+ └── RunAgentUseCase (calls ProcessRunner.stop)
 ```
 
 ---
 
 ## Agent Lifecycle
 
-```
+```text
 User Input
     │
     ▼
 ChatController.handleRunTask()
-    │
     ├── PromptBuilder.build()           → enriches prompt with workspace context
-    ├── new AgentTask(...)              → entity with id, status = 'pending'
+    └── new AgentTask(...)              → entity, status = 'pending'
     │
     ▼
 RunAgentUseCase.execute(task)
-    │
     ├── AgentRouter.resolve()           → picks available IAgent for mode
     ├── agent.buildCommand(task)        → AgentCommand (value object)
     ├── task.start()                    → status = 'running'
@@ -616,13 +857,11 @@ RunAgentUseCase.execute(task)
     │
     ▼
 ProcessRunner.run(command)
-    │
     ├── onStdout → eventBus.emit('stdout') → UI streams live output
-    ├── onStderr → eventBus.emit('stderr')
+    └── onStderr → eventBus.emit('stderr')
     │
     ▼
 Process exits
-    │
     ├── task.complete(result)           → status = 'completed' | 'failed'
     ├── eventBus.emit('task_completed')
     └── optional: GitStatus → eventBus.emit('git_status')
@@ -632,19 +871,19 @@ Process exits
 
 ## Adding a New Agent
 
-Follow these 4 steps to add a new agent. Nothing else changes.
+Follow these 4 steps. Nothing else changes.
 
-**Step 1** — Create the agent class:
+**Step 1** — Create the agent file:
 
 ```typescript
 // src/providers/myCli/MyCliAgent.ts
 
-import { BaseAgent } from '../base/BaseAgent'
+import { BaseAgent }                                          from '../base/BaseAgent'
 import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
 
 export class MyCliAgent extends BaseAgent {
-  readonly id = 'mycli' as const           // add 'mycli' to AgentId union in types.ts
-  readonly displayName = 'My CLI'
+  readonly id           = 'mycli' as const
+  readonly displayName  = 'My CLI'
   readonly capabilities = new AgentCapabilities(true, false, false, true)
 
   protected get executableName() { return 'mycli' }
@@ -659,7 +898,7 @@ export class MyCliAgent extends BaseAgent {
 }
 ```
 
-**Step 2** — Add `'mycli'` to the `AgentId` union in `src/core/types.ts`.
+**Step 2** — Add `'mycli'` to the `AgentId` union in `src/core/agent/AgentTask.ts`.
 
 **Step 3** — Register in `src/extension.ts`:
 
@@ -669,15 +908,15 @@ import { MyCliAgent } from './providers/myCli/MyCliAgent'
 registry.register(new MyCliAgent())
 ```
 
-**Step 4** — Add capability flags to `CAPABILITY_BY_MODE` in `AgentRouter` if needed for new task modes.
+**Step 4** — Add capability flags in `AgentRouter.ts` if this agent introduces a new task mode.
 
 ---
 
-## File Structure
+## Full File Tree
 
-```
+```text
 src/
-├── core/                         ← Domain layer (no I/O)
+├── core/                              ← Domain layer (zero I/O)
 │   ├── agent/
 │   │   ├── IAgent.ts
 │   │   ├── IDetectable.ts
@@ -691,18 +930,18 @@ src/
 │   │   └── index.ts
 │   ├── events/
 │   │   ├── IEventBus.ts
-│   │   └── NexusEvent.ts
+│   │   └── EventBus.ts
 │   └── runner/
 │       └── IProcessRunner.ts
 │
-├── application/                  ← Application layer (use cases)
+├── application/                       ← Application layer (use cases)
 │   ├── AgentRegistry.ts
 │   ├── AgentRouter.ts
 │   └── usecases/
 │       ├── RunAgentUseCase.ts
 │       └── DetectAgentsUseCase.ts
 │
-├── providers/                    ← Infrastructure layer (concrete agents)
+├── providers/                         ← Infrastructure layer (concrete agents)
 │   ├── base/
 │   │   └── BaseAgent.ts
 │   ├── claude/
@@ -718,26 +957,26 @@ src/
 │   └── custom/
 │       └── CustomAgent.ts
 │
-├── runner/                       ← Infrastructure layer (process execution)
-│   ├── ProcessRunner.ts          ← implements IProcessRunner
+├── runner/                            ← Infrastructure layer (process execution)
+│   ├── ProcessRunner.ts
 │   └── commandGuard.ts
 │
-├── context/                      ← Infrastructure layer (workspace context)
+├── context/                           ← Infrastructure layer (workspace context)
 │   ├── PromptBuilder.ts
 │   ├── WorkspaceScanner.ts
 │   ├── PackageDetector.ts
 │   └── RulesLoader.ts
 │
-├── webview/                      ← Interface layer (VS Code bridge)
+├── webview/                           ← Interface layer (VS Code bridge)
 │   ├── ChatController.ts
 │   ├── ChatViewProvider.ts
 │   └── webviewProtocol.ts
 │
-├── webview-ui/                   ← Interface layer (React UI)
+├── webview-ui/                        ← Interface layer (React UI)
 │   ├── App.tsx
 │   └── components/
 │
-└── extension.ts                  ← Composition root (wires everything together)
+└── extension.ts                       ← Composition root
 ```
 
 ---
@@ -751,4 +990,4 @@ src/
 5. **Entities own their state transitions.** Only `AgentTask` can call its own `start()`, `complete()`, `cancel()`.
 6. **One use case = one public method.** `RunAgentUseCase.execute()`, `DetectAgentsUseCase.execute()`.
 7. **No agent knows about another agent.** Routing is the router's job, not the agent's.
-8. **`BaseAgent.isAvailable()` never throws** — it returns `false` on any error so the router can safely try the next candidate.
+8. **`BaseAgent.isAvailable()` never throws.** Returns `false` on any error so the router safely tries the next candidate.
