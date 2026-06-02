@@ -3,7 +3,10 @@
 src/**
 .gitignore
 tsconfig.json
+tsconfig.webview.json
+vite.config.ts
 **/*.map
 **/*.ts
 !out/**
+!media/webview/**
 node_modules/**

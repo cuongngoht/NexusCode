@@ -35,7 +35,10 @@ export class ChatPanel {
       column ?? vscode.ViewColumn.One,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')],
+        localResourceRoots: [
+          vscode.Uri.joinPath(extensionUri, 'media'),
+          vscode.Uri.joinPath(extensionUri, 'media', 'webview'),
+        ],
         retainContextWhenHidden: true,
       },
     );
