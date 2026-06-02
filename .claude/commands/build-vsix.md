@@ -13,8 +13,8 @@ Build and install the Nexus Visual Code VS Code extension.
 
 3. Find the generated `.vsix` file (glob `nexus-visual-code-*.vsix` in the project root).
 
-4. Run `code --install-extension <vsix-path>` to install immediately.
-   After installing, tell the user to reload VS Code (`Cmd+Shift+P` → `Developer: Reload Window`) then open **Nexus: Open Chat**.
+4. Run `code --install-extension <vsix-path>` to install immediately — **do not ask, always install automatically**.
+   Report the `.vsix` file path and size, then tell the user to reload VS Code (`Cmd+Shift+P` → `Developer: Reload Window`) then open **Nexus: Open Chat**.
 
 ## Notes
 - Always run from the project root `/Users/cuongngoht/Repo/NexusCode`.
