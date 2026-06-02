@@ -1,4 +1,4 @@
-import { makeStyles, Button, Tooltip, Option, Select } from '@fluentui/react-components';
+import { makeStyles, Button, Tooltip, Select } from '@fluentui/react-components';
 import { AddRegular, ClockRegular } from '@fluentui/react-icons';
 import type { ProviderId, TaskMode, ProviderInfo } from '../messages';
 
@@ -161,11 +161,14 @@ export function AppToolbar({
             {ALL_PROVIDERS.map(p => {
               const unavailable = detectionDone && p !== 'auto' && p !== 'custom' && !availableSet.has(p);
               return (
-                <Tooltip key={p} content={providerTooltip(p, providerDetection)} relationship="label">
-                  <Option value={p} disabled={unavailable}>
-                    {providerOptionLabel(p, providerDetection)}
-                  </Option>
-                </Tooltip>
+                <option
+                  key={p}
+                  value={p}
+                  disabled={unavailable}
+                  title={providerTooltip(p, providerDetection)}
+                >
+                  {providerOptionLabel(p, providerDetection)}
+                </option>
               );
             })}
           </Select>
@@ -179,13 +182,13 @@ export function AppToolbar({
             }}
             aria-label="Model"
           >
-            <Option value={DEFAULT_MODEL_VALUE}>
+            <option value={DEFAULT_MODEL_VALUE}>
               {providerInfo?.defaultModel ? `Default (${providerInfo.defaultModel})` : 'Default model'}
-            </Option>
+            </option>
             {modelOptions.map(model => (
-              <Option key={model.id} value={model.id}>
+              <option key={model.id} value={model.id}>
                 {model.source === 'seeded' ? `${model.label} · seed` : model.label}
-              </Option>
+              </option>
             ))}
           </Select>
           <Select
@@ -195,7 +198,7 @@ export function AppToolbar({
             onChange={(_e, d) => onModeChange(d.value as TaskMode)}
             aria-label="Mode"
           >
-            {ALL_MODES.map(m => <Option key={m} value={m}>{MODE_LABELS[m]}</Option>)}
+            {ALL_MODES.map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
           </Select>
         </div>
       </div>
