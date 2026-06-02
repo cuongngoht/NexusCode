@@ -1,135 +1,140 @@
-import { makeStyles, Spinner } from '@fluentui/react-components';
+import { useState } from 'react';
 import type { AssistantMessage as AssistantMsg } from '../messages';
+import { IconSparkle, IconCopy, IconThumbUp, IconThumbDown, IconRetry } from '../NexusIcons';
+
+const MODE_AGENT_LABEL: Record<string, string> = {
+  ask: 'Ask',
+  edit: 'Build Agent',
+  research: 'Research Agent',
+  review: 'Code Reviewer',
+  debug: 'Debug Agent',
+  plan: 'Planner',
+  test: 'Test Agent',
+  'scan-project': 'Scan Project',
+};
 
 interface Props {
   message: AssistantMsg;
+  isRunning?: boolean;
 }
 
-const useStyles = makeStyles({
-  root: {
-    padding: '10px 14px',
-    marginBottom: '2px',
-    borderRadius: '6px',
-    borderLeft: '2px solid var(--vscode-activityBarBadge-background, #007acc)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    marginBottom: '8px',
-  },
-  dot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: 'var(--vscode-activityBarBadge-background, #007acc)',
-    flexShrink: '0',
-  },
-  name: {
-    fontSize: '11px',
-    fontWeight: '600',
-    color: 'var(--vscode-activityBarBadge-background, #007acc)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-  },
-  provider: {
-    fontSize: '10px',
-    color: 'var(--vscode-descriptionForeground)',
-    marginLeft: 'auto',
-  },
-  lines: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1px',
-    fontFamily: 'var(--vscode-editor-font-family, monospace)',
-    fontSize: '12px',
-    lineHeight: '1.5',
-  },
-  stdout: {
-    color: 'var(--vscode-editor-foreground)',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-  },
-  stderr: {
-    color: 'var(--vscode-inputValidation-warningForeground, #ddb130)',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-  },
-  footer: {
-    marginTop: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontSize: '11px',
-  },
-  statusDone: {
-    color: 'var(--vscode-testing-iconPassed, #89d185)',
-  },
-  statusError: {
-    color: 'var(--vscode-errorForeground)',
-  },
-  statusStopped: {
-    color: 'var(--vscode-descriptionForeground)',
-  },
-  errorBox: {
-    marginTop: '6px',
-    padding: '6px 8px',
-    background: 'var(--vscode-inputValidation-errorBackground, #5a1d1d)',
-    border: '1px solid var(--vscode-inputValidation-errorBorder, #be1100)',
-    borderRadius: '4px',
-    color: 'var(--vscode-errorForeground)',
-    fontSize: '12px',
-    wordBreak: 'break-word',
-  },
-});
+function StatusPill({ message }: { message: AssistantMsg }) {
+  if (message.isStreaming) {
+    return (
+      <span className="fl-pill fl-pill-running">
+        <span className="fl-spinner" style={{ width: 10, height: 10 }} />
+        Running
+      </span>
+    );
+  }
+  if (message.errorText) {
+    return <span className="fl-pill fl-pill-error">✖ Error</span>;
+  }
+  if (message.exitCode === undefined) {
+    return <span className="fl-pill fl-pill-stopped">⏹ Stopped</span>;
+  }
+  return message.exitCode === 0
+    ? <span className="fl-pill fl-pill-done">✓ Done</span>
+    : <span className="fl-pill fl-pill-error">✖ Failed ({message.exitCode})</span>;
+}
 
 export function AssistantMessage({ message }: Props) {
-  const styles = useStyles();
-  const meta = [message.providerLabel, message.mode, message.model].filter(Boolean).join(' · ');
+  const [thumbs, setThumbs] = useState<'up' | 'down' | null>(null);
 
-  const renderFooter = () => {
-    if (message.errorText) {
-      return <span className={styles.statusError}>✖ Error</span>;
-    }
-    if (message.isStreaming) {
-      return (
-        <>
-          <Spinner size="extra-tiny" />
-          <span style={{ color: 'var(--vscode-descriptionForeground)', fontSize: '11px' }}>Running…</span>
-        </>
-      );
-    }
-    if (message.exitCode === undefined) {
-      return <span className={styles.statusStopped}>⏹ Stopped</span>;
-    }
-    return message.exitCode === 0
-      ? <span className={styles.statusDone}>✓ Done (exit 0)</span>
-      : <span className={styles.statusError}>✖ Failed (exit {message.exitCode})</span>;
-  };
+  const agentLabel = MODE_AGENT_LABEL[message.mode] ?? message.mode;
+  const meta = [message.providerLabel, message.model].filter(Boolean).join(' · ');
 
   return (
-    <div className={styles.root}>
-      <div className={styles.header}>
-        <span className={styles.dot} />
-        <span className={styles.name}>Nexus</span>
-        <span className={styles.provider}>{meta}</span>
-      </div>
+    <div className="fl-row fl-row-asst">
+      <span className="fl-msg-avatar" aria-hidden="true">
+        <IconSparkle size={14} />
+      </span>
 
-      {message.lines.length > 0 && (
-        <div className={styles.lines}>
-          {message.lines.map((line, i) => (
-            <span key={i} className={line.kind === 'stderr' ? styles.stderr : styles.stdout}>
-              {line.text}
+      <div className="fl-asst-col">
+        <div className="fl-asst-name">
+          Nexus
+          {agentLabel && (
+            <span className="fl-asst-agent">· {agentLabel}</span>
+          )}
+          {meta && (
+            <span className="fl-asst-agent" style={{ marginLeft: 'auto', fontSize: '11px' }}>
+              {meta}
             </span>
-          ))}
+          )}
         </div>
-      )}
 
-      {message.errorText && (
-        <div className={styles.errorBox}>{message.errorText}</div>
-      )}
+        <div className="fl-blocks">
+          {/* Render output lines as text block */}
+          {message.lines.length > 0 && (
+            <div className="fl-text-block">
+              {message.lines.map((line, i) => (
+                <span
+                  key={i}
+                  className={line.kind === 'stderr' ? 'nx-line-stderr' : undefined}
+                  style={{ display: 'block' }}
+                >
+                  {line.text}
+                </span>
+              ))}
+              {message.isStreaming && (
+                <span className="fl-caret" />
+              )}
+            </div>
+          )}
 
-      <div className={styles.footer}>{renderFooter()}</div>
+          {/* Typing indicator when streaming with no lines yet */}
+          {message.isStreaming && message.lines.length === 0 && (
+            <span className="fl-typing">
+              <span /><span /><span />
+            </span>
+          )}
+
+          {/* Error box */}
+          {message.errorText && (
+            <div style={{
+              marginTop: 6, padding: '7px 10px',
+              background: 'var(--colorPaletteRedBackground)',
+              border: '1px solid rgba(232,121,121,0.3)',
+              borderRadius: 'var(--borderRadiusLarge)',
+              color: 'var(--colorPaletteRedForeground1)',
+              fontSize: 12.5,
+            }}>
+              {message.errorText}
+            </div>
+          )}
+
+          {/* Status pill */}
+          <StatusPill message={message} />
+        </div>
+
+        {/* Action row (copy / thumbs / retry) */}
+        {!message.isStreaming && (
+          <div className="fl-msg-actions">
+            <button type="button" className="fl-act" title="Copy">
+              <IconCopy size={14} />
+            </button>
+            <button
+              type="button"
+              className={`fl-act${thumbs === 'up' ? ' fl-act-on' : ''}`}
+              title="Good response"
+              onClick={() => setThumbs(v => v === 'up' ? null : 'up')}
+            >
+              <IconThumbUp size={14} />
+            </button>
+            <button
+              type="button"
+              className={`fl-act${thumbs === 'down' ? ' fl-act-on' : ''}`}
+              title="Bad response"
+              onClick={() => setThumbs(v => v === 'down' ? null : 'down')}
+            >
+              <IconThumbDown size={14} />
+            </button>
+            <button type="button" className="fl-act" title="Retry">
+              <IconRetry size={14} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

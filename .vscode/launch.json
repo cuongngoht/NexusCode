@@ -1,0 +1,56 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Build cả extension + webview rồi mở Extension Development Host
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "sourceMaps": true,
+      "preLaunchTask": "compile"
+    },
+    {
+      // Dùng khi đang chạy watch — không build lại, F5 nhanh hơn
+      "name": "Watch & Debug Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "sourceMaps": true
+    },
+    {
+      // Debug webview trong Extension Development Host bằng browser DevTools
+      "name": "Debug Webview (Chrome)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/src/webview-ui",
+      "urlFilter": "*nexus*",
+      "sourceMapPathOverrides": {
+        "webpack:///./~/*": "${workspaceFolder}/node_modules/*",
+        "webpack:///./*": "${workspaceFolder}/*"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      // Chạy watch extension + watch webview + mở debug host cùng lúc
+      "name": "Watch + Debug",
+      "configurations": [
+        "Watch & Debug Extension"
+      ],
+      "preLaunchTask": "watch",
+      "stopAll": true
+    }
+  ]
+}

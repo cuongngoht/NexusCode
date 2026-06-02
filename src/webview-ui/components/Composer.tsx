@@ -1,87 +1,32 @@
 import { useCallback, useRef, useState } from 'react';
-import { makeStyles, Button, Textarea, Tooltip } from '@fluentui/react-components';
-import { SendRegular, StopRegular } from '@fluentui/react-icons';
+import { IconSend, IconStop, IconAttach, IconAt, IconDoc, IconClose } from '../NexusIcons';
+
+interface Attachment {
+  name: string;
+}
 
 interface Props {
   isRunning: boolean;
+  elapsed: number;
   onRun: (prompt: string) => void;
   onStop: () => void;
 }
 
-const useStyles = makeStyles({
-  footer: {
-    borderTop: '1px solid var(--vscode-panel-border)',
-    padding: '8px 10px',
-    background: 'var(--vscode-sideBar-background)',
-    flexShrink: '0',
-  },
-  textarea: {
-    width: '100%',
-    '& textarea': {
-      background: 'var(--vscode-input-background)',
-      color: 'var(--vscode-input-foreground)',
-      border: '1px solid var(--vscode-input-border, transparent)',
-      fontFamily: 'var(--vscode-font-family)',
-      fontSize: '13px',
-      resize: 'none',
-      lineHeight: '1.5',
-      minHeight: '60px',
-      maxHeight: '160px',
-    },
-    '& textarea:focus': {
-      outline: '1px solid var(--vscode-focusBorder)',
-      outlineOffset: '0',
-      border: '1px solid var(--vscode-focusBorder)',
-    },
-    '& textarea::placeholder': {
-      color: 'var(--vscode-input-placeholderForeground)',
-    },
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: '6px',
-    gap: '6px',
-  },
-  hint: {
-    fontSize: '10px',
-    color: 'var(--vscode-descriptionForeground)',
-    opacity: '0.7',
-    userSelect: 'none',
-  },
-  buttons: {
-    display: 'flex',
-    gap: '6px',
-  },
-  sendBtn: {
-    background: 'var(--vscode-button-background)',
-    color: 'var(--vscode-button-foreground)',
-    border: 'none',
-    minWidth: 'unset',
-    '&:hover:not([disabled])': { background: 'var(--vscode-button-hoverBackground)' },
-  },
-  stopBtn: {
-    background: 'var(--vscode-inputValidation-errorBackground, #5a1d1d)',
-    color: 'var(--vscode-errorForeground, #f48771)',
-    border: '1px solid var(--vscode-inputValidation-errorBorder, #be1100)',
-    minWidth: 'unset',
-    '&:hover:not([disabled])': { opacity: '0.85' },
-  },
-});
-
-export function Composer({ isRunning, onRun, onStop }: Props) {
-  const styles = useStyles();
+export function Composer({ isRunning, elapsed, onRun, onStop }: Props) {
   const [prompt, setPrompt] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
-    if (!trimmed) return;
+    if (!trimmed || isRunning) return;
     onRun(trimmed);
     setPrompt('');
+    setAttachments([]);
+    // reset height
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     textareaRef.current?.focus();
-  }, [prompt, onRun]);
+  }, [prompt, isRunning, onRun]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -93,40 +38,117 @@ export function Composer({ isRunning, onRun, onStop }: Props) {
     [handleRun],
   );
 
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPrompt(e.target.value);
+    // auto-resize
+    const ta = e.target;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+  };
+
+  const removeAttachment = (i: number) =>
+    setAttachments(prev => prev.filter((_, j) => j !== i));
+
   return (
-    <footer className={styles.footer}>
-      <Textarea
-        ref={textareaRef}
-        className={styles.textarea}
-        value={prompt}
-        disabled={isRunning}
-        placeholder="Ask Nexus anything… (⌘↵ to send)"
-        aria-label="Prompt input"
-        onChange={(_e, d) => setPrompt(d.value)}
-        onKeyDown={handleKeyDown}
-      />
-      <div className={styles.row}>
-        <span className={styles.hint}>⌘↵ to send</span>
-        <div className={styles.buttons}>
-          {isRunning ? (
-            <Tooltip content="Stop task" relationship="label">
-              <Button size="small" icon={<StopRegular />}
-                className={styles.stopBtn} onClick={onStop}>
-                Stop
-              </Button>
-            </Tooltip>
-          ) : (
-            <Tooltip content="Send (⌘↵)" relationship="label">
-              <Button size="small" icon={<SendRegular />}
-                className={styles.sendBtn}
-                disabled={!prompt.trim()}
-                onClick={handleRun}>
-                Send
-              </Button>
-            </Tooltip>
-          )}
+    <div className="fl-composer">
+      {/* Attachment chips */}
+      {attachments.length > 0 && (
+        <div className="fl-composer-atts">
+          {attachments.map((a, i) => (
+            <span key={i} className="fl-att-chip">
+              <IconDoc size={13} />
+              {a.name}
+              <button
+                type="button"
+                className="fl-att-chip-remove"
+                onClick={() => removeAttachment(i)}
+                aria-label={`Remove ${a.name}`}
+              >
+                <IconClose size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input area */}
+      <div className="fl-input-wrap">
+        <textarea
+          ref={textareaRef}
+          className="fl-input fl-scroll"
+          placeholder="Ask Nexus about this file…  (⌘↵ to send)"
+          value={prompt}
+          rows={1}
+          disabled={isRunning}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
+          aria-label="Prompt input"
+        />
+        <div className="fl-input-tools">
+          <button
+            type="button"
+            className="fl-iconbtn"
+            title="Attach file"
+            onClick={() => setAttachments(prev => [...prev, { name: 'context.ts' }])}
+          >
+            <IconAttach size={15} />
+          </button>
+          <button
+            type="button"
+            className="fl-iconbtn"
+            title="Mention"
+            onClick={() => {
+              setPrompt(v => v + '@');
+              textareaRef.current?.focus();
+            }}
+          >
+            <IconAt size={15} />
+          </button>
+          <button
+            type="button"
+            className="fl-iconbtn"
+            title="Add file context"
+            onClick={() => setAttachments(prev => [...prev, { name: 'open-file.ts' }])}
+          >
+            <IconDoc size={15} />
+          </button>
         </div>
       </div>
-    </footer>
+
+      {/* Footer */}
+      <div className="fl-composer-foot">
+        <span className="fl-hint">
+          {isRunning ? (
+            <span className="fl-running">
+              <span className="fl-spinner" style={{ width: 12, height: 12 }} />
+              Nexus is working… {elapsed}s
+            </span>
+          ) : (
+            <>
+              <kbd>⌘</kbd>
+              <kbd>↵</kbd>
+              &nbsp;to send
+            </>
+          )}
+        </span>
+
+        {isRunning ? (
+          <button type="button" className="fl-btn fl-btn-stop fl-btn-md" onClick={onStop}>
+            <IconStop size={14} />
+            Stop
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="fl-btn fl-btn-primary fl-btn-md"
+            disabled={!prompt.trim()}
+            onClick={handleRun}
+          >
+            <IconSend size={14} />
+            Send
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

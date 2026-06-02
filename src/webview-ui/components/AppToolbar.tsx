@@ -1,20 +1,46 @@
-import { makeStyles, Button, Tooltip, Select } from '@fluentui/react-components';
-import { AddRegular, ClockRegular } from '@fluentui/react-icons';
+import { useState } from 'react';
+import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
+import {
+  IconAdd, IconHistory, IconMore,
+  IconSparkle, IconBrain, IconTool, IconGlobe, IconAgent, IconSearch,
+} from '../NexusIcons';
 import type { ProviderId, TaskMode, ProviderInfo } from '../messages';
 
-const ALL_PROVIDERS: ProviderId[] = ['auto', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
-const ALL_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'edit', 'debug', 'test', 'review'];
-const DEFAULT_MODEL_VALUE = '__default__';
-const MODE_LABELS: Record<TaskMode, string> = {
-  ask: 'Ask',
-  research: 'Research',
-  'scan-project': 'Scan Project',
-  plan: 'Plan',
-  edit: 'Edit',
-  debug: 'Debug',
-  test: 'Test',
-  review: 'Review',
-};
+const TABS = ['CHAT', 'NEXUS', 'CLAUDE CODE'] as const;
+
+const MODE_OPTIONS: DropdownOption[] = [
+  { value: 'ask',          label: 'Ask',             desc: 'Chat only · no tools',    icon: IconSparkle },
+  { value: 'edit',         label: 'Build Agent',     desc: 'Edits code, runs tools',  icon: IconTool },
+  { value: 'research',     label: 'Research Agent',  desc: 'Web search + synthesis',  icon: IconGlobe },
+  { value: 'review',       label: 'Code Reviewer',   desc: 'Reads & critiques',       icon: IconAgent },
+  { value: 'debug',        label: 'Debug Agent',     desc: 'Find & fix bugs',         icon: IconSearch },
+  { value: 'plan',         label: 'Planner',         desc: 'Plan before executing',   icon: IconBrain },
+  { value: 'test',         label: 'Test Agent',      desc: 'Write & run tests',       icon: IconTool },
+  { value: 'scan-project', label: 'Scan Project',    desc: 'Analyse the workspace',   icon: IconSearch },
+];
+
+function getProviderOptions(
+  availableProviders: string[],
+  detection: ProviderInfo[],
+): DropdownOption[] {
+  const all: ProviderId[] = ['auto', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
+  const availableSet = new Set(availableProviders);
+  const detectionDone = detection.length > 0;
+
+  return all
+    .filter(id => {
+      if (id === 'auto' || id === 'custom') return true;
+      if (!detectionDone) return true;
+      return availableSet.has(id);
+    })
+    .map(id => {
+      if (id === 'auto') return { value: 'auto', label: 'Auto-detect', icon: IconSparkle, badge: 'Default' };
+      if (id === 'custom') return { value: 'custom', label: 'Custom CLI', icon: IconTool };
+      const info = detection.find(d => d.id === id);
+      const label = info ? (info.version ? `${info.cliLabel} ${info.version}` : info.cliLabel) : id;
+      return { value: id, label, icon: IconSparkle };
+    });
+}
 
 interface Props {
   provider: ProviderId;
@@ -32,176 +58,92 @@ interface Props {
   onToggleHistory: () => void;
 }
 
-const useStyles = makeStyles({
-  toolbar: {
-    padding: '6px 10px',
-    borderBottom: '1px solid var(--vscode-panel-border)',
-    background: 'var(--vscode-sideBar-background)',
-    flexShrink: '0',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
-  appName: {
-    fontSize: '11px',
-    fontWeight: '700',
-    color: 'var(--vscode-activityBarBadge-background, #007acc)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    flex: '1',
-  },
-  iconBtn: {
-    minWidth: 'unset',
-    padding: '3px',
-    height: '22px',
-    width: '22px',
-    color: 'var(--vscode-icon-foreground)',
-    background: 'transparent',
-    border: 'none',
-    borderRadius: '3px',
-    '&:hover': { background: 'var(--vscode-toolbar-hoverBackground)' },
-  },
-  iconBtnActive: {
-    color: 'var(--vscode-activityBarBadge-background, #007acc)',
-    background: 'var(--vscode-toolbar-activeBackground)',
-  },
-  selects: {
-    display: 'flex',
-    gap: '6px',
-    flex: '1',
-  },
-  select: {
-    flex: '1',
-    minWidth: '0',
-    '& select': {
-      background: 'var(--vscode-dropdown-background)',
-      color: 'var(--vscode-dropdown-foreground)',
-      border: '1px solid var(--vscode-dropdown-border)',
-      borderRadius: '3px',
-      fontSize: '12px',
-      padding: '2px 4px',
-      width: '100%',
-    },
-    '& select:focus': {
-      outline: '1px solid var(--vscode-focusBorder)',
-      outlineOffset: '0',
-    },
-  },
-});
-
-function providerOptionLabel(id: ProviderId, detection: ProviderInfo[]): string {
-  if (id === 'auto') return 'Auto';
-  if (id === 'custom') return 'Custom CLI';
-  const info = detection.find(d => d.id === id);
-  if (!info) return id;
-  const label = info.version ? `${info.cliLabel} ${info.version}` : info.cliLabel;
-  return info.installed ? label : `${label} (not installed)`;
-}
-
-function providerTooltip(id: ProviderId, detection: ProviderInfo[]): string {
-  if (id === 'auto') return 'Automatically pick the best available provider';
-  if (id === 'custom') return 'Custom CLI configured in settings';
-  const info = detection.find(d => d.id === id);
-  if (!info) return id;
-  if (!info.installed) return info.reason ?? `${id} is not installed`;
-  const parts = [`${info.cliLabel} installed`];
-  if (info.version) parts.push(`v${info.version}`);
-  if (info.executablePath) parts.push(info.executablePath);
-  return parts.join('\n');
-}
-
 export function AppToolbar({
-  provider, selectedModel, mode, availableProviders, providerDetection, isRunning, showHistory, conversationCount,
+  provider, mode, availableProviders, providerDetection, isRunning,
+  showHistory, conversationCount,
   onProviderChange, onModelChange, onModeChange, onNewConversation, onToggleHistory,
 }: Props) {
-  const styles = useStyles();
-  const availableSet = new Set(availableProviders);
-  const detectionDone = providerDetection.length > 0;
-  const providerInfo = providerDetection.find(d => d.id === provider);
-  const modelOptions = providerInfo?.models ?? [];
-  const modelValue = selectedModel ?? DEFAULT_MODEL_VALUE;
-  const modelDisabled = isRunning || provider === 'auto' || !providerInfo?.supportsModelSelection;
+  const [activeTab, setActiveTab] = useState<string>('NEXUS');
+
+  const providerOptions = getProviderOptions(availableProviders, providerDetection);
 
   return (
-    <div className={styles.toolbar} role="toolbar">
-      <div className={styles.row}>
-        <span className={styles.appName}>Nexus</span>
-        <Tooltip content="New conversation" relationship="label">
-          <Button
-            appearance="subtle" size="small" icon={<AddRegular />}
-            className={styles.iconBtn}
-            onClick={onNewConversation} disabled={isRunning}
-            aria-label="New conversation"
-          />
-        </Tooltip>
-        <Tooltip content={`History (${conversationCount})`} relationship="label">
-          <Button
-            appearance="subtle" size="small" icon={<ClockRegular />}
-            className={`${styles.iconBtn}${showHistory ? ` ${styles.iconBtnActive}` : ''}`}
-            onClick={onToggleHistory}
-            aria-label="Toggle conversation history" aria-pressed={showHistory}
-          />
-        </Tooltip>
-      </div>
+    <>
+      {/* ── Tab strip ── */}
+      <header className="fl-topbar">
+        <nav className="fl-tabs" aria-label="Panel tabs">
+          {TABS.map(tab => (
+            <button
+              key={tab}
+              type="button"
+              className="fl-tab"
+              data-active={tab === activeTab ? '1' : undefined}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+              <span className="fl-tab-underline" />
+            </button>
+          ))}
+        </nav>
+        <div className="fl-winctl">
+          <button
+            type="button"
+            className="fl-iconbtn"
+            title="New conversation"
+            onClick={onNewConversation}
+            disabled={isRunning}
+          >
+            <IconAdd size={16} />
+          </button>
+          <button type="button" className="fl-iconbtn" title="More">
+            <IconMore size={16} />
+          </button>
+        </div>
+      </header>
 
-      <div className={styles.row}>
-        <div className={styles.selects}>
-          <Select
-            className={styles.select}
-            value={provider}
+      {/* ── Subheader ── */}
+      <div className="fl-subhead">
+        <span className="fl-brand">NEXUS</span>
+        <div className="fl-subhead-actions">
+          <button
+            type="button"
+            className="fl-iconbtn"
+            title="New conversation"
+            onClick={onNewConversation}
             disabled={isRunning}
-            onChange={(_e, d) => onProviderChange(d.value as ProviderId)}
-            aria-label="Provider"
           >
-            {ALL_PROVIDERS.map(p => {
-              const unavailable = detectionDone && p !== 'auto' && p !== 'custom' && !availableSet.has(p);
-              return (
-                <option
-                  key={p}
-                  value={p}
-                  disabled={unavailable}
-                  title={providerTooltip(p, providerDetection)}
-                >
-                  {providerOptionLabel(p, providerDetection)}
-                </option>
-              );
-            })}
-          </Select>
-          <Select
-            className={styles.select}
-            value={modelValue}
-            disabled={modelDisabled}
-            onChange={(_e, d) => {
-              const value = d.value === DEFAULT_MODEL_VALUE ? undefined : d.value;
-              onModelChange(value);
-            }}
-            aria-label="Model"
+            <IconAdd size={16} />
+          </button>
+          <button
+            type="button"
+            className="fl-iconbtn"
+            title={`History (${conversationCount})`}
+            data-active={showHistory ? '1' : undefined}
+            onClick={onToggleHistory}
           >
-            <option value={DEFAULT_MODEL_VALUE}>
-              {providerInfo?.defaultModel ? `Default (${providerInfo.defaultModel})` : 'Default model'}
-            </option>
-            {modelOptions.map(model => (
-              <option key={model.id} value={model.id}>
-                {model.source === 'seeded' ? `${model.label} · seed` : model.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            className={styles.select}
-            value={mode}
-            disabled={isRunning}
-            onChange={(_e, d) => onModeChange(d.value as TaskMode)}
-            aria-label="Mode"
-          >
-            {ALL_MODES.map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
-          </Select>
+            <IconHistory size={16} />
+          </button>
         </div>
       </div>
-    </div>
+
+      {/* ── Provider + Mode dropdowns ── */}
+      <div className="fl-selectors">
+        <NexusDropdown
+          value={provider}
+          options={providerOptions}
+          onChange={v => {
+            onProviderChange(v as ProviderId);
+            onModelChange(undefined);
+          }}
+          disabled={isRunning}
+        />
+        <NexusDropdown
+          value={mode}
+          options={MODE_OPTIONS}
+          onChange={v => onModeChange(v as TaskMode)}
+          disabled={isRunning}
+        />
+      </div>
+    </>
   );
 }

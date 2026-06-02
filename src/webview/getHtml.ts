@@ -10,9 +10,10 @@ export function getHtml(
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'webview', 'main.js'),
   );
+  const cssUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'media', 'webview', 'main.css'),
+  );
 
-  // Fluent UI v9 (Griffel) injects <style> elements at runtime; 'unsafe-inline' is
-  // required for styles. Script execution is still restricted to the nonce.
   const csp = [
     `default-src 'none'`,
     `style-src ${webview.cspSource} 'unsafe-inline'`,
@@ -26,6 +27,7 @@ export function getHtml(
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus Chat</title>
+  <link rel="stylesheet" href="${cssUri}" />
 </head>
 <body>
   <div id="root"></div>

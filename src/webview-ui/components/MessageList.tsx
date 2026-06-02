@@ -1,89 +1,88 @@
 import { useEffect, useRef } from 'react';
-import { makeStyles } from '@fluentui/react-components';
 import type { ChatMessage, Conversation } from '../messages';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
 import { GitStatusPanel } from './GitStatusPanel';
+import { IconSparkle, IconChevronRight } from '../NexusIcons';
+
+const SUGGESTIONS = [
+  'Refactor the selected code for readability',
+  'Add unit tests for the open file',
+  'Explain what this function does',
+];
 
 interface Props {
   conversation: Conversation;
+  isRunning: boolean;
   onOpenScm: () => void;
   onCloseGit: () => void;
+  onSendSuggestion: (text: string) => void;
 }
 
-const useStyles = makeStyles({
-  container: {
-    flex: '1',
-    overflowY: 'auto',
-    padding: '12px 10px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  empty: {
-    flex: '1',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    color: 'var(--vscode-descriptionForeground)',
-    fontSize: '13px',
-    opacity: '0.7',
-    userSelect: 'none',
-  },
-  emptyDot: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    background: 'var(--vscode-activityBarBadge-background, #007acc)',
-    opacity: '0.3',
-  },
-  anchor: {
-    height: '1px',
-    flexShrink: '0',
-  },
-});
-
-function renderMessage(msg: ChatMessage) {
-  if (msg.role === 'user') {
-    return <UserMessage key={msg.id} message={msg} />;
-  }
-  return <AssistantMessage key={msg.id} message={msg} />;
+function EmptyState({ onSend }: { onSend: (text: string) => void }) {
+  return (
+    <div className="fl-empty">
+      <div className="fl-empty-orb">
+        <IconSparkle size={26} />
+      </div>
+      <div className="fl-empty-title">Start a conversation</div>
+      <div className="fl-empty-sub">
+        Ask Nexus to build, research, or review the open file.
+      </div>
+      <div className="fl-suggest">
+        {SUGGESTIONS.map(s => (
+          <button
+            key={s}
+            type="button"
+            className="fl-suggest-chip"
+            onClick={() => onSend(s)}
+          >
+            <IconSparkle size={13} className="chip-icon" />
+            <span className="chip-text">{s}</span>
+            <IconChevronRight size={13} className="fl-sc-arrow" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export function MessageList({ conversation, onOpenScm, onCloseGit }: Props) {
-  const styles = useStyles();
+export function MessageList({ conversation, isRunning, onOpenScm, onCloseGit, onSendSuggestion }: Props) {
   const anchorRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const { messages, gitChanges, gitMessage } = conversation;
 
   useEffect(() => {
-    anchorRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    if (nearBottom) el.scrollTop = el.scrollHeight;
   }, [messages.length, messages[messages.length - 1]]);
 
-  if (messages.length === 0) {
-    return (
-      <div className={styles.empty}>
-        <div className={styles.emptyDot} />
-        <span>Start a conversation</span>
-      </div>
-    );
-  }
-
   return (
-    <div className={styles.container} role="log" aria-live="polite" aria-label="Chat messages">
-      {messages.map(renderMessage)}
+    <div className="fl-convo fl-scroll" ref={scrollRef} role="log" aria-live="polite">
+      {messages.length === 0 ? (
+        <EmptyState onSend={onSendSuggestion} />
+      ) : (
+        <div className="fl-thread">
+          {messages.map((msg: ChatMessage) =>
+            msg.role === 'user'
+              ? <UserMessage key={msg.id} message={msg} />
+              : <AssistantMessage key={msg.id} message={msg} isRunning={isRunning} />
+          )}
 
-      {gitChanges.length > 0 || gitMessage ? (
-        <GitStatusPanel
-          changes={gitChanges}
-          message={gitMessage}
-          onOpenScm={onOpenScm}
-          onClose={onCloseGit}
-        />
-      ) : null}
+          {(gitChanges.length > 0 || gitMessage) && (
+            <GitStatusPanel
+              changes={gitChanges}
+              message={gitMessage}
+              onOpenScm={onOpenScm}
+              onClose={onCloseGit}
+            />
+          )}
 
-      <div ref={anchorRef} className={styles.anchor} />
+          <div ref={anchorRef} style={{ height: 1 }} />
+        </div>
+      )}
     </div>
   );
 }
