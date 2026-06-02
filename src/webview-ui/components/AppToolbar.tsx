@@ -1,12 +1,9 @@
-import { useState } from 'react';
 import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
 import {
   IconAdd, IconHistory, IconMore,
   IconSparkle, IconBrain, IconTool, IconGlobe, IconAgent, IconSearch,
 } from '../NexusIcons';
 import type { ProviderId, TaskMode, ProviderInfo } from '../messages';
-
-const TABS = ['CHAT', 'NEXUS', 'CLAUDE CODE'] as const;
 
 const MODE_OPTIONS: DropdownOption[] = [
   { value: 'ask',          label: 'Ask',             desc: 'Chat only · no tools',    icon: IconSparkle },
@@ -63,44 +60,10 @@ export function AppToolbar({
   showHistory, conversationCount,
   onProviderChange, onModelChange, onModeChange, onNewConversation, onToggleHistory,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<string>('NEXUS');
-
   const providerOptions = getProviderOptions(availableProviders, providerDetection);
 
   return (
     <>
-      {/* ── Tab strip ── */}
-      <header className="fl-topbar">
-        <nav className="fl-tabs" aria-label="Panel tabs">
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              type="button"
-              className="fl-tab"
-              data-active={tab === activeTab ? '1' : undefined}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab}
-              <span className="fl-tab-underline" />
-            </button>
-          ))}
-        </nav>
-        <div className="fl-winctl">
-          <button
-            type="button"
-            className="fl-iconbtn"
-            title="New conversation"
-            onClick={onNewConversation}
-            disabled={isRunning}
-          >
-            <IconAdd size={16} />
-          </button>
-          <button type="button" className="fl-iconbtn" title="More">
-            <IconMore size={16} />
-          </button>
-        </div>
-      </header>
-
       {/* ── Subheader ── */}
       <div className="fl-subhead">
         <span className="fl-brand">NEXUS</span>
@@ -122,6 +85,9 @@ export function AppToolbar({
             onClick={onToggleHistory}
           >
             <IconHistory size={16} />
+          </button>
+          <button type="button" className="fl-iconbtn" title="More">
+            <IconMore size={16} />
           </button>
         </div>
       </div>
