@@ -1,6 +1,7 @@
 {
   "name": "nexus-visual-code",
   "displayName": "Nexus Visual Code",
+  "publisher": "nexus-dev",
   "description": "A chat cockpit that routes prompts to installed CLI coding agents",
   "version": "0.1.0",
   "engines": {
