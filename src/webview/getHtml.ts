@@ -2,21 +2,21 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
 export function getHtml(
-  panel: vscode.WebviewPanel,
+  webview: vscode.Webview,
   extensionUri: vscode.Uri,
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
 
-  const scriptUri = panel.webview.asWebviewUri(
+  const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'main.js'),
   );
-  const styleUri = panel.webview.asWebviewUri(
+  const styleUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, 'media', 'style.css'),
   );
 
   const csp = [
     `default-src 'none'`,
-    `style-src ${panel.webview.cspSource} 'nonce-${nonce}'`,
+    `style-src ${webview.cspSource} 'nonce-${nonce}'`,
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
 

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ProviderRegistry } from './core/providerRegistry';
 import { TaskManager } from './core/taskManager';
 import { ProcessRunner } from './runner/processRunner';
-import { ChatPanel } from './webview/ChatPanel';
+import { ChatViewProvider } from './webview/ChatViewProvider';
 import { CodexAdapter } from './providers/codex/CodexAdapter';
 import { ClaudeAdapter } from './providers/claude/ClaudeAdapter';
 import { GeminiAdapter } from './providers/gemini/GeminiAdapter';
@@ -22,18 +22,26 @@ export function activate(context: vscode.ExtensionContext): void {
   const taskManager = new TaskManager();
   const processRunner = new ProcessRunner();
 
+  const provider = new ChatViewProvider(
+    context.extensionUri,
+    registry,
+    taskManager,
+    processRunner,
+  );
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      ChatViewProvider.viewType,
+      provider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
   const openChatCommand = vscode.commands.registerCommand('nexus.openChat', () => {
-    ChatPanel.createOrShow(
-      context.extensionUri,
-      registry,
-      taskManager,
-      processRunner,
-    );
+    vscode.commands.executeCommand('workbench.view.extension.nexus');
   });
 
   context.subscriptions.push(openChatCommand);
 }
 
-export function deactivate(): void {
-  // nothing to clean up globally; ChatPanel handles its own disposal
-}
+export function deactivate(): void {}

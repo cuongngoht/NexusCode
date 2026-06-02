@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -11,7 +15,8 @@ body {
   font-size: var(--vscode-font-size);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 100vh;
   overflow: hidden;
 }
 
@@ -51,6 +56,9 @@ select {
   border-radius: 2px;
   font-size: 13px;
   cursor: pointer;
+  flex: 1;
+  min-width: 70px;
+  max-width: 130px;
 }
 
 select:focus {
@@ -201,6 +209,7 @@ textarea:focus {
   display: flex;
   gap: 8px;
   margin-top: 6px;
+  flex-wrap: wrap;
 }
 
 /* Buttons */

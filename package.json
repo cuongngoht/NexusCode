@@ -8,9 +8,30 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:nexus.chatView"
+  ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nexus",
+          "title": "Nexus",
+          "icon": "media/nexus.svg"
+        }
+      ]
+    },
+    "views": {
+      "nexus": [
+        {
+          "id": "nexus.chatView",
+          "name": "Chat",
+          "type": "webview",
+          "visibility": "visible"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "nexus.openChat",
