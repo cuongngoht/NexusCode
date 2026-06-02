@@ -59,6 +59,7 @@ export interface AppState {
   provider: ProviderId;
   mode: TaskMode;
   availableProviders: string[];
+  providerDetection: ProviderInfo[];
   showHistory: boolean;
 }
 
@@ -72,11 +73,20 @@ export function createInitialState(): AppState {
     provider: 'auto',
     mode: 'edit',
     availableProviders: [],
+    providerDetection: [],
     showHistory: false,
   };
 }
 
 // ── Extension → webview messages ──────────────────────────────────────────
+
+export interface ProviderInfo {
+  id: string;
+  installed: boolean;
+  version?: string;
+  executablePath?: string;
+  reason?: string;
+}
 
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
@@ -86,7 +96,7 @@ export type ExtMsg =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[] };
+  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[] };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -243,6 +253,6 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       }));
 
     case 'availableProviders':
-      return { ...state, availableProviders: msg.providers };
+      return { ...state, availableProviders: msg.providers, providerDetection: msg.detection };
   }
 }

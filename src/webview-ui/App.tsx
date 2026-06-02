@@ -76,6 +76,7 @@ export function App() {
           provider={state.provider}
           mode={state.mode}
           availableProviders={state.availableProviders}
+          providerDetection={state.providerDetection}
           isRunning={state.isRunning}
           showHistory={state.showHistory}
           conversationCount={state.conversations.length}

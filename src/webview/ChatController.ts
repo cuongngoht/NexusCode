@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ExtensionMessage, WebviewMessage } from './webviewProtocol';
 import { ProviderRegistry } from '../core/providerRegistry';
 import { ProviderRouter } from '../core/providerRouter';
+import { ProviderDetector } from '../core/providerDetector';
 import { TaskManager } from '../core/taskManager';
 import { ProcessRunner } from '../runner/processRunner';
 import { globalBus } from '../core/eventBus';
@@ -14,15 +15,17 @@ import { getGitStatus } from '../git/gitStatus';
 
 export class ChatController {
   private readonly router: ProviderRouter;
+  private readonly detector: ProviderDetector;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
-    private readonly registry: ProviderRegistry,
+    readonly registry: ProviderRegistry,
     private readonly taskManager: TaskManager,
     private readonly processRunner: ProcessRunner,
     private readonly post: (msg: ExtensionMessage) => void,
   ) {
     this.router = new ProviderRouter(registry);
+    this.detector = new ProviderDetector();
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
     globalBus.on('*', busListener);
     this.disposables.push({ dispose: () => globalBus.off('*', busListener) });
@@ -161,8 +164,9 @@ export class ChatController {
   }
 
   private async sendAvailableProviders(): Promise<void> {
-    const available = await this.registry.getAvailable();
-    this.post({ type: 'availableProviders', providers: available.map(p => p.id) });
+    const detection = await this.detector.detectAll();
+    const providers = detection.filter(d => d.installed).map(d => d.id);
+    this.post({ type: 'availableProviders', providers, detection });
   }
 
   dispose(): void {
