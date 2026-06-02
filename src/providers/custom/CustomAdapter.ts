@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CliProvider, CliCommand, ProviderId, ProviderCapabilities } from '../../core/types';
+import { CliProvider, CliCommand, CliRunOptions, ProviderId, ProviderCapabilities } from '../../core/types';
 import { spawnSync } from 'child_process';
 import { CommandGuard } from '../../runner/commandGuard';
 
@@ -42,14 +42,16 @@ export class CustomAdapter implements CliProvider {
     }
   }
 
-  buildCommand(enhancedPrompt: string): CliCommand {
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand {
     const { command, args } = this.getConfig();
     if (!command) {
       throw new Error('nexus.customProvider.command is not set.');
     }
     CommandGuard.validate(command);
     const resolvedArgs = args.length > 0
-      ? args.map(a => a.replace('{{prompt}}', enhancedPrompt))
+      ? args.map(a => a
+        .replace('{{prompt}}', enhancedPrompt)
+        .replace('{{model}}', options?.model ?? ''))
       : [enhancedPrompt];
     const hasPromptPlaceholder = args.some(a => a.includes('{{prompt}}'));
     if (!hasPromptPlaceholder && args.length > 0) {

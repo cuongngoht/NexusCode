@@ -1,7 +1,30 @@
-import { CliProvider, ProviderId, TaskMode } from './types';
+import { CliProvider, ProviderCapabilities, ProviderId, TaskMode } from './types';
 import { ProviderRegistry } from './providerRegistry';
 
-const RESEARCH_MODES: TaskMode[] = ['research', 'ask'];
+function matchesCapabilities(
+  provider: CliProvider,
+  required: Partial<ProviderCapabilities>,
+): boolean {
+  return Object.entries(required).every(
+    ([key, value]) => provider.capabilities[key as keyof ProviderCapabilities] === value,
+  );
+}
+
+function requiredForMode(mode: TaskMode): Partial<ProviderCapabilities> | undefined {
+  switch (mode) {
+    case 'research':
+      return { supportsWebSearch: true };
+    case 'edit':
+    case 'debug':
+    case 'test':
+      return { supportsFileEdit: true, supportsShellExec: true };
+    case 'ask':
+    case 'scan-project':
+    case 'plan':
+    case 'review':
+      return undefined;
+  }
+}
 
 export class ProviderRouter {
   constructor(private readonly registry: ProviderRegistry) {}
@@ -28,18 +51,11 @@ export class ProviderRouter {
       );
     }
 
-    const isResearch = RESEARCH_MODES.includes(mode);
-    if (isResearch) {
-      const webSearch = available.find(p => p.capabilities.supportsWebSearch);
-      if (webSearch) {
-        return webSearch;
-      }
-    } else {
-      const editable = available.find(
-        p => p.capabilities.supportsFileEdit && p.capabilities.supportsShellExec,
-      );
-      if (editable) {
-        return editable;
+    const required = requiredForMode(mode);
+    if (required) {
+      const matching = available.find(p => matchesCapabilities(p, required));
+      if (matching) {
+        return matching;
       }
     }
 

@@ -7,7 +7,7 @@ export type { ProviderDetectionResult };
 export type ExtensionMessage =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -16,7 +16,7 @@ export type ExtensionMessage =
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
-  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode }
+  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string }
   | { type: 'stopTask' }
   | { type: 'openSourceControl' }
   | { type: 'ready' };

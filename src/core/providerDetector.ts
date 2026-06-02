@@ -1,60 +1,90 @@
 import { spawn, spawnSync } from 'child_process';
-import type { ProviderId } from './types';
+import type { ProviderId, ProviderModel } from './types';
 
 // ── Result type ────────────────────────────────────────────────────────────
 
 export interface ProviderDetectionResult {
   id: ProviderId;
+  displayName: string;
+  cliLabel: string;
   installed: boolean;
   version?: string;
   executablePath?: string;
   reason?: string;
+  supportsModelSelection: boolean;
+  defaultModel?: string;
+  models: ProviderModel[];
 }
 
 // ── Per-provider specs ─────────────────────────────────────────────────────
 
 interface ProviderSpec {
   id: ProviderId;
+  displayName: string;
+  cliLabel: string;
   /** Binary name to search in PATH */
   binary: string;
   /** Args to pass for version output */
   versionArgs: string[];
   /** Extracts a semver-like string from combined stdout+stderr */
   versionPattern: RegExp;
+  /** Seeded fallback models used when the CLI cannot list models. */
+  seededModels: readonly string[];
+  defaultModel?: string;
 }
 
 const SPECS: readonly ProviderSpec[] = [
   {
     id: 'claude',
+    displayName: 'Claude',
+    cliLabel: 'Claude CLI',
     binary: 'claude',
     versionArgs: ['--version'],
     // "Claude Code 1.2.3" or just "1.2.3"
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
+    seededModels: ['sonnet', 'opus', 'haiku'],
+    defaultModel: 'sonnet',
   },
   {
     id: 'codex',
+    displayName: 'Codex',
+    cliLabel: 'Codex CLI',
     binary: 'codex',
     versionArgs: ['--version'],
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
+    seededModels: ['gpt-5.2', 'gpt-5.1-codex-max', 'gpt-5.1-codex', 'gpt-5-codex', 'o3'],
+    defaultModel: 'gpt-5.2',
   },
   {
     id: 'gemini',
+    displayName: 'Gemini',
+    cliLabel: 'Gemini CLI',
     binary: 'gemini',
     versionArgs: ['--version'],
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
+    seededModels: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+    defaultModel: 'gemini-2.5-pro',
   },
   {
     id: 'copilot',
+    displayName: 'Copilot',
+    cliLabel: 'Copilot CLI',
     binary: 'copilot',
     versionArgs: ['--version'],
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
+    seededModels: ['gpt-5.2', 'gpt-5.1', 'claude-sonnet-4.5'],
+    defaultModel: 'gpt-5.2',
   },
   {
     id: 'aider',
+    displayName: 'Aider',
+    cliLabel: 'Aider CLI',
     binary: 'aider',
     versionArgs: ['--version'],
     // "aider 0.50.1"
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
+    seededModels: ['sonnet', 'opus', 'gpt-5.2', 'gemini/gemini-2.5-pro'],
+    defaultModel: 'sonnet',
   },
 ];
 
@@ -83,6 +113,14 @@ function runForVersion(binary: string, args: string[], pattern: RegExp): Promise
     });
     proc.on('error', () => resolve(undefined));
   });
+}
+
+function seededModels(spec: ProviderSpec): ProviderModel[] {
+  return spec.seededModels.map(model => ({
+    id: model,
+    label: model,
+    source: 'seeded',
+  }));
 }
 
 // ── Detector ───────────────────────────────────────────────────────────────
@@ -141,8 +179,13 @@ export class ProviderDetector {
     if (!executablePath) {
       return {
         id: spec.id,
+        displayName: spec.displayName,
+        cliLabel: spec.cliLabel,
         installed: false,
         reason: `'${spec.binary}' not found in PATH`,
+        supportsModelSelection: spec.seededModels.length > 0,
+        defaultModel: spec.defaultModel,
+        models: seededModels(spec),
       };
     }
 
@@ -150,9 +193,14 @@ export class ProviderDetector {
 
     return {
       id: spec.id,
+      displayName: spec.displayName,
+      cliLabel: spec.cliLabel,
       installed: true,
       version,
       executablePath,
+      supportsModelSelection: spec.seededModels.length > 0,
+      defaultModel: spec.defaultModel,
+      models: seededModels(spec),
     };
   }
 }

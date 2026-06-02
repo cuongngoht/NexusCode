@@ -57,6 +57,7 @@ export function UserMessage({ message }: Props) {
         <span className={styles.badges}>
           <span className={styles.badge}>{message.provider}</span>
           <span className={styles.badge}>{message.mode}</span>
+          {message.model && <span className={styles.badge}>{message.model}</span>}
         </span>
       </div>
       <p className={styles.prompt}>{message.prompt}</p>

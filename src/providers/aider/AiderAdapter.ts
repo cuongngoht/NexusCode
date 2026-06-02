@@ -1,5 +1,5 @@
 import { BaseCliProvider } from '../base/CliProvider';
-import { CliCommand, ProviderCapabilities } from '../../core/types';
+import { CliCommand, CliRunOptions, ProviderCapabilities } from '../../core/types';
 
 export class AiderAdapter extends BaseCliProvider {
   readonly id = 'aider' as const;
@@ -12,7 +12,10 @@ export class AiderAdapter extends BaseCliProvider {
   protected readonly versionCommand = 'aider';
   protected readonly versionArgs = ['--version'];
 
-  buildCommand(enhancedPrompt: string): CliCommand {
-    return { command: 'aider', args: ['--message', enhancedPrompt] };
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand {
+    const args = options?.model
+      ? ['--model', options.model, '--message', enhancedPrompt]
+      : ['--message', enhancedPrompt];
+    return { command: 'aider', args };
   }
 }

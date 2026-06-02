@@ -1,6 +1,22 @@
 export type ProviderId = 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
 
-export type TaskMode = 'edit' | 'debug' | 'test' | 'refactor' | 'research' | 'ask';
+export type TaskMode =
+  | 'ask'
+  | 'research'
+  | 'scan-project'
+  | 'plan'
+  | 'edit'
+  | 'debug'
+  | 'test'
+  | 'review';
+
+export type ProviderModelSource = 'detected' | 'seeded';
+
+export interface ProviderModel {
+  id: string;
+  label: string;
+  source: ProviderModelSource;
+}
 
 export interface NexusTask {
   id: string;
@@ -8,6 +24,7 @@ export interface NexusTask {
   enhancedPrompt: string;
   provider: ProviderId;
   mode: TaskMode;
+  model?: string;
   startedAt: number;
   stoppedAt?: number;
   exitCode?: number;
@@ -16,6 +33,10 @@ export interface NexusTask {
 export interface CliCommand {
   command: string;
   args: string[];
+}
+
+export interface CliRunOptions {
+  model?: string;
 }
 
 export interface ProviderCapabilities {
@@ -29,7 +50,7 @@ export interface CliProvider {
   readonly displayName: string;
   readonly capabilities: ProviderCapabilities;
   isAvailable(): Promise<boolean>;
-  buildCommand(enhancedPrompt: string): CliCommand;
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand;
 }
 
 export type NexusEventKind =

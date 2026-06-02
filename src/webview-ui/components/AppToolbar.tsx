@@ -3,10 +3,22 @@ import { AddRegular, ClockRegular } from '@fluentui/react-icons';
 import type { ProviderId, TaskMode, ProviderInfo } from '../messages';
 
 const ALL_PROVIDERS: ProviderId[] = ['auto', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
-const ALL_MODES: TaskMode[] = ['edit', 'debug', 'test', 'refactor', 'research', 'ask'];
+const ALL_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'edit', 'debug', 'test', 'review'];
+const DEFAULT_MODEL_VALUE = '__default__';
+const MODE_LABELS: Record<TaskMode, string> = {
+  ask: 'Ask',
+  research: 'Research',
+  'scan-project': 'Scan Project',
+  plan: 'Plan',
+  edit: 'Edit',
+  debug: 'Debug',
+  test: 'Test',
+  review: 'Review',
+};
 
 interface Props {
   provider: ProviderId;
+  selectedModel?: string;
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
@@ -14,6 +26,7 @@ interface Props {
   showHistory: boolean;
   conversationCount: number;
   onProviderChange: (v: ProviderId) => void;
+  onModelChange: (v?: string) => void;
   onModeChange: (v: TaskMode) => void;
   onNewConversation: () => void;
   onToggleHistory: () => void;
@@ -82,11 +95,12 @@ const useStyles = makeStyles({
 });
 
 function providerOptionLabel(id: ProviderId, detection: ProviderInfo[]): string {
-  if (id === 'auto' || id === 'custom') return id;
+  if (id === 'auto') return 'Auto';
+  if (id === 'custom') return 'Custom CLI';
   const info = detection.find(d => d.id === id);
   if (!info) return id;
-  if (!info.installed) return `${id} (not installed)`;
-  return info.version ? `${id} ${info.version}` : id;
+  const label = info.version ? `${info.cliLabel} ${info.version}` : info.cliLabel;
+  return info.installed ? label : `${label} (not installed)`;
 }
 
 function providerTooltip(id: ProviderId, detection: ProviderInfo[]): string {
@@ -95,19 +109,23 @@ function providerTooltip(id: ProviderId, detection: ProviderInfo[]): string {
   const info = detection.find(d => d.id === id);
   if (!info) return id;
   if (!info.installed) return info.reason ?? `${id} is not installed`;
-  const parts = [`${id} — installed`];
+  const parts = [`${info.cliLabel} installed`];
   if (info.version) parts.push(`v${info.version}`);
   if (info.executablePath) parts.push(info.executablePath);
   return parts.join('\n');
 }
 
 export function AppToolbar({
-  provider, mode, availableProviders, providerDetection, isRunning, showHistory, conversationCount,
-  onProviderChange, onModeChange, onNewConversation, onToggleHistory,
+  provider, selectedModel, mode, availableProviders, providerDetection, isRunning, showHistory, conversationCount,
+  onProviderChange, onModelChange, onModeChange, onNewConversation, onToggleHistory,
 }: Props) {
   const styles = useStyles();
   const availableSet = new Set(availableProviders);
   const detectionDone = providerDetection.length > 0;
+  const providerInfo = providerDetection.find(d => d.id === provider);
+  const modelOptions = providerInfo?.models ?? [];
+  const modelValue = selectedModel ?? DEFAULT_MODEL_VALUE;
+  const modelDisabled = isRunning || provider === 'auto' || !providerInfo?.supportsModelSelection;
 
   return (
     <div className={styles.toolbar} role="toolbar">
@@ -153,12 +171,31 @@ export function AppToolbar({
           </Select>
           <Select
             className={styles.select}
+            value={modelValue}
+            disabled={modelDisabled}
+            onChange={(_e, d) => {
+              const value = d.value === DEFAULT_MODEL_VALUE ? undefined : d.value;
+              onModelChange(value);
+            }}
+            aria-label="Model"
+          >
+            <Option value={DEFAULT_MODEL_VALUE}>
+              {providerInfo?.defaultModel ? `Default (${providerInfo.defaultModel})` : 'Default model'}
+            </Option>
+            {modelOptions.map(model => (
+              <Option key={model.id} value={model.id}>
+                {model.source === 'seeded' ? `${model.label} · seed` : model.label}
+              </Option>
+            ))}
+          </Select>
+          <Select
+            className={styles.select}
             value={mode}
             disabled={isRunning}
             onChange={(_e, d) => onModeChange(d.value as TaskMode)}
             aria-label="Mode"
           >
-            {ALL_MODES.map(m => <Option key={m} value={m}>{m}</Option>)}
+            {ALL_MODES.map(m => <Option key={m} value={m}>{MODE_LABELS[m]}</Option>)}
           </Select>
         </div>
       </div>

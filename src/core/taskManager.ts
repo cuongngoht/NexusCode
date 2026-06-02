@@ -10,6 +10,7 @@ export class TaskManager {
     enhancedPrompt: string,
     provider: ProviderId,
     mode: TaskMode,
+    model?: string,
   ): NexusTask {
     const task: NexusTask = {
       id: `task-${++this.taskCounter}`,
@@ -17,6 +18,7 @@ export class TaskManager {
       enhancedPrompt,
       provider,
       mode,
+      model,
       startedAt: Date.now(),
     };
     this.activeTask = task;

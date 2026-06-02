@@ -85,6 +85,7 @@ const useStyles = makeStyles({
 
 export function AssistantMessage({ message }: Props) {
   const styles = useStyles();
+  const meta = [message.providerLabel, message.mode, message.model].filter(Boolean).join(' · ');
 
   const renderFooter = () => {
     if (message.errorText) {
@@ -111,7 +112,7 @@ export function AssistantMessage({ message }: Props) {
       <div className={styles.header}>
         <span className={styles.dot} />
         <span className={styles.name}>Nexus</span>
-        <span className={styles.provider}>{message.providerLabel} · {message.mode}</span>
+        <span className={styles.provider}>{meta}</span>
       </div>
 
       {message.lines.length > 0 && (

@@ -9,6 +9,17 @@ export interface PromptContext {
   mode: TaskMode;
 }
 
+const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
+  ask: 'Answer the user directly using the provided context. Do not scan the project broadly unless needed.',
+  research: 'Research the topic and cite or summarize relevant findings. Prefer external/web knowledge when available.',
+  'scan-project': 'Inspect the project read-only. Summarize architecture, risks, missing pieces, and recommended next steps.',
+  plan: 'Produce an implementation plan only. Do not mutate files or run commands that change project state.',
+  edit: 'Implement the requested code changes while keeping the patch scoped and consistent with the existing codebase.',
+  debug: 'Investigate the failure, identify likely root causes, and apply a focused fix when enough evidence is available.',
+  test: 'Run, create, or improve tests that validate the requested behavior. Report any failures clearly.',
+  review: 'Review like a code reviewer: lead with bugs, regressions, missing tests, and concrete file references.',
+};
+
 export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): string {
   const lines: string[] = [];
 
@@ -32,6 +43,7 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
   }
 
   lines.push(`Task mode: ${ctx.mode}`);
+  lines.push(`Mode guidance: ${MODE_INSTRUCTIONS[ctx.mode]}`);
 
   if (ctx.rules) {
     lines.push('');

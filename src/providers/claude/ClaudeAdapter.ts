@@ -1,5 +1,5 @@
 import { BaseCliProvider } from '../base/CliProvider';
-import { CliCommand, ProviderCapabilities } from '../../core/types';
+import { CliCommand, CliRunOptions, ProviderCapabilities } from '../../core/types';
 
 export class ClaudeAdapter extends BaseCliProvider {
   readonly id = 'claude' as const;
@@ -12,7 +12,8 @@ export class ClaudeAdapter extends BaseCliProvider {
   protected readonly versionCommand = 'claude';
   protected readonly versionArgs = ['--version'];
 
-  buildCommand(enhancedPrompt: string): CliCommand {
-    return { command: 'claude', args: [enhancedPrompt] };
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand {
+    const args = options?.model ? ['--model', options.model, enhancedPrompt] : [enhancedPrompt];
+    return { command: 'claude', args };
   }
 }

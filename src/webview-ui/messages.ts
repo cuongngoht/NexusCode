@@ -1,5 +1,21 @@
 export type ProviderId = 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
-export type TaskMode = 'edit' | 'debug' | 'test' | 'refactor' | 'research' | 'ask';
+export type TaskMode =
+  | 'ask'
+  | 'research'
+  | 'scan-project'
+  | 'plan'
+  | 'edit'
+  | 'debug'
+  | 'test'
+  | 'review';
+
+export type ProviderModelSource = 'detected' | 'seeded';
+
+export interface ProviderModel {
+  id: string;
+  label: string;
+  source: ProviderModelSource;
+}
 
 export interface GitChange { status: string; path: string; }
 
@@ -14,6 +30,7 @@ export interface UserMessage {
   prompt: string;
   provider: ProviderId;
   mode: TaskMode;
+  model?: string;
   timestamp: number;
 }
 
@@ -27,6 +44,7 @@ export interface AssistantMessage {
   role: 'assistant';
   providerLabel: string;
   mode: string;
+  model?: string;
   lines: OutputLine[];
   isStreaming: boolean;
   exitCode?: number;
@@ -57,6 +75,7 @@ export interface AppState {
   isRunning: boolean;
   elapsed: number;
   provider: ProviderId;
+  selectedModel?: string;
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
@@ -71,7 +90,8 @@ export function createInitialState(): AppState {
     isRunning: false,
     elapsed: 0,
     provider: 'auto',
-    mode: 'edit',
+    selectedModel: undefined,
+    mode: 'ask',
     availableProviders: [],
     providerDetection: [],
     showHistory: false,
@@ -82,16 +102,21 @@ export function createInitialState(): AppState {
 
 export interface ProviderInfo {
   id: string;
+  displayName: string;
+  cliLabel: string;
   installed: boolean;
   version?: string;
   executablePath?: string;
   reason?: string;
+  supportsModelSelection: boolean;
+  defaultModel?: string;
+  models: ProviderModel[];
 }
 
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -104,11 +129,19 @@ export type AppAction =
   | { type: 'extMsg'; msg: ExtMsg }
   | { type: 'tick' }
   | { type: 'setProvider'; value: ProviderId }
+  | { type: 'setModel'; value?: string }
   | { type: 'setMode'; value: TaskMode }
   | { type: 'toggleHistory' }
   | { type: 'newConversation' }
   | { type: 'selectConversation'; id: string }
-  | { type: 'sendUserMessage'; prompt: string; provider: ProviderId; mode: TaskMode; timestamp: number };
+  | {
+      type: 'sendUserMessage';
+      prompt: string;
+      provider: ProviderId;
+      mode: TaskMode;
+      model?: string;
+      timestamp: number;
+    };
 
 // ── Reducer helpers ───────────────────────────────────────────────────────
 
@@ -136,7 +169,10 @@ export function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, elapsed: state.elapsed + 1 };
 
     case 'setProvider':
-      return { ...state, provider: action.value };
+      return { ...state, provider: action.value, selectedModel: undefined };
+
+    case 'setModel':
+      return { ...state, selectedModel: action.value };
 
     case 'setMode':
       return { ...state, mode: action.value };
@@ -164,6 +200,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
         prompt: action.prompt,
         provider: action.provider,
         mode: action.mode,
+        model: action.model,
         timestamp: action.timestamp,
       };
       return updateActiveConv(state, conv => ({
@@ -186,6 +223,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         role: 'assistant',
         providerLabel: msg.provider,
         mode: msg.mode,
+        model: msg.model,
         lines: [],
         isStreaming: true,
       };

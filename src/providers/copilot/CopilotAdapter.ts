@@ -1,5 +1,5 @@
 import { BaseCliProvider } from '../base/CliProvider';
-import { CliCommand, ProviderCapabilities } from '../../core/types';
+import { CliCommand, CliRunOptions, ProviderCapabilities } from '../../core/types';
 
 export class CopilotAdapter extends BaseCliProvider {
   readonly id = 'copilot' as const;
@@ -12,7 +12,10 @@ export class CopilotAdapter extends BaseCliProvider {
   protected readonly versionCommand = 'copilot';
   protected readonly versionArgs = ['--version'];
 
-  buildCommand(enhancedPrompt: string): CliCommand {
-    return { command: 'copilot', args: [enhancedPrompt] };
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand {
+    const args = options?.model
+      ? ['--model', options.model, '--prompt', enhancedPrompt]
+      : ['--prompt', enhancedPrompt];
+    return { command: 'copilot', args };
   }
 }

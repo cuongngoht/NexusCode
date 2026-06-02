@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process';
-import { CliProvider, CliCommand, ProviderId, ProviderCapabilities } from '../../core/types';
+import { CliProvider, CliCommand, CliRunOptions, ProviderId, ProviderCapabilities } from '../../core/types';
 
 export abstract class BaseCliProvider implements CliProvider {
   abstract readonly id: ProviderId;
@@ -22,5 +22,5 @@ export abstract class BaseCliProvider implements CliProvider {
     }
   }
 
-  abstract buildCommand(enhancedPrompt: string): CliCommand;
+  abstract buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand;
 }

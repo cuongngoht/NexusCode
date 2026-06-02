@@ -1,5 +1,5 @@
 import { BaseCliProvider } from '../base/CliProvider';
-import { CliCommand, ProviderCapabilities } from '../../core/types';
+import { CliCommand, CliRunOptions, ProviderCapabilities } from '../../core/types';
 
 export class CodexAdapter extends BaseCliProvider {
   readonly id = 'codex' as const;
@@ -12,7 +12,8 @@ export class CodexAdapter extends BaseCliProvider {
   protected readonly versionCommand = 'codex';
   protected readonly versionArgs = ['--version'];
 
-  buildCommand(enhancedPrompt: string): CliCommand {
-    return { command: 'codex', args: [enhancedPrompt] };
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand {
+    const args = options?.model ? ['--model', options.model, enhancedPrompt] : [enhancedPrompt];
+    return { command: 'codex', args };
   }
 }

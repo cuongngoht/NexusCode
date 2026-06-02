@@ -1,18 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { reducer, createInitialState } from './messages';
-import type { AppAction, AppState } from './messages';
+import type { AppAction, AppState, ProviderInfo } from './messages';
 
 function s(): AppState { return createInitialState(); }
 const act = (state: AppState, action: AppAction) => reducer(state, action);
+const claudeInfo: ProviderInfo = {
+  id: 'claude',
+  displayName: 'Claude',
+  cliLabel: 'Claude CLI',
+  installed: true,
+  version: '1.2.3',
+  executablePath: '/usr/local/bin/claude',
+  supportsModelSelection: true,
+  defaultModel: 'sonnet',
+  models: [{ id: 'sonnet', label: 'sonnet', source: 'seeded' }],
+};
 
 describe('reducer — extension messages', () => {
   it('taskStarted: sets isRunning, resets elapsed, adds assistant message', () => {
-    const next = act(s(), { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'edit' } });
+    const next = act(s(), { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'edit', model: 'sonnet' } });
     expect(next.isRunning).toBe(true);
     expect(next.elapsed).toBe(0);
     const conv = next.conversations.find(c => c.id === next.activeConvId)!;
     expect(conv.messages).toHaveLength(1);
     expect(conv.messages[0].role).toBe('assistant');
+    if (conv.messages[0].role === 'assistant') {
+      expect(conv.messages[0].model).toBe('sonnet');
+    }
   });
 
   it('stdout: appends lines to last assistant message', () => {
@@ -78,8 +92,12 @@ describe('reducer — extension messages', () => {
   });
 
   it('availableProviders: stored in state', () => {
-    const state = act(s(), { type: 'extMsg', msg: { type: 'availableProviders', providers: ['claude'] } });
+    const state = act(s(), {
+      type: 'extMsg',
+      msg: { type: 'availableProviders', providers: ['claude'], detection: [claudeInfo] },
+    });
     expect(state.availableProviders).toEqual(['claude']);
+    expect(state.providerDetection[0].models[0].id).toBe('sonnet');
   });
 });
 
@@ -89,9 +107,19 @@ describe('reducer — local actions', () => {
   });
 
   it('sendUserMessage: adds user message, sets title on first message', () => {
-    const state = act(s(), { type: 'sendUserMessage', prompt: 'hello world', provider: 'auto', mode: 'edit', timestamp: 0 });
+    const state = act(s(), {
+      type: 'sendUserMessage',
+      prompt: 'hello world',
+      provider: 'claude',
+      mode: 'edit',
+      model: 'sonnet',
+      timestamp: 0,
+    });
     const conv = state.conversations.find(c => c.id === state.activeConvId)!;
     expect(conv.messages[0].role).toBe('user');
+    if (conv.messages[0].role === 'user') {
+      expect(conv.messages[0].model).toBe('sonnet');
+    }
     expect(conv.title).toBe('hello world');
   });
 
@@ -120,5 +148,16 @@ describe('reducer — local actions', () => {
     const on = act(s(), { type: 'toggleHistory' });
     expect(on.showHistory).toBe(true);
     expect(act(on, { type: 'toggleHistory' }).showHistory).toBe(false);
+  });
+
+  it('setModel: stores selected model', () => {
+    const state = act(s(), { type: 'setModel', value: 'sonnet' });
+    expect(state.selectedModel).toBe('sonnet');
+  });
+
+  it('setProvider: clears selected model', () => {
+    let state = act(s(), { type: 'setModel', value: 'sonnet' });
+    state = act(state, { type: 'setProvider', value: 'codex' });
+    expect(state.selectedModel).toBeUndefined();
   });
 });

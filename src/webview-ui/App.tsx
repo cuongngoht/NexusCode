@@ -60,10 +60,23 @@ export function App() {
   const handleRun = useCallback(
     (prompt: string) => {
       const timestamp = Date.now();
-      dispatch({ type: 'sendUserMessage', prompt, provider: state.provider, mode: state.mode, timestamp });
-      getVsCodeApi().postMessage({ type: 'runTask', prompt, provider: state.provider, mode: state.mode });
+      dispatch({
+        type: 'sendUserMessage',
+        prompt,
+        provider: state.provider,
+        mode: state.mode,
+        model: state.selectedModel,
+        timestamp,
+      });
+      getVsCodeApi().postMessage({
+        type: 'runTask',
+        prompt,
+        provider: state.provider,
+        mode: state.mode,
+        model: state.selectedModel,
+      });
     },
-    [state.provider, state.mode],
+    [state.provider, state.mode, state.selectedModel],
   );
 
   const handleStop = useCallback(() => getVsCodeApi().postMessage({ type: 'stopTask' }), []);
@@ -74,6 +87,7 @@ export function App() {
       <div className={styles.shell}>
         <AppToolbar
           provider={state.provider}
+          selectedModel={state.selectedModel}
           mode={state.mode}
           availableProviders={state.availableProviders}
           providerDetection={state.providerDetection}
@@ -81,6 +95,7 @@ export function App() {
           showHistory={state.showHistory}
           conversationCount={state.conversations.length}
           onProviderChange={v => dispatch({ type: 'setProvider', value: v })}
+          onModelChange={v => dispatch({ type: 'setModel', value: v })}
           onModeChange={v => dispatch({ type: 'setMode', value: v })}
           onNewConversation={() => dispatch({ type: 'newConversation' })}
           onToggleHistory={() => dispatch({ type: 'toggleHistory' })}

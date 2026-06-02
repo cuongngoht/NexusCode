@@ -1,5 +1,5 @@
 import { BaseCliProvider } from '../base/CliProvider';
-import { CliCommand, ProviderCapabilities } from '../../core/types';
+import { CliCommand, CliRunOptions, ProviderCapabilities } from '../../core/types';
 
 export class GeminiAdapter extends BaseCliProvider {
   readonly id = 'gemini' as const;
@@ -12,7 +12,10 @@ export class GeminiAdapter extends BaseCliProvider {
   protected readonly versionCommand = 'gemini';
   protected readonly versionArgs = ['--version'];
 
-  buildCommand(enhancedPrompt: string): CliCommand {
-    return { command: 'gemini', args: [enhancedPrompt] };
+  buildCommand(enhancedPrompt: string, options?: CliRunOptions): CliCommand {
+    const args = options?.model
+      ? ['--model', options.model, '--prompt', enhancedPrompt]
+      : ['--prompt', enhancedPrompt];
+    return { command: 'gemini', args };
   }
 }

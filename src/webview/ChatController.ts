@@ -37,7 +37,7 @@ export class ChatController {
         await this.sendAvailableProviders();
         break;
       case 'runTask':
-        await this.handleRunTask(msg.prompt, msg.provider, msg.mode);
+        await this.handleRunTask(msg.prompt, msg.provider, msg.mode, msg.model);
         break;
       case 'stopTask':
         this.handleStopTask();
@@ -52,6 +52,7 @@ export class ChatController {
     prompt: string,
     providerId: ProviderId,
     mode: TaskMode,
+    model?: string,
   ): Promise<void> {
     if (!prompt.trim()) {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
@@ -102,12 +103,19 @@ export class ChatController {
       enhancedPrompt = buildEnhancedPrompt(prompt, { workspace, packages, rules, mode });
     }
 
-    const task = this.taskManager.createTask(prompt, enhancedPrompt, provider.id, mode);
+    const selectedModel = model?.trim() || undefined;
+    const task = this.taskManager.createTask(prompt, enhancedPrompt, provider.id, mode, selectedModel);
 
-    this.post({ type: 'taskStarted', taskId: task.id, provider: provider.displayName, mode });
+    this.post({
+      type: 'taskStarted',
+      taskId: task.id,
+      provider: provider.displayName,
+      mode,
+      model: selectedModel,
+    });
 
     try {
-      const command = provider.buildCommand(enhancedPrompt);
+      const command = provider.buildCommand(enhancedPrompt, { model: selectedModel });
       this.processRunner.run(task.id, command, workspaceRoot);
     } catch (err: unknown) {
       this.taskManager.errorTask(task.id, err instanceof Error ? err.message : String(err));

@@ -31,7 +31,7 @@ const useStyles = makeStyles({
     '& textarea:focus': {
       outline: '1px solid var(--vscode-focusBorder)',
       outlineOffset: '0',
-      borderColor: 'var(--vscode-focusBorder)',
+      border: '1px solid var(--vscode-focusBorder)',
     },
     '& textarea::placeholder': {
       color: 'var(--vscode-input-placeholderForeground)',
