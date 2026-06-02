@@ -1,0 +1,66 @@
+{
+  "name": "nexus-visual-code",
+  "displayName": "Nexus Visual Code",
+  "description": "A chat cockpit that routes prompts to installed CLI coding agents",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "nexus.openChat",
+        "title": "Nexus: Open Chat"
+      }
+    ],
+    "configuration": {
+      "title": "Nexus Visual Code",
+      "properties": {
+        "nexus.defaultProvider": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "codex", "claude", "gemini", "copilot", "aider", "custom"],
+          "description": "The default CLI provider to use when routing tasks."
+        },
+        "nexus.customProvider.command": {
+          "type": "string",
+          "default": "",
+          "description": "Executable for the custom provider. Use {{prompt}} as a placeholder."
+        },
+        "nexus.customProvider.args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Arguments for the custom provider. Use {{prompt}} in any element as a placeholder."
+        },
+        "nexus.enablePromptEnhancement": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prepend workspace context to prompts before sending to the provider."
+        },
+        "nexus.showRawOutput": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show unfiltered stdout/stderr alongside parsed output."
+        },
+        "nexus.runGitStatusAfterTask": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run git status after each task completes and show changed files."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
