@@ -1,32 +1,35 @@
 import * as vscode from 'vscode';
-import { ProviderRegistry } from './core/providerRegistry';
-import { TaskManager } from './core/taskManager';
+import { EventBus } from './core/eventBus';
+import { AgentRegistry } from './application/AgentRegistry';
+import { AgentRouter } from './application/AgentRouter';
+import { RunAgentUseCase } from './application/usecases/RunAgentUseCase';
 import { ProcessRunner } from './runner/processRunner';
+import { ClaudeAgent } from './providers/claude/ClaudeAgent';
+import { CodexAgent } from './providers/codex/CodexAgent';
+import { GeminiAgent } from './providers/gemini/GeminiAgent';
+import { CopilotAgent } from './providers/copilot/CopilotAgent';
+import { AiderAgent } from './providers/aider/AiderAgent';
+import { CustomAgent } from './providers/custom/CustomAgent';
 import { ChatViewProvider } from './webview/ChatViewProvider';
-import { CodexAdapter } from './providers/codex/CodexAdapter';
-import { ClaudeAdapter } from './providers/claude/ClaudeAdapter';
-import { GeminiAdapter } from './providers/gemini/GeminiAdapter';
-import { CopilotAdapter } from './providers/copilot/CopilotAdapter';
-import { AiderAdapter } from './providers/aider/AiderAdapter';
-import { CustomAdapter } from './providers/custom/CustomAdapter';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const registry = new ProviderRegistry();
-  registry.register(new ClaudeAdapter());
-  registry.register(new CodexAdapter());
-  registry.register(new GeminiAdapter());
-  registry.register(new CopilotAdapter());
-  registry.register(new AiderAdapter());
-  registry.register(new CustomAdapter());
+  const registry = new AgentRegistry();
+  registry.register(new ClaudeAgent());
+  registry.register(new CodexAgent());
+  registry.register(new GeminiAgent());
+  registry.register(new CopilotAgent());
+  registry.register(new AiderAgent());
+  registry.register(new CustomAgent());
 
-  const taskManager = new TaskManager();
-  const processRunner = new ProcessRunner();
+  const eventBus = new EventBus();
+  const runner = new ProcessRunner();
+  const router = new AgentRouter(registry);
+  const runAgent = new RunAgentUseCase(router, runner, eventBus);
 
   const provider = new ChatViewProvider(
     context.extensionUri,
-    registry,
-    taskManager,
-    processRunner,
+    runAgent,
+    eventBus,
   );
 
   context.subscriptions.push(
@@ -37,11 +40,11 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  const openChatCommand = vscode.commands.registerCommand('nexus.openChat', () => {
-    vscode.commands.executeCommand('workbench.view.extension.nexus');
-  });
-
-  context.subscriptions.push(openChatCommand);
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nexus.openChat', () => {
+      vscode.commands.executeCommand('workbench.view.extension.nexus');
+    }),
+  );
 }
 
-export function deactivate(): void {}
+export function deactivate(): void { }

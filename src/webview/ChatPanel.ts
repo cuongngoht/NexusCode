@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import { getHtml } from './getHtml';
-import { WebviewMessage } from './webviewProtocol';
-import { ProviderRegistry } from '../core/providerRegistry';
-import { TaskManager } from '../core/taskManager';
-import { ProcessRunner } from '../runner/processRunner';
+import type { WebviewMessage } from './webviewProtocol';
+import type { IEventBus } from '../core/events/IEventBus';
+import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { ChatController } from './ChatController';
 
 export class ChatPanel {
@@ -16,9 +15,8 @@ export class ChatPanel {
 
   static createOrShow(
     extensionUri: vscode.Uri,
-    registry: ProviderRegistry,
-    taskManager: TaskManager,
-    processRunner: ProcessRunner,
+    runAgent: RunAgentUseCase,
+    eventBus: IEventBus,
   ): ChatPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -43,23 +41,21 @@ export class ChatPanel {
       },
     );
 
-    ChatPanel.instance = new ChatPanel(panel, extensionUri, registry, taskManager, processRunner);
+    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus);
     return ChatPanel.instance;
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    registry: ProviderRegistry,
-    taskManager: TaskManager,
-    processRunner: ProcessRunner,
+    runAgent: RunAgentUseCase,
+    eventBus: IEventBus,
   ) {
     this.panel = panel;
     this.controller = new ChatController(
-      registry,
-      taskManager,
-      processRunner,
-      (msg) => { this.panel.webview.postMessage(msg).then(undefined, () => {}); },
+      runAgent,
+      eventBus,
+      (msg) => { this.panel.webview.postMessage(msg).then(undefined, () => { }); },
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);
@@ -77,9 +73,7 @@ export class ChatPanel {
     ChatPanel.instance = undefined;
     this.controller.dispose();
     this.panel.dispose();
-    for (const d of this.disposables) {
-      d.dispose();
-    }
+    for (const d of this.disposables) d.dispose();
     this.disposables.length = 0;
   }
 }

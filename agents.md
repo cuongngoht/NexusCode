@@ -871,25 +871,40 @@ Process exits
 
 ## Adding a New Agent
 
-Follow these 4 steps. Nothing else changes.
+Follow these 6 steps. Nothing else changes.
 
-**Step 1** — Create the agent file:
+**Step 1** — Add id to `AgentId` in `src/core/agent/AgentTask.ts`:
+
+```typescript
+export type AgentId = 'claude' | 'codex' | ... | 'mycli' | 'auto'
+```
+
+**Step 2** — Create the agent file:
 
 ```typescript
 // src/providers/myCli/MyCliAgent.ts
 
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
+import { BaseAgent }       from '../base/BaseAgent'
+import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent'
+import type { AgentOutput } from '../../core/agent'
+import type { ProviderModel } from '../../core/types'
 
 export class MyCliAgent extends BaseAgent {
   readonly id           = 'mycli' as const
   readonly displayName  = 'My CLI'
   readonly capabilities = new AgentCapabilities(true, false, false, true)
+  readonly seededModels: ReadonlyArray<ProviderModel> = [
+    { id: 'model-a', label: 'Model A', source: 'seeded' },
+  ]
+  readonly defaultModel = 'model-a'
 
-  protected get executableName() { return 'mycli' }
+  protected readonly executableName = 'mycli'
 
   buildCommand(task: AgentTask): AgentCommand {
-    return new AgentCommand('mycli', ['run', task.enhancedPrompt])
+    const args = task.model
+      ? ['--model', task.model, task.enhancedPrompt]
+      : [task.enhancedPrompt]
+    return new AgentCommand('mycli', args)
   }
 
   parseOutput(raw: string): AgentOutput {
@@ -897,8 +912,6 @@ export class MyCliAgent extends BaseAgent {
   }
 }
 ```
-
-**Step 2** — Add `'mycli'` to the `AgentId` union in `src/core/agent/AgentTask.ts`.
 
 **Step 3** — Register in `src/extension.ts`:
 
@@ -908,7 +921,11 @@ import { MyCliAgent } from './providers/myCli/MyCliAgent'
 registry.register(new MyCliAgent())
 ```
 
-**Step 4** — Add capability flags in `AgentRouter.ts` if this agent introduces a new task mode.
+**Step 4** — Add id to `ProviderId` in `src/webview-ui/messages.ts` (mirrors `AgentId`).
+
+**Step 5** — Add id to the `all` array in `getProviderOptions()` inside `src/webview-ui/components/AppToolbar.tsx`.
+
+**Step 6** — Add a `ProviderSpec` entry in `src/core/providerDetector.ts` (`SPECS` array) for version detection and model listing in the UI.
 
 ---
 
@@ -991,3 +1008,35 @@ src/
 6. **One use case = one public method.** `RunAgentUseCase.execute()`, `DetectAgentsUseCase.execute()`.
 7. **No agent knows about another agent.** Routing is the router's job, not the agent's.
 8. **`BaseAgent.isAvailable()` never throws.** Returns `false` on any error so the router safely tries the next candidate.
+
+---
+
+## Build Commands
+
+```bash
+npm run compile              # TypeScript + Vite (full build)
+npm run compile:extension    # TypeScript only
+npm run compile:webview      # Vite only
+npm run watch                # TypeScript watch
+npm run watch:webview        # Vite watch
+npm run test:webview         # Vitest
+
+npx @vscode/vsce package --no-dependencies   # produce .vsix
+code --install-extension nexus-visual-code-<version>.vsix
+```
+
+Always run `npm run compile` and confirm zero errors before packaging.
+
+---
+
+## Key Conventions
+
+- `AgentId` (`src/core/agent/AgentTask.ts`) and `ProviderId` (`src/core/types.ts` + `src/webview-ui/messages.ts`) must have identical values — keep them in sync
+- `BaseAgent.isAvailable()` uses cross-platform `which`/`where` via `spawnSync` — never throws, returns `false` on error
+- `ProcessRunner` accepts callbacks (`onStdout`, `onStderr`) and returns `AgentResult` — never imports the event bus directly
+- `RunAgentUseCase` owns all task lifecycle events: `task_started → stdout/stderr → task_completed/task_stopped/task_error`
+- `CommandGuard.validate()` runs before every spawn — rejects shell metacharacters `; & | $ < > \ !`
+- Domain layer (`src/core/agent/`) has zero external dependencies — no Node.js I/O, no VS Code API
+- `extension.ts` is the only composition root — all `new ConcreteClass()` calls happen there
+- The webview build output goes to `media/webview/` — this directory is committed and packaged in the .vsix
+- VS Code settings namespace: `nexus.*`

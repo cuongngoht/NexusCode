@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import { getHtml } from './getHtml';
-import { WebviewMessage } from './webviewProtocol';
-import { ProviderRegistry } from '../core/providerRegistry';
-import { TaskManager } from '../core/taskManager';
-import { ProcessRunner } from '../runner/processRunner';
+import type { WebviewMessage } from './webviewProtocol';
+import type { IEventBus } from '../core/events/IEventBus';
+import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { ChatController } from './ChatController';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -13,10 +12,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly registry: ProviderRegistry,
-    private readonly taskManager: TaskManager,
-    private readonly processRunner: ProcessRunner,
-  ) {}
+    private readonly runAgent: RunAgentUseCase,
+    private readonly eventBus: IEventBus,
+  ) { }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -34,10 +32,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = getHtml(webviewView.webview, this.extensionUri);
 
     this.controller = new ChatController(
-      this.registry,
-      this.taskManager,
-      this.processRunner,
-      (msg) => { webviewView.webview.postMessage(msg).then(undefined, () => {}); },
+      this.runAgent,
+      this.eventBus,
+      (msg) => { webviewView.webview.postMessage(msg).then(undefined, () => { }); },
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {

@@ -1,78 +1,66 @@
 import { spawn, ChildProcess } from 'child_process';
-import { CliCommand } from '../core/types';
-import { globalBus } from '../core/eventBus';
+import { AgentCommand, AgentResult } from '../core/agent';
+import type { IProcessRunner, RunOptions } from '../core/runner/IProcessRunner';
 import { CommandGuard } from './commandGuard';
 
-export class ProcessRunner {
+export class ProcessRunner implements IProcessRunner {
   private activeProcess: ChildProcess | null = null;
-  private activeTaskId: string | null = null;
 
-  run(taskId: string, command: CliCommand, cwd: string): void {
+  async run(command: AgentCommand, options: RunOptions = {}): Promise<AgentResult> {
     if (this.activeProcess) {
       throw new Error('A task is already running. Stop it before starting a new one.');
     }
 
-    CommandGuard.validate(command.command);
+    CommandGuard.validate(command.executable);
 
-    const child = spawn(command.command, command.args, {
-      cwd,
-      shell: false,
-      env: process.env,
-    });
+    const startedAt = Date.now();
+    let stdout = '';
+    let stderr = '';
 
-    this.activeProcess = child;
-    this.activeTaskId = taskId;
+    return new Promise((resolve, reject) => {
+      const child = spawn(command.executable, [...command.args], {
+        cwd: options.cwd,
+        shell: false,
+        env: { ...process.env, ...(command.env ?? {}) },
+      });
 
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
+      this.activeProcess = child;
 
-    child.stdout.on('data', (chunk: string) => {
-      globalBus.emit({ kind: 'stdout', taskId, payload: chunk });
-    });
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
 
-    child.stderr.on('data', (chunk: string) => {
-      globalBus.emit({ kind: 'stderr', taskId, payload: chunk });
-    });
+      child.stdout.on('data', (chunk: string) => {
+        stdout += chunk;
+        options.onStdout?.(chunk);
+      });
 
-    child.on('error', (err: Error) => {
-      this.cleanup();
-      globalBus.emit({ kind: 'task_error', taskId, payload: { message: err.message } });
-    });
+      child.stderr.on('data', (chunk: string) => {
+        stderr += chunk;
+        options.onStderr?.(chunk);
+      });
 
-    child.on('close', (code: number | null) => {
-      const wasActive = this.activeTaskId === taskId;
-      this.cleanup();
-      if (wasActive) {
-        globalBus.emit({
-          kind: 'task_completed',
-          taskId,
-          payload: { exitCode: code ?? -1 },
-        });
-      }
+      child.on('error', (err: Error) => {
+        this.activeProcess = null;
+        reject(err);
+      });
+
+      child.on('close', (code: number | null) => {
+        this.activeProcess = null;
+        resolve(new AgentResult(code ?? -1, stdout, stderr, Date.now() - startedAt));
+      });
     });
   }
 
-  stop(taskId: string): boolean {
-    if (!this.activeProcess || this.activeTaskId !== taskId) {
-      return false;
-    }
-    this.activeProcess.kill('SIGTERM');
-    setTimeout(() => {
-      if (this.activeProcess && this.activeTaskId === taskId) {
-        this.activeProcess.kill('SIGKILL');
-      }
-    }, 3000);
-    this.cleanup();
-    globalBus.emit({ kind: 'task_stopped', taskId });
-    return true;
+  async stop(): Promise<void> {
+    if (!this.activeProcess) return;
+    const proc = this.activeProcess;
+    this.activeProcess = null;
+    proc.kill('SIGTERM');
+    await new Promise<void>(resolve => setTimeout(resolve, 3000));
+    if (!proc.killed) proc.kill('SIGKILL');
   }
 
   isRunning(): boolean {
     return this.activeProcess !== null;
-  }
-
-  private cleanup(): void {
-    this.activeProcess = null;
-    this.activeTaskId = null;
   }
 }

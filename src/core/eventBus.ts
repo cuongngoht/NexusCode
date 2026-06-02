@@ -1,8 +1,8 @@
-import { NexusEvent, NexusEventKind } from './types';
+import type { IEventBus, NexusEvent, NexusEventKind } from './events/IEventBus';
 
 type Listener = (event: NexusEvent) => void;
 
-export class EventBus {
+export class EventBus implements IEventBus {
   private readonly listeners = new Map<NexusEventKind | '*', Set<Listener>>();
 
   on(kind: NexusEventKind | '*', listener: Listener): void {

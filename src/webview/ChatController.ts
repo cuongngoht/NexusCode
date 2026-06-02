@@ -1,12 +1,10 @@
 import * as vscode from 'vscode';
-import { ExtensionMessage, WebviewMessage } from './webviewProtocol';
-import { ProviderRegistry } from '../core/providerRegistry';
-import { ProviderRouter } from '../core/providerRouter';
+import type { ExtensionMessage, WebviewMessage } from './webviewProtocol';
+import type { IEventBus, NexusEvent } from '../core/events/IEventBus';
+import type { ProviderId, TaskMode } from '../core/types';
+import { AgentTask } from '../core/agent';
+import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { ProviderDetector } from '../core/providerDetector';
-import { TaskManager } from '../core/taskManager';
-import { ProcessRunner } from '../runner/processRunner';
-import { globalBus } from '../core/eventBus';
-import { NexusEvent, CliProvider, ProviderId, TaskMode } from '../core/types';
 import { buildEnhancedPrompt } from '../context/promptBuilder';
 import { scanWorkspace } from '../context/workspaceScanner';
 import { detectPackageInfo } from '../context/packageDetector';
@@ -14,21 +12,18 @@ import { loadRules } from '../context/rulesLoader';
 import { getGitStatus } from '../git/gitStatus';
 
 export class ChatController {
-  private readonly router: ProviderRouter;
   private readonly detector: ProviderDetector;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
-    readonly registry: ProviderRegistry,
-    private readonly taskManager: TaskManager,
-    private readonly processRunner: ProcessRunner,
+    private readonly runAgent: RunAgentUseCase,
+    private readonly eventBus: IEventBus,
     private readonly post: (msg: ExtensionMessage) => void,
   ) {
-    this.router = new ProviderRouter(registry);
     this.detector = new ProviderDetector();
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
-    globalBus.on('*', busListener);
-    this.disposables.push({ dispose: () => globalBus.off('*', busListener) });
+    this.eventBus.on('*', busListener);
+    this.disposables.push({ dispose: () => this.eventBus.off('*', busListener) });
   }
 
   async handleMessage(msg: WebviewMessage): Promise<void> {
@@ -40,7 +35,7 @@ export class ChatController {
         await this.handleRunTask(msg.prompt, msg.provider, msg.mode, msg.model);
         break;
       case 'stopTask':
-        this.handleStopTask();
+        await this.handleStopTask();
         break;
       case 'openSourceControl':
         await vscode.commands.executeCommand('workbench.view.scm');
@@ -69,7 +64,7 @@ export class ChatController {
       return;
     }
 
-    if (this.taskManager.hasActiveTask()) {
+    if (this.runAgent.hasActiveTask()) {
       this.post({
         type: 'taskError',
         taskId: 'pre-task',
@@ -79,19 +74,6 @@ export class ChatController {
     }
 
     const workspaceRoot = workspaceFolders[0].uri.fsPath;
-
-    let provider: CliProvider;
-    try {
-      provider = await this.router.resolve(providerId, mode);
-    } catch (err: unknown) {
-      this.post({
-        type: 'taskError',
-        taskId: 'pre-task',
-        message: err instanceof Error ? err.message : String(err),
-      });
-      return;
-    }
-
     const cfg = vscode.workspace.getConfiguration('nexus');
     const enhanceEnabled = cfg.get<boolean>('enablePromptEnhancement', true);
 
@@ -103,71 +85,73 @@ export class ChatController {
       enhancedPrompt = buildEnhancedPrompt(prompt, { workspace, packages, rules, mode });
     }
 
-    const selectedModel = model?.trim() || undefined;
-    const task = this.taskManager.createTask(prompt, enhancedPrompt, provider.id, mode, selectedModel);
-
-    this.post({
-      type: 'taskStarted',
-      taskId: task.id,
-      provider: provider.displayName,
+    const task = new AgentTask(
+      prompt,
+      enhancedPrompt,
+      providerId,
       mode,
-      model: selectedModel,
-    });
-
-    try {
-      const command = provider.buildCommand(enhancedPrompt, { model: selectedModel });
-      this.processRunner.run(task.id, command, workspaceRoot);
-    } catch (err: unknown) {
-      this.taskManager.errorTask(task.id, err instanceof Error ? err.message : String(err));
-    }
+      model?.trim() || undefined,
+      workspaceRoot,
+    );
 
     const runGitStatus = cfg.get<boolean>('runGitStatusAfterTask', true);
     if (runGitStatus) {
-      const completionListener = (event: NexusEvent) => {
+      const gitListener = (event: NexusEvent) => {
         if (
           (event.kind === 'task_completed' || event.kind === 'task_stopped') &&
-          event.taskId === task.id
+          event.task.id === task.id
         ) {
-          globalBus.off('task_completed', completionListener);
-          globalBus.off('task_stopped', completionListener);
+          this.eventBus.off('task_completed', gitListener);
+          this.eventBus.off('task_stopped', gitListener);
           const status = getGitStatus(workspaceRoot);
           this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
         }
       };
-      globalBus.on('task_completed', completionListener);
-      globalBus.on('task_stopped', completionListener);
+      this.eventBus.on('task_completed', gitListener);
+      this.eventBus.on('task_stopped', gitListener);
+    }
+
+    try {
+      await this.runAgent.execute(task);
+    } catch {
+      // errors are emitted via eventBus → forwardEvent handles them
     }
   }
 
-  private handleStopTask(): void {
-    const active = this.taskManager.getActiveTask();
-    if (active) {
-      this.processRunner.stop(active.id);
-      this.taskManager.stopTask(active.id);
-    }
+  private async handleStopTask(): Promise<void> {
+    await this.runAgent.stop();
   }
 
   private forwardEvent(event: NexusEvent): void {
     switch (event.kind) {
+      case 'task_started':
+        this.post({
+          type: 'taskStarted',
+          taskId: event.task.id,
+          provider: event.task.agentId,
+          mode: event.task.mode,
+          model: event.task.model,
+        });
+        break;
       case 'stdout':
-        this.post({ type: 'stdout', chunk: String(event.payload ?? '') });
+        this.post({ type: 'stdout', chunk: event.chunk });
         break;
       case 'stderr':
-        this.post({ type: 'stderr', chunk: String(event.payload ?? '') });
+        this.post({ type: 'stderr', chunk: event.chunk });
         break;
-      case 'task_completed': {
-        const p = event.payload as { exitCode: number } | undefined;
-        this.post({ type: 'taskCompleted', taskId: event.taskId, exitCode: p?.exitCode ?? 0 });
+      case 'task_completed':
+        this.post({
+          type: 'taskCompleted',
+          taskId: event.task.id,
+          exitCode: event.result.exitCode,
+        });
         break;
-      }
       case 'task_stopped':
-        this.post({ type: 'taskStopped', taskId: event.taskId });
+        this.post({ type: 'taskStopped', taskId: event.task.id });
         break;
-      case 'task_error': {
-        const p = event.payload as { message: string } | undefined;
-        this.post({ type: 'taskError', taskId: event.taskId, message: p?.message ?? 'Unknown error' });
+      case 'task_error':
+        this.post({ type: 'taskError', taskId: event.task.id, message: event.error });
         break;
-      }
     }
   }
 
@@ -178,9 +162,7 @@ export class ChatController {
   }
 
   dispose(): void {
-    for (const d of this.disposables) {
-      d.dispose();
-    }
+    for (const d of this.disposables) d.dispose();
     this.disposables.length = 0;
   }
 }

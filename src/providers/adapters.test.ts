@@ -1,50 +1,49 @@
 import { describe, expect, it } from 'vitest';
-import { AiderAdapter } from './aider/AiderAdapter';
-import { ClaudeAdapter } from './claude/ClaudeAdapter';
-import { CodexAdapter } from './codex/CodexAdapter';
-import { CopilotAdapter } from './copilot/CopilotAdapter';
-import { GeminiAdapter } from './gemini/GeminiAdapter';
+import { AiderAgent } from './aider/AiderAgent';
+import { ClaudeAgent } from './claude/ClaudeAgent';
+import { CodexAgent } from './codex/CodexAgent';
+import { CopilotAgent } from './copilot/CopilotAgent';
+import { GeminiAgent } from './gemini/GeminiAgent';
+import { AgentTask } from '../core/agent';
 
-describe('provider adapters', () => {
-  it('passes selected models to Claude', () => {
-    expect(new ClaudeAdapter().buildCommand('fix it', { model: 'sonnet' })).toEqual({
-      command: 'claude',
-      args: ['--model', 'sonnet', 'fix it'],
-    });
+function makeTask(prompt: string, model?: string): AgentTask {
+  return new AgentTask(prompt, prompt, 'claude', 'ask', model);
+}
+
+describe('provider agents', () => {
+  it('passes selected model to Claude', () => {
+    const cmd = new ClaudeAgent().buildCommand(makeTask('fix it', 'sonnet'));
+    expect(cmd.executable).toBe('claude');
+    expect(cmd.args).toEqual(['--model', 'sonnet', 'fix it']);
   });
 
-  it('passes selected models to Codex', () => {
-    expect(new CodexAdapter().buildCommand('fix it', { model: 'gpt-5.2' })).toEqual({
-      command: 'codex',
-      args: ['--model', 'gpt-5.2', 'fix it'],
-    });
+  it('passes selected model to Codex', () => {
+    const cmd = new CodexAgent().buildCommand(makeTask('fix it', 'gpt-5.2'));
+    expect(cmd.executable).toBe('codex');
+    expect(cmd.args).toEqual(['--model', 'gpt-5.2', 'fix it']);
   });
 
   it('uses non-interactive prompt args for Gemini', () => {
-    expect(new GeminiAdapter().buildCommand('fix it', { model: 'gemini-2.5-pro' })).toEqual({
-      command: 'gemini',
-      args: ['--model', 'gemini-2.5-pro', '--prompt', 'fix it'],
-    });
+    const cmd = new GeminiAgent().buildCommand(makeTask('fix it', 'gemini-2.5-pro'));
+    expect(cmd.executable).toBe('gemini');
+    expect(cmd.args).toEqual(['--model', 'gemini-2.5-pro', '--prompt', 'fix it']);
   });
 
   it('uses non-interactive prompt args for Copilot', () => {
-    expect(new CopilotAdapter().buildCommand('fix it', { model: 'gpt-5.2' })).toEqual({
-      command: 'copilot',
-      args: ['--model', 'gpt-5.2', '--prompt', 'fix it'],
-    });
+    const cmd = new CopilotAgent().buildCommand(makeTask('fix it', 'gpt-5.2'));
+    expect(cmd.executable).toBe('copilot');
+    expect(cmd.args).toEqual(['--model', 'gpt-5.2', '--prompt', 'fix it']);
   });
 
-  it('passes selected models to Aider', () => {
-    expect(new AiderAdapter().buildCommand('fix it', { model: 'sonnet' })).toEqual({
-      command: 'aider',
-      args: ['--model', 'sonnet', '--message', 'fix it'],
-    });
+  it('passes selected model to Aider', () => {
+    const cmd = new AiderAgent().buildCommand(makeTask('fix it', 'sonnet'));
+    expect(cmd.executable).toBe('aider');
+    expect(cmd.args).toEqual(['--model', 'sonnet', '--message', 'fix it']);
   });
 
-  it('keeps default model behavior when no model is selected', () => {
-    expect(new ClaudeAdapter().buildCommand('fix it')).toEqual({
-      command: 'claude',
-      args: ['fix it'],
-    });
+  it('omits --model when no model is selected', () => {
+    const cmd = new ClaudeAgent().buildCommand(makeTask('fix it'));
+    expect(cmd.executable).toBe('claude');
+    expect(cmd.args).toEqual(['fix it']);
   });
 });
