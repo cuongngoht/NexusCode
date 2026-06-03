@@ -101,7 +101,9 @@
     "openScm": "Open Source Control"
   },
   "dropdown": {
-    "select": "Select…"
+    "select": "Select…",
+    "search": "Search…",
+    "noResults": "No results"
   },
   "pipeline": {
     "steps": {

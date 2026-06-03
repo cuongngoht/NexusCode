@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconChevron, IconCheck } from './NexusIcons';
+import { IconCheck } from './NexusIcons';
 import { useT } from './i18n';
 
 export interface DropdownOption {
@@ -17,23 +17,31 @@ interface Props {
   onChange: (value: string) => void;
   disabled?: boolean;
   style?: React.CSSProperties;
+  direction?: 'up' | 'down';
+  searchable?: boolean;
 }
 
-export function NexusDropdown({ value, options, placeholder, onChange, disabled, style }: Props) {
+export function NexusDropdown({ value, options, placeholder, onChange, disabled, style, direction = 'down', searchable }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setQuery(''); return; }
+    if (searchable) setTimeout(() => searchRef.current?.focus(), 0);
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, searchable]);
 
   const selected = options.find(o => o.value === value);
+  const filtered = searchable && query
+    ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
 
   return (
     <div className="fl-dd" ref={ref} style={style}>
@@ -45,18 +53,30 @@ export function NexusDropdown({ value, options, placeholder, onChange, disabled,
         onClick={() => !disabled && setOpen(o => !o)}
       >
         <span className="fl-dd-value">
-          {selected?.icon && <selected.icon size={14} />}
+          {selected?.icon && <selected.icon size={13} />}
           <span className={`dd-label${selected ? '' : ' fl-dd-ph'}`}>
             {selected ? selected.label : (placeholder ?? t.dropdown.select)}
           </span>
           {selected?.badge && <span className="fl-dd-badge">{selected.badge}</span>}
         </span>
-        <IconChevron size={14} className="fl-dd-chevron" />
       </button>
 
       {open && (
-        <div className="fl-dd-menu fl-scroll">
-          {options.map(opt => (
+        <div className={`fl-dd-menu fl-scroll${direction === 'up' ? ' fl-dd-menu--up' : ''}`}>
+          {searchable && (
+            <div className="fl-dd-search">
+              <input
+                ref={searchRef}
+                type="text"
+                className="fl-dd-search-input"
+                placeholder={t.dropdown.search}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => e.stopPropagation()}
+              />
+            </div>
+          )}
+          {filtered.map(opt => (
             <button
               key={opt.value}
               type="button"
@@ -64,16 +84,19 @@ export function NexusDropdown({ value, options, placeholder, onChange, disabled,
               data-sel={opt.value === value ? '1' : undefined}
               onClick={() => { onChange(opt.value); setOpen(false); }}
             >
-              {opt.icon ? <opt.icon size={15} /> : <span style={{ width: 15 }} />}
+              <span className="fl-dd-opt-check-slot">
+                {opt.value === value && <IconCheck size={13} className="fl-dd-opt-check" />}
+              </span>
               <span className="fl-dd-opt-main">
                 <span className="fl-dd-opt-label">{opt.label}</span>
                 {opt.desc && <span className="fl-dd-opt-desc">{opt.desc}</span>}
               </span>
-              {opt.value === value
-                ? <IconCheck size={14} className="fl-dd-opt-check" />
-                : opt.badge ? <span className="fl-dd-badge">{opt.badge}</span> : null}
+              {opt.badge && opt.value !== value && <span className="fl-dd-badge">{opt.badge}</span>}
             </button>
           ))}
+          {filtered.length === 0 && (
+            <div className="fl-dd-empty">{t.dropdown.noResults}</div>
+          )}
         </div>
       )}
     </div>

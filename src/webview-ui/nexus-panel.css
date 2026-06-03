@@ -5,6 +5,23 @@
    preserves brand/accent tokens from the design.
    ============================================================ */
 
+/* ---- Base reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* FluentProvider renders an intermediate div — give it full height */
+#root > div {
+  height: 100%;
+}
+
 /* ---- Design tokens ---- */
 :root {
   --colorNeutralBackground1: var(--vscode-sideBar-background, #141414);
@@ -91,6 +108,18 @@
   }
 }
 
+@keyframes nx-fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes nx-pulse {
 
   0%,
@@ -148,12 +177,20 @@
 .nx-panel {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   background: var(--colorNeutralBackground3);
   color: var(--colorNeutralForeground1);
   font-family: var(--fontFamilyBase);
   -webkit-font-smoothing: antialiased;
+}
+
+.nx-chat-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ---- Top bar ---- */
@@ -284,6 +321,12 @@
   border-bottom: 1px solid var(--colorNeutralStroke3);
 }
 
+.fl-selectors--bottom {
+  border-bottom: none;
+  border-top: none;
+  padding: 8px 0 0;
+}
+
 /* ============================================================
    CUSTOM DROPDOWN
    ============================================================ */
@@ -294,7 +337,7 @@
 .fl-dd-trigger {
   width: 100%;
   height: 34px;
-  padding: 0 8px 0 10px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -372,23 +415,61 @@
   border-radius: var(--borderRadiusLarge);
   box-shadow: var(--shadow28);
   padding: 4px;
-  max-height: 300px;
+  max-height: 260px;
   overflow-y: auto;
   animation: nx-fade-up var(--durationFast) var(--curveDecelerate);
+  min-width: 180px;
+}
+
+.fl-dd-menu--up {
+  top: auto;
+  bottom: calc(100% + 5px);
+  animation-name: nx-fade-down;
+}
+
+.fl-dd-search {
+  padding: 4px 4px 2px;
+}
+
+.fl-dd-search-input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+  color: var(--colorNeutralForeground1);
+  font-family: var(--fontFamilyBase);
+  font-size: 13px;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.fl-dd-search-input::placeholder {
+  color: var(--colorNeutralForeground4);
+}
+
+.fl-dd-search-input:focus {
+  border-color: var(--colorBrandStroke1);
+}
+
+.fl-dd-empty {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: var(--colorNeutralForeground4);
+  text-align: center;
 }
 
 .fl-dd-opt {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
   text-align: left;
-  padding: 7px 8px;
+  padding: 7px 10px;
   border: none;
   background: none;
   cursor: pointer;
   border-radius: var(--borderRadiusMedium);
-  color: var(--colorNeutralForeground2);
+  color: var(--colorNeutralForeground1);
   font-family: var(--fontFamilyBase);
 }
 
@@ -405,6 +486,14 @@
   flex-shrink: 0;
 }
 
+.fl-dd-opt-check-slot {
+  width: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--colorBrandForeground1);
+}
+
 .fl-dd-opt-main {
   display: flex;
   flex-direction: column;
@@ -414,7 +503,7 @@
 }
 
 .fl-dd-opt-label {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--colorNeutralForeground1);
   text-align: left;
 }
@@ -804,20 +893,20 @@
   background: var(--colorNeutralBackground3);
 }
 
-.fl-input-wrap {
-  position: relative;
+.fl-cmp-box {
   background: var(--colorNeutralBackground1);
   border: 1px solid var(--colorNeutralStroke2);
-  border-radius: var(--borderRadiusLarge);
+  border-radius: 12px;
   transition: border-color var(--durationFast), box-shadow var(--durationFast);
+  overflow: hidden;
 }
 
-.fl-input-wrap:focus-within {
+.fl-cmp-box:focus-within {
   border-color: var(--colorBrandStroke1);
   box-shadow: 0 0 0 1px var(--colorBrandStroke1);
 }
 
-.fl-input {
+.fl-cmp-input {
   width: 100%;
   resize: none;
   border: none;
@@ -827,46 +916,119 @@
   font-family: var(--fontFamilyBase);
   font-size: 13.5px;
   line-height: 1.5;
-  padding: 10px 12px 6px;
+  padding: 12px 14px 4px;
   max-height: 160px;
-  min-height: 38px;
+  min-height: 36px;
   display: block;
 }
 
-.fl-input::placeholder {
+.fl-cmp-input::placeholder {
   color: var(--colorNeutralForeground4);
 }
 
-.fl-input-tools {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 6px 6px;
-}
-
-.fl-composer-foot {
+.fl-cmp-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  padding: 4px 6px 6px;
 }
 
-.fl-hint {
-  font-size: 11.5px;
-  color: var(--colorNeutralForeground4);
+.fl-cmp-bar-left {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
-.fl-hint kbd {
-  font-family: var(--fontFamilyBase);
-  font-size: 10.5px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid var(--colorNeutralStroke2);
-  border-radius: 3px;
-  padding: 1px 5px;
+.fl-cmp-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.fl-cmp-add {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
   color: var(--colorNeutralForeground3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.fl-cmp-add:hover {
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground1);
+}
+
+.fl-cmp-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--colorNeutralStroke2);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.fl-cmp-meta {
+  font-size: 11.5px;
+  color: var(--colorNeutralForeground4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fl-cmp-send-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--colorCompoundBrandBackground);
+  color: #fff;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background var(--durationFast);
+}
+
+.fl-cmp-send-btn:hover:not(:disabled) {
+  background: var(--colorCompoundBrandBackgroundHover);
+}
+
+.fl-cmp-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fl-cmp-stop-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+  padding: 0;
+  flex-shrink: 0;
+  transition: background var(--durationFast);
+}
+
+.fl-cmp-stop-btn:hover {
+  background: var(--colorNeutralBackground4);
 }
 
 /* Attachment chips */

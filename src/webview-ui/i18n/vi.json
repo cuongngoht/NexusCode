@@ -101,7 +101,9 @@
     "openScm": "Mở Source Control"
   },
   "dropdown": {
-    "select": "Chọn…"
+    "select": "Chọn…",
+    "search": "Tìm kiếm…",
+    "noResults": "Không có kết quả"
   },
   "pipeline": {
     "steps": {

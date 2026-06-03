@@ -3,6 +3,25 @@ import { AgentCommand, AgentResult } from '../core/agent';
 import type { IProcessRunner, RunOptions } from '../core/runner/IProcessRunner';
 import { CommandGuard } from './commandGuard';
 
+const STDERR_NOISE = [
+  /256-color support not detected/,
+  /MCP issues detected/,
+  /Run \/mcp list for status/,
+  /CJS build of Vite/,
+];
+
+function isNoiseLine(line: string): boolean {
+  return STDERR_NOISE.some(re => re.test(line));
+}
+
+function filterNoise(chunk: string): string {
+  return chunk
+    .split('\n')
+    .filter(l => !isNoiseLine(l))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
 export class ProcessRunner implements IProcessRunner {
   private activeProcess: ChildProcess | null = null;
 
@@ -21,7 +40,12 @@ export class ProcessRunner implements IProcessRunner {
       const child = spawn(command.executable, [...command.args], {
         cwd: options.cwd,
         shell: false,
-        env: { ...process.env, ...(command.env ?? {}) },
+        env: {
+          ...process.env,
+          ...(command.env ?? {}),
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor',
+        },
       });
 
       this.activeProcess = child;
@@ -36,7 +60,8 @@ export class ProcessRunner implements IProcessRunner {
 
       child.stderr.on('data', (chunk: string) => {
         stderr += chunk;
-        options.onStderr?.(chunk);
+        const filtered = filterNoise(chunk);
+        if (filtered.trim()) options.onStderr?.(filtered);
       });
 
       child.on('error', (err: Error) => {

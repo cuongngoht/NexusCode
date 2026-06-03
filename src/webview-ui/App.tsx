@@ -86,18 +86,10 @@ export function App() {
       <FluentProvider theme={getBaseTheme()}>
         <div className="nx-panel">
           <AppToolbar
-            provider={state.provider}
-            selectedModel={state.selectedModel}
-            mode={state.mode}
-            availableProviders={state.availableProviders}
-            providerDetection={state.providerDetection}
             isRunning={state.isRunning}
             showHistory={state.showHistory}
             conversationCount={state.conversations.length}
             locale={locale}
-            onProviderChange={v => dispatch({ type: 'setProvider', value: v })}
-            onModelChange={v => dispatch({ type: 'setModel', value: v })}
-            onModeChange={v => dispatch({ type: 'setMode', value: v })}
             onNewConversation={() => dispatch({ type: 'newConversation' })}
             onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
             onLocaleChange={setLocale}
@@ -113,12 +105,12 @@ export function App() {
             />
           )}
 
-          {state.isDetecting ? null : state.needsSetup ? (
+          {state.needsSetup && !state.isDetecting ? (
             <SetupBanner onOpenSettings={handleOpenSettings} />
           ) : (
-            <>
+            <div className="nx-chat-area">
               <MessageList
-                conversation={activeConv}
+                conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [] } : activeConv}
                 isRunning={state.isRunning}
                 onOpenScm={handleOpenScm}
                 onCloseGit={() => {
@@ -127,13 +119,21 @@ export function App() {
                 onSendSuggestion={handleRun}
               />
 
-              <Composer
-                isRunning={state.isRunning}
-                elapsed={state.elapsed}
-                onRun={handleRun}
-                onStop={handleStop}
-              />
-            </>
+              {!state.isDetecting && (
+                <Composer
+                  isRunning={state.isRunning}
+                  elapsed={state.elapsed}
+                  provider={state.provider}
+                  mode={state.mode}
+                  availableProviders={state.availableProviders}
+                  providerDetection={state.providerDetection}
+                  onRun={handleRun}
+                  onStop={handleStop}
+                  onProviderChange={v => dispatch({ type: 'setProvider', value: v })}
+                  onModeChange={v => dispatch({ type: 'setMode', value: v })}
+                />
+              )}
+            </div>
           )}
         </div>
       </FluentProvider>
