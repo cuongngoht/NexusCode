@@ -145,7 +145,7 @@ export class ChatController {
       conversationContext,
     };
 
-    const preSteps = createPreSteps(mode, { buildProjectMap: this.buildProjectMap });
+    const preSteps = createPreSteps(mode, { buildProjectMap: this.buildProjectMap, extensionPath: this.extensionPath });
     const totalSteps = preSteps.length + 1; // +1 for run-agent step
 
     this._pipelineActive = true;
@@ -187,7 +187,9 @@ export class ChatController {
           rules,
           mode,
           projectMap: ctx.projectMap,
+          sourceContext: ctx.sourceContext,
           conversationContext: ctx.conversationContext,
+          brainstormAgents: ctx.brainstormAgents,
         });
 
         if (mode === 'review') {

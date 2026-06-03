@@ -6,6 +6,7 @@ const CAPABILITY_BY_MODE: Record<TaskMode, Partial<AgentCapabilities>> = {
   research: { canSearchWeb: true },
   'scan-project': { canEditFiles: true },
   plan: {},
+  brainstorm: {},
   edit: { canEditFiles: true },
   debug: { canRunShell: true },
   test: { canRunShell: true },

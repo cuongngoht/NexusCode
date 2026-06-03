@@ -7,6 +7,7 @@ export type TaskMode =
   | 'research'
   | 'scan-project'
   | 'plan'
+  | 'brainstorm'
   | 'edit'
   | 'debug'
   | 'test'

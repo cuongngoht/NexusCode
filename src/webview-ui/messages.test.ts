@@ -215,6 +215,39 @@ describe('reducer — local actions', () => {
   });
 });
 
+describe('brainstorm mode', () => {
+  it('setMode: supports brainstorm mode', () => {
+    const state = act(s(), { type: 'setMode', value: 'brainstorm' });
+    expect(state.mode).toBe('brainstorm');
+  });
+
+  it('history serialization preserves brainstorm mode', () => {
+    let state = s();
+
+    state = act(state, {
+      type: 'sendUserMessage',
+      prompt: 'brainstorm feature ideas',
+      provider: 'auto',
+      mode: 'brainstorm',
+      timestamp: 1000,
+    });
+
+    const history = serializeHistory(state);
+    expect(history.conversations[0].messages[0].mode).toBe('brainstorm');
+
+    const restored = act(s(), {
+      type: 'extMsg',
+      msg: { type: 'historyLoaded', history },
+    });
+
+    const msg = restored.conversations[0].messages[0];
+    expect(msg.role).toBe('user');
+    if (msg.role === 'user') {
+      expect(msg.mode).toBe('brainstorm');
+    }
+  });
+});
+
 describe('history serialization roundtrip', () => {
   it('serializeHistory → historyLoaded restores conversations', () => {
     let state = s();

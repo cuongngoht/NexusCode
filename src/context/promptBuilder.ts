@@ -8,7 +8,9 @@ export interface PromptContext {
   rules: string;
   mode: TaskMode;
   projectMap?: string;
+  sourceContext?: string;
   conversationContext?: string;
+  brainstormAgents?: string;
 }
 
 const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
@@ -16,6 +18,15 @@ const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
   research: 'Research the topic and cite or summarize relevant findings. Prefer external/web knowledge when available.',
   'scan-project': 'Inspect the project read-only. Summarize architecture, risks, missing pieces, and recommended next steps.',
   plan: 'Produce an implementation plan only. Do not mutate files or run commands that change project state.',
+  brainstorm: [
+    'Run an autonomous multi-agent brainstorming session.',
+    'Use the provided markdown agent definitions as specialist personas.',
+    'Do not modify files.',
+    'Do not run destructive commands.',
+    'Have each role contribute distinct ideas.',
+    'Then synthesize, critique, rank, and recommend the strongest directions.',
+    'Return the final answer in English.',
+  ].join(' '),
   edit: 'Implement the requested code changes while keeping the patch scoped and consistent with the existing codebase.',
   debug: 'Investigate the failure, identify likely root causes, and apply a focused fix when enough evidence is available.',
   test: 'Run, create, or improve tests that validate the requested behavior. Report any failures clearly.',
@@ -51,6 +62,18 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Project Rules');
     lines.push(ctx.rules);
+  }
+
+  if (ctx.sourceContext) {
+    lines.push('');
+    lines.push('# Key Source Files');
+    lines.push(ctx.sourceContext);
+  }
+
+  if (ctx.brainstormAgents) {
+    lines.push('');
+    lines.push('# Brainstorm Agent Definitions');
+    lines.push(ctx.brainstormAgents);
   }
 
   if (ctx.projectMap) {

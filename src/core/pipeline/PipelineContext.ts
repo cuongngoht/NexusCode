@@ -10,6 +10,8 @@ export type PipelineContext = {
   readonly enableEnhancement: boolean;
   // Enriched by pre-steps:
   projectMap?: string;
+  sourceContext?: string;
   conversationContext?: string;
+  brainstormAgents?: string;
   enhancedPrompt: string;
 };

@@ -99,6 +99,7 @@ export function Composer({
     { value: 'ask', label: t.mode.ask.label, desc: t.mode.ask.desc, icon: IconSparkle },
     { value: 'edit', label: t.mode.edit.label, desc: t.mode.edit.desc, icon: IconTool },
     { value: 'research', label: t.mode.research.label, desc: t.mode.research.desc, icon: IconGlobe },
+    { value: 'brainstorm', label: t.mode.brainstorm.label, desc: t.mode.brainstorm.desc, icon: IconSparkle },
     { value: 'review', label: t.mode.review.label, desc: t.mode.review.desc, icon: IconAgent },
     { value: 'debug', label: t.mode.debug.label, desc: t.mode.debug.desc, icon: IconSearch },
     { value: 'plan', label: t.mode.plan.label, desc: t.mode.plan.desc, icon: IconSparkle },

@@ -29,6 +29,10 @@
       "label": "Agent nghiên cứu",
       "desc": "Tìm kiếm web + tổng hợp"
     },
+    "brainstorm": {
+      "label": "Brainstorm",
+      "desc": "Create agents · explore ideas"
+    },
     "review": {
       "label": "Đánh giá code",
       "desc": "Đọc & nhận xét"
@@ -60,7 +64,8 @@
       "debug": "Agent debug",
       "plan": "Lập kế hoạch",
       "test": "Agent kiểm thử",
-      "scan-project": "Quét dự án"
+      "scan-project": "Quét dự án",
+      "brainstorm": "Brainstorm"
     },
     "statusRunning": "Đang chạy",
     "statusDone": "✓ Xong",
@@ -110,8 +115,10 @@
   "pipeline": {
     "steps": {
       "scan": "Quét dự án",
+      "prepare-brainstorm-agents": "Preparing brainstorm agents",
       "analyze": "Phân tích",
-      "summarize": "Tóm tắt AI"
+      "summarize": "Tóm tắt AI",
+      "read-source-context": "Đọc source code"
     },
     "activities": {
       "read": "Đọc tệp",

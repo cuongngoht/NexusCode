@@ -29,6 +29,10 @@
       "label": "Research Agent",
       "desc": "Web search + synthesis"
     },
+    "brainstorm": {
+      "label": "Brainstorm",
+      "desc": "Create agents · explore ideas"
+    },
     "review": {
       "label": "Code Reviewer",
       "desc": "Reads & critiques"
@@ -60,7 +64,8 @@
       "debug": "Debug Agent",
       "plan": "Planner",
       "test": "Test Agent",
-      "scan-project": "Scan Project"
+      "scan-project": "Scan Project",
+      "brainstorm": "Brainstorm"
     },
     "statusRunning": "Running",
     "statusDone": "✓ Done",
@@ -110,8 +115,10 @@
   "pipeline": {
     "steps": {
       "scan": "Scanning project",
+      "prepare-brainstorm-agents": "Preparing brainstorm agents",
       "analyze": "Analyzing",
-      "summarize": "AI Summary"
+      "summarize": "AI Summary",
+      "read-source-context": "Reading source"
     },
     "activities": {
       "read": "Reading file",
