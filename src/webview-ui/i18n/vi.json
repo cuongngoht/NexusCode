@@ -97,5 +97,11 @@
   },
   "dropdown": {
     "select": "Chọn…"
+  },
+  "pipeline": {
+    "steps": {
+      "scan": "Quét dự án",
+      "analyze": "Phân tích"
+    }
   }
 }

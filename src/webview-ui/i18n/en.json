@@ -97,5 +97,11 @@
   },
   "dropdown": {
     "select": "Select…"
+  },
+  "pipeline": {
+    "steps": {
+      "scan": "Scanning project",
+      "analyze": "Analyzing"
+    }
   }
 }

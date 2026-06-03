@@ -3,6 +3,7 @@ import { getHtml } from './getHtml';
 import type { WebviewMessage } from './webviewProtocol';
 import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
+import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -14,6 +15,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri: vscode.Uri,
     private readonly runAgent: RunAgentUseCase,
     private readonly eventBus: IEventBus,
+    private readonly buildProjectMap: BuildProjectMapUseCase,
   ) { }
 
   resolveWebviewView(
@@ -35,6 +37,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.runAgent,
       this.eventBus,
       (msg) => { webviewView.webview.postMessage(msg).then(undefined, () => { }); },
+      this.buildProjectMap,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {

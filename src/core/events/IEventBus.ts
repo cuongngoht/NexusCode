@@ -7,7 +7,10 @@ export type NexusEvent =
   | { kind: 'stderr'; task: AgentTask; chunk: string }
   | { kind: 'task_completed'; task: AgentTask; result: AgentResult }
   | { kind: 'task_stopped'; task: AgentTask }
-  | { kind: 'task_error'; task: AgentTask; error: string };
+  | { kind: 'task_error'; task: AgentTask; error: string }
+  | { kind: 'step_started'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
+  | { kind: 'step_completed'; stepLabel: string }
+  | { kind: 'step_error'; stepLabel: string; error: string };
 
 export type NexusEventKind = NexusEvent['kind'];
 

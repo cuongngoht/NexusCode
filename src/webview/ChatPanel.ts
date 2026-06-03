@@ -3,6 +3,7 @@ import { getHtml } from './getHtml';
 import type { WebviewMessage } from './webviewProtocol';
 import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
+import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
 
 export class ChatPanel {
@@ -17,6 +18,7 @@ export class ChatPanel {
     extensionUri: vscode.Uri,
     runAgent: RunAgentUseCase,
     eventBus: IEventBus,
+    buildProjectMap: BuildProjectMapUseCase,
   ): ChatPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -41,7 +43,7 @@ export class ChatPanel {
       },
     );
 
-    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus);
+    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus, buildProjectMap);
     return ChatPanel.instance;
   }
 
@@ -50,12 +52,14 @@ export class ChatPanel {
     extensionUri: vscode.Uri,
     runAgent: RunAgentUseCase,
     eventBus: IEventBus,
+    buildProjectMap: BuildProjectMapUseCase,
   ) {
     this.panel = panel;
     this.controller = new ChatController(
       runAgent,
       eventBus,
       (msg) => { this.panel.webview.postMessage(msg).then(undefined, () => { }); },
+      buildProjectMap,
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);

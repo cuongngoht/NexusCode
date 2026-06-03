@@ -7,6 +7,7 @@ export interface PromptContext {
   packages: PackageInfo;
   rules: string;
   mode: TaskMode;
+  projectMap?: string;
 }
 
 const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
@@ -49,6 +50,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Project Rules');
     lines.push(ctx.rules);
+  }
+
+  if (ctx.projectMap) {
+    lines.push('');
+    lines.push('# Project Map');
+    lines.push(ctx.projectMap);
   }
 
   lines.push('');

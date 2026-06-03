@@ -16,7 +16,9 @@ Common design blueprint for all agents in NexusCode. Every agent — current and
 8. [Class Hierarchy](#class-hierarchy)
 9. [Agent Lifecycle](#agent-lifecycle)
 10. [Adding a New Agent](#adding-a-new-agent)
-11. [Full File Tree](#full-file-tree)
+11. [Pipeline Step Pattern](#pipeline-step-pattern)
+12. [i18n Rules](#i18n-rules)
+13. [Full File Tree](#full-file-tree)
 
 ---
 
@@ -998,6 +1000,106 @@ src/
 
 ---
 
+## Pipeline Step Pattern
+
+Pre-processing steps that run before the CLI agent. Defined in `src/application/pipeline/`.
+
+### Adding a new pre-step
+
+**Step 1** — Create the step file:
+
+```typescript
+// src/application/pipeline/MyStep.ts
+import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
+import type { PipelineContext } from '../../core/pipeline/PipelineContext';
+import type { NexusEvent } from '../../core/events/IEventBus';
+
+export class MyStep implements IPipelineStep {
+  readonly label = 'my-step-key';   // semantic key, NOT a display string
+
+  async execute(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
+    // enrich ctx here, e.g. ctx.projectMap = ...
+  }
+}
+```
+
+**Step 2** — Register in `src/application/pipeline/createPreSteps.ts`:
+
+```typescript
+case 'my-mode':
+  return [new MyStep(deps.myDep)]
+```
+
+**Step 3** — Add the i18n label (see [i18n Rules](#i18n-rules)):
+
+```json
+// vi.json → en.json
+"pipeline": { "steps": { "my-step-key": "Nhãn hiển thị" } }
+```
+
+### Event order
+
+```text
+step_started  (pre-step, index=0)  → creates AssistantMessage in UI
+step_completed (pre-step)          → marks step ✓
+step_started  (analyze, index=N)   → adds step to UI
+task_started                       → NO new message (already exists)
+stdout / stderr                    → streams into message.lines
+task_completed                     → isStreaming = false
+step_completed (analyze)           → marks step ✓
+```
+
+### Rules
+
+- `IPipelineStep.label` must be a **semantic key** (e.g. `'scan'`, `'analyze'`), never a display string.
+- Steps mutate `PipelineContext` to share data with later steps.
+- `createPreSteps()` is the only place to add/remove pre-steps — `ChatController` never changes.
+
+---
+
+## i18n Rules
+
+> **CRITICAL**: Every time you add user-visible text to `src/webview-ui/`, you MUST update both i18n files.
+
+### How it works
+
+- `src/webview-ui/i18n/vi.json` is the **source of truth** for TypeScript types (`Messages = typeof vi`).
+- `src/webview-ui/i18n/en.json` must have **identical keys** with English translations.
+- Missing key in `en.json` = TypeScript compile error.
+- Access via `const t = useT()` → `t.section.key`.
+
+### Checklist — when adding frontend labels
+
+- [ ] Add key + Vietnamese string to `vi.json`
+- [ ] Add same key + English string to `en.json`
+- [ ] Use `t.section.key` in JSX — **never hardcode strings**
+- [ ] Run `npm run compile:webview` and confirm zero errors
+
+### Labels sent from the extension backend
+
+Pipeline steps and other backend events send **semantic keys** (e.g. `'scan'`, `'analyze'`), not translated strings. The frontend translates them:
+
+```typescript
+// AssistantMessage.tsx
+const stepLabels = t.pipeline.steps as Record<string, string>;
+const displayLabel = stepLabels[step.label] ?? step.label;
+```
+
+When adding a new pipeline step:
+1. Set `IPipelineStep.label` to a short lowercase key: `readonly label = 'index'`
+2. Add the key to `vi.json`: `"pipeline": { "steps": { "index": "Lập chỉ mục" } }`
+3. Add the key to `en.json`: `"pipeline": { "steps": { "index": "Indexing" } }`
+
+### i18n file locations
+
+| File | Purpose |
+| --- | --- |
+| `src/webview-ui/i18n/vi.json` | Vietnamese (source of truth / type master) |
+| `src/webview-ui/i18n/en.json` | English (must mirror vi.json structure) |
+| `src/webview-ui/i18n/index.ts` | `useT()` hook, `interp()` for `{{placeholder}}` |
+
+---
+
 ## Design Rules
 
 1. **Domain types never import from infrastructure.** `IAgent`, `AgentTask`, `AgentCapabilities` have zero external dependencies.
@@ -1040,3 +1142,5 @@ Always run `npm run compile` and confirm zero errors before packaging.
 - `extension.ts` is the only composition root — all `new ConcreteClass()` calls happen there
 - The webview build output goes to `media/webview/` — this directory is committed and packaged in the .vsix
 - VS Code settings namespace: `nexus.*`
+- **i18n**: any user-visible string in `src/webview-ui/` must exist in both `vi.json` and `en.json` — `vi.json` is the TypeScript type master; missing keys in `en.json` cause compile errors
+- **Pipeline step labels**: `IPipelineStep.label` is a semantic key (e.g. `'scan'`), not a display string — the frontend translates via `t.pipeline.steps[label]`

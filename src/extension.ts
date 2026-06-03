@@ -11,6 +11,12 @@ import { CopilotAgent } from './providers/copilot/CopilotAgent';
 import { AiderAgent } from './providers/aider/AiderAgent';
 import { CustomAgent } from './providers/custom/CustomAgent';
 import { ChatViewProvider } from './webview/ChatViewProvider';
+import { BuildProjectMapUseCase } from './application/usecases/BuildProjectMapUseCase';
+import { NexusFileTreeScanner } from './context/project-map/NexusFileTreeScanner';
+import { NexusMarkerDetector } from './context/project-map/NexusMarkerDetector';
+import { NexusProjectUnitDetector } from './context/project-map/NexusProjectUnitDetector';
+import { NexusProjectMapBuilder } from './context/project-map/NexusProjectMapBuilder';
+import { NexusProjectMapWriter } from './context/project-map/NexusProjectMapWriter';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -26,10 +32,19 @@ export function activate(context: vscode.ExtensionContext): void {
   const router = new AgentRouter(registry);
   const runAgent = new RunAgentUseCase(router, runner, eventBus);
 
+  const buildProjectMap = new BuildProjectMapUseCase(
+    new NexusFileTreeScanner(),
+    new NexusMarkerDetector(),
+    new NexusProjectUnitDetector(),
+    new NexusProjectMapBuilder(),
+    new NexusProjectMapWriter(),
+  );
+
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
     eventBus,
+    buildProjectMap,
   );
 
   context.subscriptions.push(

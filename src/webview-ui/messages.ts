@@ -39,6 +39,11 @@ export interface OutputLine {
   text: string;
 }
 
+export interface PipelineStep {
+  label: string;
+  status: 'running' | 'done' | 'error';
+}
+
 export interface AssistantMessage {
   id: string;
   role: 'assistant';
@@ -49,6 +54,7 @@ export interface AssistantMessage {
   isStreaming: boolean;
   exitCode?: number;
   errorText?: string;
+  steps: PipelineStep[];
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -121,7 +127,10 @@ export type ExtMsg =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[] };
+  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[] }
+  | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
+  | { type: 'stepCompleted'; stepLabel: string }
+  | { type: 'stepError'; stepLabel: string; error: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -217,7 +226,68 @@ export function reducer(state: AppState, action: AppAction): AppState {
 
 function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
   switch (msg.type) {
+    case 'stepStarted': {
+      const newStep: PipelineStep = { label: msg.stepLabel, status: 'running' };
+      if (msg.stepIndex === 0) {
+        // First step: create the AssistantMessage shell
+        const assistantMsg: AssistantMessage = {
+          id: uid(),
+          role: 'assistant',
+          providerLabel: msg.provider,
+          mode: msg.mode,
+          model: msg.model,
+          lines: [],
+          isStreaming: true,
+          steps: [newStep],
+        };
+        return {
+          ...updateActiveConv(state, conv => ({
+            ...conv,
+            messages: [...conv.messages, assistantMsg],
+            gitChanges: [],
+            gitMessage: undefined,
+          })),
+          isRunning: true,
+          elapsed: 0,
+        };
+      }
+      // Subsequent steps: add to existing streaming message
+      return updateActiveConv(state, conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          steps: [...m.steps, newStep],
+        })),
+      );
+    }
+
+    case 'stepCompleted':
+      return updateActiveConv(state, conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          steps: m.steps.map(s =>
+            s.label === msg.stepLabel ? { ...s, status: 'done' as const } : s,
+          ),
+        })),
+      );
+
+    case 'stepError':
+      return updateActiveConv(state, conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          steps: m.steps.map(s =>
+            s.label === msg.stepLabel ? { ...s, status: 'error' as const } : s,
+          ),
+        })),
+      );
+
     case 'taskStarted': {
+      const activeConv = state.conversations.find(c => c.id === state.activeConvId);
+      const lastMsg = activeConv?.messages[activeConv.messages.length - 1];
+      // Pipeline mode: AssistantMessage already created by stepStarted — don't duplicate
+      if (lastMsg?.role === 'assistant' && lastMsg.isStreaming) {
+        return { ...state, isRunning: true, elapsed: 0 };
+      }
+      // Direct (non-pipeline) mode: create AssistantMessage now
       const assistantMsg: AssistantMessage = {
         id: uid(),
         role: 'assistant',
@@ -226,6 +296,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         model: msg.model,
         lines: [],
         isStreaming: true,
+        steps: [],
       };
       return {
         ...updateActiveConv(state, conv => ({

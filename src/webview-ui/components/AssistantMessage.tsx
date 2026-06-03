@@ -1,11 +1,37 @@
 import { useState } from 'react';
-import type { AssistantMessage as AssistantMsg } from '../messages';
+import type { AssistantMessage as AssistantMsg, PipelineStep } from '../messages';
 import { IconSparkle, IconCopy, IconThumbUp, IconThumbDown, IconRetry } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 
 interface Props {
   message: AssistantMsg;
   isRunning?: boolean;
+}
+
+function StepIcon({ status }: { status: PipelineStep['status'] }) {
+  if (status === 'running') {
+    return <span className="fl-spinner nx-step-spinner" />;
+  }
+  if (status === 'done') {
+    return <span className="nx-step-icon nx-step-done">✓</span>;
+  }
+  return <span className="nx-step-icon nx-step-error">✗</span>;
+}
+
+function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
+  const t = useT();
+  if (steps.length === 0) { return null; }
+  const stepLabels = t.pipeline.steps as Record<string, string>;
+  return (
+    <div className="nx-steps">
+      {steps.map((step, i) => (
+        <div key={i} className={`nx-step nx-step-${step.status}`}>
+          <StepIcon status={step.status} />
+          <span className="nx-step-label">{stepLabels[step.label] ?? step.label}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function StatusPill({ message }: { message: AssistantMsg }) {
@@ -56,6 +82,8 @@ export function AssistantMessage({ message }: Props) {
         </div>
 
         <div className="fl-blocks">
+          <PipelineSteps steps={message.steps} />
+
           {message.lines.length > 0 && (
             <div className="fl-text-block">
               {message.lines.map((line, i) => (

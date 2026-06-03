@@ -4,6 +4,9 @@ import type { IEventBus, NexusEvent } from '../core/events/IEventBus';
 import type { ProviderId, TaskMode } from '../core/types';
 import { AgentTask } from '../core/agent';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
+import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
+import { createPreSteps } from '../application/pipeline/createPreSteps';
+import type { PipelineContext } from '../core/pipeline/PipelineContext';
 import { ProviderDetector } from '../core/providerDetector';
 import { buildEnhancedPrompt } from '../context/promptBuilder';
 import { scanWorkspace } from '../context/workspaceScanner';
@@ -11,14 +14,21 @@ import { detectPackageInfo } from '../context/packageDetector';
 import { loadRules } from '../context/rulesLoader';
 import { getGitStatus } from '../git/gitStatus';
 
+const SCAN_PROJECT_DEFAULT =
+  "Summarize this project's architecture, detected units, tech stack, and suggest next steps.";
+
+const RUN_STEP_LABEL = 'analyze';
+
 export class ChatController {
   private readonly detector: ProviderDetector;
   private readonly disposables: vscode.Disposable[] = [];
+  private _pipelineActive = false;
 
   constructor(
     private readonly runAgent: RunAgentUseCase,
     private readonly eventBus: IEventBus,
     private readonly post: (msg: ExtensionMessage) => void,
+    private readonly buildProjectMap: BuildProjectMapUseCase,
   ) {
     this.detector = new ProviderDetector();
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
@@ -49,7 +59,7 @@ export class ChatController {
     mode: TaskMode,
     model?: string,
   ): Promise<void> {
-    if (!prompt.trim()) {
+    if (!prompt.trim() && mode !== 'scan-project') {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
       return;
     }
@@ -64,7 +74,7 @@ export class ChatController {
       return;
     }
 
-    if (this.runAgent.hasActiveTask()) {
+    if (this.runAgent.hasActiveTask() || this._pipelineActive) {
       this.post({
         type: 'taskError',
         taskId: 'pre-task',
@@ -73,48 +83,114 @@ export class ChatController {
       return;
     }
 
+    const effectivePrompt = prompt.trim() || SCAN_PROJECT_DEFAULT;
     const workspaceRoot = workspaceFolders[0].uri.fsPath;
     const cfg = vscode.workspace.getConfiguration('nexus');
-    const enhanceEnabled = cfg.get<boolean>('enablePromptEnhancement', true);
+    const enableEnhancement = cfg.get<boolean>('enablePromptEnhancement', true);
 
-    let enhancedPrompt = prompt;
-    if (enhanceEnabled) {
-      const workspace = scanWorkspace(workspaceRoot);
-      const packages = detectPackageInfo(workspaceRoot);
-      const rules = loadRules(workspaceRoot);
-      enhancedPrompt = buildEnhancedPrompt(prompt, { workspace, packages, rules, mode });
-    }
-
-    const task = new AgentTask(
-      prompt,
-      enhancedPrompt,
-      providerId,
-      mode,
-      model?.trim() || undefined,
+    const ctx: PipelineContext = {
       workspaceRoot,
-    );
+      originalPrompt: effectivePrompt,
+      mode,
+      model,
+      providerId,
+      enableEnhancement,
+      enhancedPrompt: effectivePrompt,
+    };
 
-    const runGitStatus = cfg.get<boolean>('runGitStatusAfterTask', true);
-    if (runGitStatus) {
-      const gitListener = (event: NexusEvent) => {
-        if (
-          (event.kind === 'task_completed' || event.kind === 'task_stopped') &&
-          event.task.id === task.id
-        ) {
-          this.eventBus.off('task_completed', gitListener);
-          this.eventBus.off('task_stopped', gitListener);
-          const status = getGitStatus(workspaceRoot);
-          this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
-        }
-      };
-      this.eventBus.on('task_completed', gitListener);
-      this.eventBus.on('task_stopped', gitListener);
-    }
+    const preSteps = createPreSteps(mode, { buildProjectMap: this.buildProjectMap });
+    const totalSteps = preSteps.length + 1; // +1 for run-agent step
 
+    this._pipelineActive = true;
     try {
-      await this.runAgent.execute(task);
-    } catch {
-      // errors are emitted via eventBus → forwardEvent handles them
+      // Run pre-steps (emit step events, enrich ctx)
+      for (let i = 0; i < preSteps.length; i++) {
+        const step = preSteps[i];
+        this.eventBus.emit({
+          kind: 'step_started',
+          stepLabel: step.label,
+          stepIndex: i,
+          totalSteps,
+          provider: String(providerId),
+          mode: String(mode),
+          model,
+        });
+        try {
+          await step.execute(ctx, e => this.eventBus.emit(e));
+        } catch (err) {
+          this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: String(err) });
+          this.post({
+            type: 'taskError',
+            taskId: 'pipeline',
+            message: `${step.label} failed: ${String(err)}`,
+          });
+          return;
+        }
+        this.eventBus.emit({ kind: 'step_completed', stepLabel: step.label });
+      }
+
+      // Build enhanced prompt after pre-steps
+      if (enableEnhancement) {
+        const workspace = scanWorkspace(workspaceRoot);
+        const packages = detectPackageInfo(workspaceRoot);
+        const rules = loadRules(workspaceRoot);
+        ctx.enhancedPrompt = buildEnhancedPrompt(ctx.originalPrompt, {
+          workspace,
+          packages,
+          rules,
+          mode,
+          projectMap: ctx.projectMap,
+        });
+      }
+
+      // Emit run-agent step (creates AssistantMessage if no pre-steps ran)
+      this.eventBus.emit({
+        kind: 'step_started',
+        stepLabel: RUN_STEP_LABEL,
+        stepIndex: preSteps.length,
+        totalSteps,
+        provider: String(providerId),
+        mode: String(mode),
+        model,
+      });
+
+      // Create task with final enhanced prompt
+      const task = new AgentTask(
+        ctx.originalPrompt,
+        ctx.enhancedPrompt,
+        providerId,
+        mode,
+        model?.trim() || undefined,
+        workspaceRoot,
+      );
+
+      // Setup git status listener
+      const runGitStatus = cfg.get<boolean>('runGitStatusAfterTask', true);
+      if (runGitStatus) {
+        const gitListener = (event: NexusEvent) => {
+          if (
+            (event.kind === 'task_completed' || event.kind === 'task_stopped') &&
+            event.task.id === task.id
+          ) {
+            this.eventBus.off('task_completed', gitListener);
+            this.eventBus.off('task_stopped', gitListener);
+            const status = getGitStatus(workspaceRoot);
+            this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
+          }
+        };
+        this.eventBus.on('task_completed', gitListener);
+        this.eventBus.on('task_stopped', gitListener);
+      }
+
+      try {
+        await this.runAgent.execute(task);
+        this.eventBus.emit({ kind: 'step_completed', stepLabel: RUN_STEP_LABEL });
+      } catch {
+        this.eventBus.emit({ kind: 'step_error', stepLabel: RUN_STEP_LABEL, error: '' });
+        // task_error already emitted by runAgent and forwarded via forwardEvent
+      }
+    } finally {
+      this._pipelineActive = false;
     }
   }
 
@@ -151,6 +227,23 @@ export class ChatController {
         break;
       case 'task_error':
         this.post({ type: 'taskError', taskId: event.task.id, message: event.error });
+        break;
+      case 'step_started':
+        this.post({
+          type: 'stepStarted',
+          stepLabel: event.stepLabel,
+          stepIndex: event.stepIndex,
+          totalSteps: event.totalSteps,
+          provider: event.provider,
+          mode: event.mode,
+          model: event.model,
+        });
+        break;
+      case 'step_completed':
+        this.post({ type: 'stepCompleted', stepLabel: event.stepLabel });
+        break;
+      case 'step_error':
+        this.post({ type: 'stepError', stepLabel: event.stepLabel, error: event.error });
         break;
     }
   }
