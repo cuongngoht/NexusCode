@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import type { AssistantMessage as AssistantMsg, PipelineStep } from '../messages';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import type { AssistantMessage as AssistantMsg, PipelineStep, Activity } from '../messages';
 import { IconSparkle, IconCopy, IconThumbUp, IconThumbDown, IconRetry } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 
@@ -18,6 +21,31 @@ function StepIcon({ status }: { status: PipelineStep['status'] }) {
   return <span className="nx-step-icon nx-step-error">✗</span>;
 }
 
+const ACTIVITY_KIND_ICONS: Record<string, string> = {
+  read: '📄', edit: '✏️', bash: '⚡', write: '📝', todo: '☑', search: '🔍', tool_call: '⚙',
+};
+
+function ActivityIcon({ status }: { status: Activity['status'] }) {
+  if (status === 'running') return <span className="fl-spinner nx-activity-spinner" />;
+  if (status === 'done') return <span className="nx-activity-icon nx-activity-done">✓</span>;
+  return <span className="nx-activity-icon nx-activity-error">✗</span>;
+}
+
+function ActivityList({ activities }: { activities: Activity[] }) {
+  if (activities.length === 0) return null;
+  return (
+    <div className="nx-activities">
+      {activities.map((act, j) => (
+        <div key={j} className={`nx-activity nx-activity-${act.status}`}>
+          <ActivityIcon status={act.status} />
+          <span className="nx-activity-kind-icon">{ACTIVITY_KIND_ICONS[act.kind] ?? '⚙'}</span>
+          <span className="nx-activity-label">{act.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
   const t = useT();
   if (steps.length === 0) { return null; }
@@ -25,9 +53,12 @@ function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
   return (
     <div className="nx-steps">
       {steps.map((step, i) => (
-        <div key={i} className={`nx-step nx-step-${step.status}`}>
-          <StepIcon status={step.status} />
-          <span className="nx-step-label">{stepLabels[step.label] ?? step.label}</span>
+        <div key={i}>
+          <div className={`nx-step nx-step-${step.status}`}>
+            <StepIcon status={step.status} />
+            <span className="nx-step-label">{stepLabels[step.label] ?? step.label}</span>
+          </div>
+          <ActivityList activities={step.activities} />
         </div>
       ))}
     </div>
@@ -84,20 +115,31 @@ export function AssistantMessage({ message }: Props) {
         <div className="fl-blocks">
           <PipelineSteps steps={message.steps} />
 
-          {message.lines.length > 0 && (
-            <div className="fl-text-block">
-              {message.lines.map((line, i) => (
-                <span
-                  key={i}
-                  className={line.kind === 'stderr' ? 'nx-line-stderr' : undefined}
-                  style={{ display: 'block' }}
-                >
-                  {line.text}
-                </span>
-              ))}
-              {message.isStreaming && <span className="fl-caret" />}
-            </div>
-          )}
+          {message.lines.length > 0 && (() => {
+            const stdoutText = message.lines
+              .filter(l => l.kind === 'stdout')
+              .map(l => l.text)
+              .join('\n');
+            const stderrLines = message.lines.filter(l => l.kind === 'stderr');
+            return (
+              <div className="fl-text-block">
+                {stdoutText && (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeHighlight]}
+                  >
+                    {stdoutText}
+                  </ReactMarkdown>
+                )}
+                {stderrLines.map((line, i) => (
+                  <span key={i} className="nx-line-stderr" style={{ display: 'block' }}>
+                    {line.text}
+                  </span>
+                ))}
+                {message.isStreaming && <span className="fl-caret" />}
+              </div>
+            );
+          })()}
 
           {message.isStreaming && message.lines.length === 0 && (
             <span className="fl-typing">

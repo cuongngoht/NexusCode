@@ -1,6 +1,7 @@
 import { spawnSync } from 'child_process';
 import type { IAgent, AgentId, AgentTask, AgentCommand, AgentCapabilities } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
+import type { IOutputParser } from '../../core/agent/IOutputParser';
 import type { ProviderModel } from '../../core/types';
 
 export abstract class BaseAgent implements IAgent {
@@ -9,6 +10,7 @@ export abstract class BaseAgent implements IAgent {
   abstract readonly capabilities: AgentCapabilities;
   abstract readonly seededModels: ReadonlyArray<ProviderModel>;
   readonly defaultModel?: string;
+  readonly outputParser?: IOutputParser = undefined;
 
   protected abstract readonly executableName: string;
 

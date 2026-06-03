@@ -20,6 +20,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly configService: ConfigService,
     private readonly detector: ProviderDetector,
+    private readonly globalState: vscode.Memento,
+    private readonly workspaceState: vscode.Memento,
   ) { }
 
   resolveWebviewView(
@@ -44,6 +46,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.buildProjectMap,
       this.configService,
       this.detector,
+      this.globalState,
+      this.workspaceState,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {

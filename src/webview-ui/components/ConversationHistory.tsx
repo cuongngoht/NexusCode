@@ -5,9 +5,11 @@ interface Props {
   conversations: Conversation[];
   activeId: string;
   onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onClearAll: () => void;
 }
 
-export function ConversationHistory({ conversations, activeId, onSelect }: Props) {
+export function ConversationHistory({ conversations, activeId, onSelect, onDelete, onClearAll }: Props) {
   const t = useT();
   return (
     <nav className="nx-history fl-scroll" aria-label={t.history.ariaLabel}>
@@ -30,10 +32,30 @@ export function ConversationHistory({ conversations, activeId, onSelect }: Props
               {conv.messages.length > 0 && (
                 <span className="nx-history-count">{conv.messages.length}</span>
               )}
+              <button
+                type="button"
+                className="nx-history-delete"
+                aria-label={t.history.deleteConversation}
+                title={t.history.deleteConversation}
+                onClick={e => { e.stopPropagation(); onDelete(conv.id); }}
+              >
+                ×
+              </button>
             </li>
           );
         })}
       </ul>
+      {conversations.length > 1 && (
+        <div className="nx-history-footer">
+          <button
+            type="button"
+            className="nx-history-clear"
+            onClick={onClearAll}
+          >
+            {t.history.clearAll}
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

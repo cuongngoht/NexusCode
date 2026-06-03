@@ -1,5 +1,6 @@
 import { ProviderId, TaskMode, GitFileChange } from '../core/types';
 import type { ProviderDetectionResult } from '../core/providerDetector';
+import type { ChatHistoryState } from '../core/chat/ChatHistory';
 
 export type { ProviderDetectionResult };
 
@@ -12,10 +13,14 @@ export type ExtensionMessage =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitFileChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderDetectionResult[]; needsSetup: boolean }
+  | { type: 'availableProviders'; providers: string[]; detection: ProviderDetectionResult[]; needsSetup: boolean; savedProvider?: string }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
-  | { type: 'stepError'; stepLabel: string; error: string };
+  | { type: 'stepError'; stepLabel: string; error: string }
+  | { type: 'activityStarted'; activityKind: string; label: string }
+  | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
+  | { type: 'historyLoaded'; history: ChatHistoryState }
+  | { type: 'historyError'; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -24,4 +29,6 @@ export type WebviewMessage =
   | { type: 'openSourceControl' }
   | { type: 'openSettings' }
   | { type: 'openAbout' }
-  | { type: 'ready' };
+  | { type: 'ready' }
+  | { type: 'saveProvider'; provider: ProviderId }
+  | { type: 'saveHistory'; history: ChatHistoryState };

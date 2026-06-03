@@ -15,6 +15,7 @@ export class RunAgentUseCase {
   async execute(task: AgentTask): Promise<AgentResult> {
     const agent = await this.router.resolve(task.agentId, task.mode);
     const command = agent.buildCommand(task);
+    const parser = agent.outputParser;
 
     this.activeTask = task;
     task.start();
@@ -22,7 +23,26 @@ export class RunAgentUseCase {
 
     try {
       const result = await this.runner.run(command, {
-        onStdout: chunk => this.eventBus.emit({ kind: 'stdout', task, chunk }),
+        onStdout: chunk => {
+          if (!parser) {
+            this.eventBus.emit({ kind: 'stdout', task, chunk });
+            return;
+          }
+          const activities = parser.parse(chunk);
+          const plainLines: string[] = [];
+          for (const act of activities) {
+            if (act.kind === 'plain') {
+              plainLines.push(act.raw);
+            } else if (act.status === 'running') {
+              this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
+            } else {
+              this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+            }
+          }
+          if (plainLines.length > 0) {
+            this.eventBus.emit({ kind: 'stdout', task, chunk: plainLines.join('\n') });
+          }
+        },
         onStderr: chunk => this.eventBus.emit({ kind: 'stderr', task, chunk }),
         cwd: task.cwd,
       });

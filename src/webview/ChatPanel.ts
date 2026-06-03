@@ -23,6 +23,8 @@ export class ChatPanel {
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
     detector: ProviderDetector,
+    globalState: vscode.Memento,
+    workspaceState: vscode.Memento,
   ): ChatPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -47,7 +49,7 @@ export class ChatPanel {
       },
     );
 
-    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus, buildProjectMap, configService, detector);
+    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus, buildProjectMap, configService, detector, globalState, workspaceState);
     return ChatPanel.instance;
   }
 
@@ -59,6 +61,8 @@ export class ChatPanel {
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
     detector: ProviderDetector,
+    globalState: vscode.Memento,
+    workspaceState: vscode.Memento,
   ) {
     this.panel = panel;
     this.controller = new ChatController(
@@ -68,6 +72,8 @@ export class ChatPanel {
       buildProjectMap,
       configService,
       detector,
+      globalState,
+      workspaceState,
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);

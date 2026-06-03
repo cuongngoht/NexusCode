@@ -1,5 +1,6 @@
 import type { AgentTask } from '../agent/AgentTask';
 import type { AgentResult } from '../agent/AgentResult';
+import type { ActivityKind } from '../agent/IOutputParser';
 
 export type NexusEvent =
   | { kind: 'task_started'; task: AgentTask }
@@ -11,6 +12,8 @@ export type NexusEvent =
   | { kind: 'step_started'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { kind: 'step_completed'; stepLabel: string }
   | { kind: 'step_error'; stepLabel: string; error: string }
+  | { kind: 'activity_started'; task: AgentTask; activityKind: ActivityKind; label: string }
+  | { kind: 'activity_done'; task: AgentTask; activityKind: ActivityKind; label: string; status: 'done' | 'error' }
   | { kind: 'summarize_started'; provider: string }
   | { kind: 'summarize_completed'; filesWritten: string[] }
   | { kind: 'summarize_error'; error: string };

@@ -14,15 +14,24 @@ import { scanWorkspace } from '../context/workspaceScanner';
 import { detectPackageInfo } from '../context/packageDetector';
 import { loadRules } from '../context/rulesLoader';
 import { getGitStatus } from '../git/gitStatus';
+import { ChatHistoryStore } from './ChatHistoryStore';
+import type { ChatHistoryState, SerializedChatMessage } from '../core/chat/ChatHistory';
 
 const SCAN_PROJECT_DEFAULT =
   "Summarize this project's architecture, detected units, tech stack, and suggest next steps.";
 
 const RUN_STEP_LABEL = 'analyze';
 
+const SAVED_PROVIDER_KEY = 'nexus.lastProvider';
+
+const CONTEXT_CHAR_LIMIT = 12_000;
+const CONTEXT_MAX_MESSAGES = 8;
+
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
   private _pipelineActive = false;
+  private readonly historyStore: ChatHistoryStore;
+  private _latestHistory: ChatHistoryState | null = null;
 
   constructor(
     private readonly runAgent: RunAgentUseCase,
@@ -31,7 +40,10 @@ export class ChatController {
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly configService: ConfigService,
     private readonly detector: ProviderDetector,
+    private readonly globalState: vscode.Memento,
+    workspaceState: vscode.Memento,
   ) {
+    this.historyStore = new ChatHistoryStore(workspaceState);
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
     this.eventBus.on('*', busListener);
     this.disposables.push({ dispose: () => this.eventBus.off('*', busListener) });
@@ -40,6 +52,7 @@ export class ChatController {
   async handleMessage(msg: WebviewMessage): Promise<void> {
     switch (msg.type) {
       case 'ready':
+        await this.loadAndSendHistory();
         await this.sendAvailableProviders();
         break;
       case 'runTask':
@@ -56,6 +69,13 @@ export class ChatController {
         break;
       case 'openAbout':
         await vscode.commands.executeCommand('nexus.openAbout');
+        break;
+      case 'saveProvider':
+        await this.globalState.update(SAVED_PROVIDER_KEY, msg.provider);
+        break;
+      case 'saveHistory':
+        this._latestHistory = msg.history;
+        await this.historyStore.save(msg.history);
         break;
     }
   }
@@ -95,6 +115,10 @@ export class ChatController {
     const cfg = vscode.workspace.getConfiguration('nexus');
     const enableEnhancement = cfg.get<boolean>('enablePromptEnhancement', true);
 
+    const conversationContext = this._latestHistory
+      ? this.buildConversationContext(this._latestHistory)
+      : undefined;
+
     const ctx: PipelineContext = {
       workspaceRoot,
       originalPrompt: effectivePrompt,
@@ -103,6 +127,7 @@ export class ChatController {
       providerId,
       enableEnhancement,
       enhancedPrompt: effectivePrompt,
+      conversationContext,
     };
 
     const preSteps = createPreSteps(mode, { buildProjectMap: this.buildProjectMap });
@@ -147,6 +172,7 @@ export class ChatController {
           rules,
           mode,
           projectMap: ctx.projectMap,
+          conversationContext: ctx.conversationContext,
         });
       }
 
@@ -252,7 +278,50 @@ export class ChatController {
       case 'step_error':
         this.post({ type: 'stepError', stepLabel: event.stepLabel, error: event.error });
         break;
+      case 'activity_started':
+        this.post({ type: 'activityStarted', activityKind: event.activityKind, label: event.label });
+        break;
+      case 'activity_done':
+        this.post({ type: 'activityDone', activityKind: event.activityKind, label: event.label, status: event.status });
+        break;
     }
+  }
+
+  private async loadAndSendHistory(): Promise<void> {
+    try {
+      const history = this.historyStore.load();
+      if (history) {
+        this._latestHistory = history;
+        this.post({ type: 'historyLoaded', history });
+      }
+    } catch (err) {
+      this.post({ type: 'historyError', message: String(err) });
+    }
+  }
+
+  private buildConversationContext(history: ChatHistoryState): string | undefined {
+    const conv = history.conversations.find(c => c.id === history.activeConversationId);
+    if (!conv || conv.messages.length === 0) return undefined;
+
+    const messages = conv.messages.slice(-CONTEXT_MAX_MESSAGES);
+    const lines: string[] = [];
+    let chars = 0;
+
+    for (const m of messages) {
+      let text: string;
+      if (m.role === 'user') {
+        text = `User: ${(m as Extract<SerializedChatMessage, { role: 'user' }>).prompt}`;
+      } else {
+        const a = m as Extract<SerializedChatMessage, { role: 'assistant' }>;
+        const snippet = a.content.slice(0, 2000);
+        text = `Assistant: ${snippet}`;
+      }
+      lines.push(text);
+      chars += text.length;
+      if (chars >= CONTEXT_CHAR_LIMIT) break;
+    }
+
+    return lines.length > 0 ? lines.join('\n') : undefined;
   }
 
   private async sendAvailableProviders(): Promise<void> {
@@ -267,7 +336,8 @@ export class ChatController {
     const providers = detection
       .filter(d => d.installed && config.providers[d.id as keyof typeof config.providers]?.enabled)
       .map(d => d.id);
-    this.post({ type: 'availableProviders', providers, detection, needsSetup: false });
+    const savedProvider = this.globalState.get<string>(SAVED_PROVIDER_KEY);
+    this.post({ type: 'availableProviders', providers, detection, needsSetup: false, savedProvider });
   }
 
   async refreshProviders(): Promise<void> {

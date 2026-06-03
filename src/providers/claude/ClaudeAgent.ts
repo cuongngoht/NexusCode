@@ -2,10 +2,12 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
+import { ClaudeOutputParser } from './ClaudeOutputParser';
 
 export class ClaudeAgent extends BaseAgent {
   readonly id = 'claude' as const;
   readonly displayName = 'Claude';
+  readonly outputParser = new ClaudeOutputParser();
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ true,

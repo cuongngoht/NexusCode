@@ -71,6 +71,8 @@ export function activate(context: vscode.ExtensionContext): void {
     buildProjectMap,
     configService,
     detector,
+    context.globalState,
+    context.workspaceState,
   );
 
   context.subscriptions.push(

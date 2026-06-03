@@ -3,21 +3,20 @@ import { AgentCommand, AgentResult } from '../core/agent';
 import type { IProcessRunner, RunOptions } from '../core/runner/IProcessRunner';
 import { CommandGuard } from './commandGuard';
 
-const STDERR_NOISE = [
-  /256-color support not detected/,
-  /MCP issues detected/,
-  /Run \/mcp list for status/,
-  /CJS build of Vite/,
-];
-
-function isNoiseLine(line: string): boolean {
-  return STDERR_NOISE.some(re => re.test(line));
+// Heuristic: dòng stderr trông như internal diagnostic log, không phải user-facing error
+function isInternalLog(line: string): boolean {
+  return (
+    /^\[[\w.]+\] /.test(line) ||          // [ClassName] log format
+    /^\s+at (async )?[\w<]/.test(line) || // stack trace: "    at foo.bar"
+    /^\s+at file:\/\//.test(line) ||      // stack trace: "    at file:///..."
+    /^Error: exception \w/.test(line)     // JS Error wrapper around another error
+  );
 }
 
 function filterNoise(chunk: string): string {
   return chunk
     .split('\n')
-    .filter(l => !isNoiseLine(l))
+    .filter(l => !isInternalLog(l))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n');
 }

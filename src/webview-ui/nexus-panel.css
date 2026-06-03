@@ -824,17 +824,136 @@ html, body, #root {
   color: var(--colorBrandForeground1);
 }
 
-/* Content: plain text / stdout lines */
+/* Content: markdown-rendered stdout */
 .fl-text-block {
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--colorNeutralForeground1);
-  white-space: pre-wrap;
   word-break: break-word;
+  min-width: 0;
 }
 
 .fl-text-block .nx-line-stderr {
   color: #ddb130;
+  white-space: pre-wrap;
+}
+
+/* Markdown — typography */
+.fl-text-block p {
+  margin: 0 0 0.6em;
+}
+.fl-text-block p:last-child {
+  margin-bottom: 0;
+}
+.fl-text-block h1,
+.fl-text-block h2,
+.fl-text-block h3,
+.fl-text-block h4 {
+  margin: 1em 0 0.35em;
+  font-weight: var(--fontWeightSemibold);
+  line-height: 1.3;
+  color: var(--colorNeutralForeground1);
+}
+.fl-text-block h1 { font-size: 1.25em; }
+.fl-text-block h2 { font-size: 1.1em; }
+.fl-text-block h3 { font-size: 1em; }
+.fl-text-block h4 { font-size: 0.95em; }
+.fl-text-block h1:first-child,
+.fl-text-block h2:first-child,
+.fl-text-block h3:first-child { margin-top: 0; }
+
+/* Markdown — lists */
+.fl-text-block ul,
+.fl-text-block ol {
+  margin: 0.3em 0 0.6em;
+  padding-left: 1.5em;
+}
+.fl-text-block li {
+  margin-bottom: 0.2em;
+}
+.fl-text-block li > p { margin: 0; }
+
+/* Markdown — inline code */
+.fl-text-block :not(pre) > code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(128,128,128,0.15));
+  color: var(--colorNeutralForeground1);
+}
+
+/* Markdown — code blocks */
+.fl-text-block pre {
+  margin: 0.5em 0;
+  padding: 10px 14px;
+  border-radius: var(--borderRadiusMedium);
+  background: var(--vscode-editor-background, rgba(0,0,0,0.3));
+  border: 1px solid var(--colorNeutralStroke2);
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.fl-text-block pre code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--vscode-editor-foreground, inherit);
+}
+
+/* Markdown — tables */
+.fl-text-block table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 12.5px;
+}
+.fl-text-block th,
+.fl-text-block td {
+  border: 1px solid var(--colorNeutralStroke1);
+  padding: 5px 10px;
+  text-align: left;
+}
+.fl-text-block th {
+  background: var(--colorNeutralBackground3);
+  font-weight: var(--fontWeightSemibold);
+}
+.fl-text-block tr:nth-child(even) td {
+  background: var(--colorNeutralBackground2);
+}
+
+/* Markdown — blockquote */
+.fl-text-block blockquote {
+  margin: 0.4em 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--colorBrandForeground1);
+  color: var(--colorNeutralForeground2);
+}
+
+/* Markdown — horizontal rule */
+.fl-text-block hr {
+  border: none;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  margin: 0.8em 0;
+}
+
+/* Markdown — links */
+.fl-text-block a {
+  color: var(--colorBrandForeground1);
+  text-decoration: none;
+}
+.fl-text-block a:hover {
+  text-decoration: underline;
+}
+
+/* Markdown — strong / em */
+.fl-text-block strong { font-weight: var(--fontWeightSemibold); }
+
+/* highlight.js overrides — use VS Code-compatible token colors */
+.fl-text-block .hljs {
+  background: transparent;
+  color: var(--vscode-editor-foreground, #d4d4d4);
 }
 
 /* Status pills */
@@ -1279,6 +1398,63 @@ html, body, #root {
   text-align: center;
   font-size: 10px;
   font-weight: 600;
+}
+
+/* ---- Activity rows (sub-items under pipeline steps) ---- */
+.nx-activities {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px 18px;
+}
+
+.nx-activity {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--colorNeutralForeground3);
+  line-height: 1.35;
+}
+
+.nx-activity-running {
+  color: var(--colorNeutralForeground2);
+}
+
+.nx-activity-done {
+  color: var(--colorNeutralForeground3);
+  opacity: 0.75;
+}
+
+.nx-activity-error {
+  color: var(--colorPaletteRedForeground1);
+}
+
+.nx-activity-spinner {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.nx-activity-icon {
+  width: 8px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.nx-activity-kind-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.nx-activity-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
 }
 
 /* ============================================================

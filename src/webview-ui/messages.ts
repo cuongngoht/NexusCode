@@ -1,3 +1,11 @@
+import type {
+  ChatHistoryState,
+  SerializedConversation,
+  SerializedChatMessage,
+} from '../core/chat/ChatHistory';
+
+export type { ChatHistoryState };
+
 export type ProviderId = 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
 export type TaskMode =
   | 'ask'
@@ -39,9 +47,16 @@ export interface OutputLine {
   text: string;
 }
 
+export interface Activity {
+  kind: string;
+  status: 'running' | 'done' | 'error';
+  label: string;
+}
+
 export interface PipelineStep {
   label: string;
   status: 'running' | 'done' | 'error';
+  activities: Activity[];
 }
 
 export interface AssistantMessage {
@@ -67,6 +82,8 @@ export interface Conversation {
   messages: ChatMessage[];
   gitChanges: GitChange[];
   gitMessage?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 function makeConversation(): Conversation {
@@ -88,6 +105,7 @@ export interface AppState {
   needsSetup: boolean;
   isDetecting: boolean;
   showHistory: boolean;
+  saveKey: number;
 }
 
 export function createInitialState(): AppState {
@@ -105,6 +123,7 @@ export function createInitialState(): AppState {
     needsSetup: false,
     isDetecting: true,
     showHistory: false,
+    saveKey: 0,
   };
 }
 
@@ -131,10 +150,14 @@ export type ExtMsg =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[]; needsSetup: boolean }
+  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[]; needsSetup: boolean; savedProvider?: string }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
-  | { type: 'stepError'; stepLabel: string; error: string };
+  | { type: 'stepError'; stepLabel: string; error: string }
+  | { type: 'activityStarted'; activityKind: string; label: string }
+  | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
+  | { type: 'historyLoaded'; history: ChatHistoryState }
+  | { type: 'historyError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -147,6 +170,8 @@ export type AppAction =
   | { type: 'toggleHistory' }
   | { type: 'newConversation' }
   | { type: 'selectConversation'; id: string }
+  | { type: 'deleteConversation'; id: string }
+  | { type: 'clearHistory' }
   | {
     type: 'sendUserMessage';
     prompt: string;
@@ -155,6 +180,101 @@ export type AppAction =
     model?: string;
     timestamp: number;
   };
+
+// ── History serialization ─────────────────────────────────────────────────
+
+export function serializeHistory(state: AppState): ChatHistoryState {
+  const now = Date.now();
+  return {
+    version: 1,
+    activeConversationId: state.activeConvId,
+    conversations: state.conversations.map(c => serializeConversation(c, now)),
+  };
+}
+
+function serializeConversation(c: Conversation, now: number): SerializedConversation {
+  const messages: SerializedChatMessage[] = c.messages
+    .filter(m => m.role === 'user' || (m.role === 'assistant' && !(m as AssistantMessage).isStreaming))
+    .map(m => {
+      if (m.role === 'user') {
+        const u = m as UserMessage;
+        return {
+          id: u.id,
+          role: 'user' as const,
+          prompt: u.prompt,
+          provider: u.provider,
+          mode: u.mode,
+          model: u.model,
+          timestamp: u.timestamp,
+        };
+      }
+      const a = m as AssistantMessage;
+      const content = a.lines
+        .filter(l => l.kind === 'stdout')
+        .map(l => l.text)
+        .join('\n');
+      return {
+        id: a.id,
+        role: 'assistant' as const,
+        providerLabel: a.providerLabel,
+        mode: a.mode,
+        model: a.model,
+        content,
+        exitCode: a.exitCode,
+        errorText: a.errorText,
+        timestamp: now,
+      };
+    });
+  return {
+    id: c.id,
+    title: c.title,
+    createdAt: c.createdAt ?? now,
+    updatedAt: now,
+    messages,
+    gitChanges: c.gitChanges,
+    gitMessage: c.gitMessage,
+  };
+}
+
+function deserializeConversation(sc: SerializedConversation): Conversation {
+  const messages: ChatMessage[] = sc.messages.map(m => {
+    if (m.role === 'user') {
+      return {
+        id: m.id,
+        role: 'user' as const,
+        prompt: m.prompt,
+        provider: m.provider as ProviderId,
+        mode: m.mode as TaskMode,
+        model: m.model,
+        timestamp: m.timestamp,
+      } satisfies UserMessage;
+    }
+    const lines = m.content
+      ? m.content.split('\n').filter(l => l.trim()).map(text => ({ kind: 'stdout' as const, text }))
+      : [];
+    return {
+      id: m.id,
+      role: 'assistant' as const,
+      providerLabel: m.providerLabel,
+      mode: m.mode,
+      model: m.model,
+      lines,
+      isStreaming: false,
+      exitCode: m.exitCode,
+      errorText: m.errorText,
+      steps: [],
+    } satisfies AssistantMessage;
+  });
+  return {
+    id: sc.id,
+    title: sc.title,
+    messages,
+    gitChanges: (sc.gitChanges ?? []).map(g => ({ status: g.status, path: g.path })),
+    gitMessage: sc.gitMessage,
+    createdAt: sc.createdAt,
+    updatedAt: sc.updatedAt,
+  };
+}
 
 // ── Reducer helpers ───────────────────────────────────────────────────────
 
@@ -200,11 +320,31 @@ export function reducer(state: AppState, action: AppAction): AppState {
         conversations: [conv, ...state.conversations],
         activeConvId: conv.id,
         showHistory: false,
+        saveKey: state.saveKey + 1,
       };
     }
 
     case 'selectConversation':
       return { ...state, activeConvId: action.id, showHistory: false };
+
+    case 'deleteConversation': {
+      const remaining = state.conversations.filter(c => c.id !== action.id);
+      const conversations = remaining.length > 0 ? remaining : [makeConversation()];
+      const activeConvId = conversations.find(c => c.id === state.activeConvId)
+        ? state.activeConvId
+        : conversations[0].id;
+      return { ...state, conversations, activeConvId, saveKey: state.saveKey + 1 };
+    }
+
+    case 'clearHistory': {
+      const conv = makeConversation();
+      return {
+        ...state,
+        conversations: [conv],
+        activeConvId: conv.id,
+        saveKey: state.saveKey + 1,
+      };
+    }
 
     case 'sendUserMessage': {
       const msg: UserMessage = {
@@ -231,7 +371,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
 function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
   switch (msg.type) {
     case 'stepStarted': {
-      const newStep: PipelineStep = { label: msg.stepLabel, status: 'running' };
+      const newStep: PipelineStep = { label: msg.stepLabel, status: 'running', activities: [] };
       if (msg.stepIndex === 0) {
         // First step: create the AssistantMessage shell
         const assistantMsg: AssistantMessage = {
@@ -340,6 +480,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode })),
         ),
         isRunning: false,
+        saveKey: state.saveKey + 1,
       };
 
     case 'taskStopped':
@@ -348,6 +489,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           updateLastAssistant(conv, m => ({ ...m, isStreaming: false })),
         ),
         isRunning: false,
+        saveKey: state.saveKey + 1,
       };
 
     case 'taskError':
@@ -356,6 +498,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message })),
         ),
         isRunning: false,
+        saveKey: state.saveKey + 1,
       };
 
     case 'gitStatus':
@@ -365,7 +508,60 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         gitMessage: msg.message,
       }));
 
-    case 'availableProviders':
-      return { ...state, availableProviders: msg.providers, providerDetection: msg.detection, needsSetup: msg.needsSetup, isDetecting: false };
+    case 'activityStarted': {
+      const newActivity: Activity = { kind: msg.activityKind, status: 'running', label: msg.label };
+      return updateActiveConv(state, conv =>
+        updateLastAssistant(conv, m => {
+          const steps = m.steps.map((s, i) =>
+            i === m.steps.length - 1 && s.status === 'running'
+              ? { ...s, activities: [...s.activities, newActivity] }
+              : s,
+          );
+          return { ...m, steps };
+        }),
+      );
+    }
+
+    case 'activityDone': {
+      return updateActiveConv(state, conv =>
+        updateLastAssistant(conv, m => {
+          const steps = m.steps.map((s, i) => {
+            if (i !== m.steps.length - 1 || s.status !== 'running') return s;
+            const activities = [...s.activities];
+            // Update the last matching running activity
+            for (let j = activities.length - 1; j >= 0; j--) {
+              if (activities[j].label === msg.label && activities[j].status === 'running') {
+                activities[j] = { ...activities[j], status: msg.status };
+                break;
+              }
+            }
+            return { ...s, activities };
+          });
+          return { ...m, steps };
+        }),
+      );
+    }
+
+    case 'availableProviders': {
+      const VALID_PROVIDERS: ProviderId[] = ['codex', 'claude', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
+      const restored = msg.savedProvider && (VALID_PROVIDERS as string[]).includes(msg.savedProvider)
+        ? msg.savedProvider as ProviderId
+        : state.provider;
+      return { ...state, availableProviders: msg.providers, providerDetection: msg.detection, needsSetup: msg.needsSetup, isDetecting: false, provider: restored };
+    }
+
+    case 'historyLoaded': {
+      const { history } = msg;
+      if (!history || !Array.isArray(history.conversations) || history.conversations.length === 0) {
+        return state;
+      }
+      const conversations = history.conversations.map(deserializeConversation);
+      const activeExists = conversations.some(c => c.id === history.activeConversationId);
+      const activeConvId = activeExists ? history.activeConversationId : conversations[0].id;
+      return { ...state, conversations, activeConvId };
+    }
+
+    case 'historyError':
+      return state;
   }
 }

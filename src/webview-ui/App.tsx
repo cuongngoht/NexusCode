@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, type AppAction, type ExtMsg } from './messages';
+import { reducer, createInitialState, serializeHistory, type AppAction, type ExtMsg } from './messages';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
@@ -32,6 +32,9 @@ export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [locale, setLocale] = useState<Locale>('vi');
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const saveKeyRef = useRef(0);
 
   const activeConv = state.conversations.find(c => c.id === state.activeConvId)!;
 
@@ -53,6 +56,15 @@ export function App() {
     }
     return () => clearInterval(timerRef.current);
   }, [state.isRunning]);
+
+  // Autosave history whenever saveKey increments (task done, new/delete/clear conversation)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (state.saveKey > 0 && state.saveKey !== saveKeyRef.current) {
+      saveKeyRef.current = state.saveKey;
+      getVsCodeApi().postMessage({ type: 'saveHistory', history: serializeHistory(stateRef.current) });
+    }
+  }, [state.saveKey]);
 
   const handleRun = useCallback(
     (prompt: string) => {
@@ -102,6 +114,8 @@ export function App() {
               conversations={state.conversations}
               activeId={state.activeConvId}
               onSelect={id => dispatch({ type: 'selectConversation', id })}
+              onDelete={id => dispatch({ type: 'deleteConversation', id })}
+              onClearAll={() => dispatch({ type: 'clearHistory' })}
             />
           )}
 
@@ -129,7 +143,10 @@ export function App() {
                   providerDetection={state.providerDetection}
                   onRun={handleRun}
                   onStop={handleStop}
-                  onProviderChange={v => dispatch({ type: 'setProvider', value: v })}
+                  onProviderChange={v => {
+                    dispatch({ type: 'setProvider', value: v });
+                    getVsCodeApi().postMessage({ type: 'saveProvider', provider: v });
+                  }}
                   onModeChange={v => dispatch({ type: 'setMode', value: v })}
                 />
               )}

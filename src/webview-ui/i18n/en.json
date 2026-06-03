@@ -92,7 +92,9 @@
     "suggestion3": "Explain what this function does"
   },
   "history": {
-    "ariaLabel": "Conversation history"
+    "ariaLabel": "Conversation history",
+    "deleteConversation": "Delete conversation",
+    "clearAll": "Clear all"
   },
   "git": {
     "changedFiles": "Changed files",
@@ -110,6 +112,15 @@
       "scan": "Scanning project",
       "analyze": "Analyzing",
       "summarize": "AI Summary"
+    },
+    "activities": {
+      "read": "Reading file",
+      "edit": "Editing file",
+      "bash": "Running command",
+      "write": "Writing file",
+      "todo": "Updating todos",
+      "search": "Searching web",
+      "tool_call": "Tool call"
     }
   },
   "setup": {

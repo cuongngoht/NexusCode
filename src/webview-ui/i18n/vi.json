@@ -92,7 +92,9 @@
     "suggestion3": "Giải thích chức năng của hàm này"
   },
   "history": {
-    "ariaLabel": "Lịch sử trò chuyện"
+    "ariaLabel": "Lịch sử trò chuyện",
+    "deleteConversation": "Xóa cuộc trò chuyện",
+    "clearAll": "Xóa tất cả"
   },
   "git": {
     "changedFiles": "Tệp đã thay đổi",
@@ -110,6 +112,15 @@
       "scan": "Quét dự án",
       "analyze": "Phân tích",
       "summarize": "Tóm tắt AI"
+    },
+    "activities": {
+      "read": "Đọc tệp",
+      "edit": "Chỉnh sửa tệp",
+      "bash": "Chạy lệnh",
+      "write": "Ghi tệp",
+      "todo": "Cập nhật todo",
+      "search": "Tìm kiếm web",
+      "tool_call": "Gọi công cụ"
     }
   },
   "setup": {

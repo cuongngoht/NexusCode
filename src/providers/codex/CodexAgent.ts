@@ -2,10 +2,12 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
+import { CodexOutputParser } from './CodexOutputParser';
 
 export class CodexAgent extends BaseAgent {
   readonly id = 'codex' as const;
   readonly displayName = 'Codex';
+  readonly outputParser = new CodexOutputParser();
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ true,

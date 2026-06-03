@@ -2,6 +2,7 @@ export type { IAgent } from './IAgent';
 export type { IDetectable, DetectionResult } from './IDetectable';
 export type { IStreamable } from './IStreamable';
 export type { IStoppable } from './IStoppable';
+export type { IOutputParser, ParsedActivity, ActivityKind, ActivityStatus } from './IOutputParser';
 export { AgentCapabilities } from './AgentCapabilities';
 export { AgentCommand } from './AgentCommand';
 export { AgentResult } from './AgentResult';
