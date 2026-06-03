@@ -4,6 +4,8 @@
     "newConversation": "Cuộc trò chuyện mới",
     "history": "Lịch sử ({{count}})",
     "more": "Thêm",
+    "settings": "Cài đặt",
+    "about": "Giới thiệu",
     "switchLang": "Switch to English"
   },
   "provider": {

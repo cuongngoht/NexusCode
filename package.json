@@ -41,6 +41,10 @@
       {
         "command": "nexus.openChat",
         "title": "Nexus: Open Chat"
+      },
+      {
+        "command": "nexus.openSettings",
+        "title": "Nexus: Open Settings"
       }
     ],
     "configuration": {

@@ -101,6 +101,15 @@ export const IconRetry = (p: IconProps) => (
 export const IconClose = (p: IconProps) => (
   <Svg {...p}><path d="M5 5l10 10M15 5L5 15" /></Svg>
 );
+export const IconSettings = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="10" cy="10" r="2.2" />
+    <path d="M10 4.5v1.2M10 14.3v1.2M4.5 10h1.2M14.3 10h1.2M6.3 6.3l.85.85M12.8 12.8l.85.85M13.65 6.3l-.85.85M7.15 12.8l-.85.85" />
+  </Svg>
+);
+export const IconInfo = (p: IconProps) => (
+  <Svg {...p}><circle cx="10" cy="10" r="6.3" /><path d="M10 9v5" /><circle cx="10" cy="7" r="0.5" fill="currentColor" stroke="none" /></Svg>
+);
 export const IconBranch = (p: IconProps) => (
   <Svg {...p}><path d="M5 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5 7.5v-1A1.5 1.5 0 0 0 6.5 5H9a3 3 0 0 1 3 3v.5" /></Svg>
 );

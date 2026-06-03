@@ -50,6 +50,12 @@ export class ChatController {
       case 'openSourceControl':
         await vscode.commands.executeCommand('workbench.view.scm');
         break;
+      case 'openSettings':
+        await vscode.commands.executeCommand('nexus.openSettings');
+        break;
+      case 'openAbout':
+        await vscode.commands.executeCommand('nexus.openAbout');
+        break;
     }
   }
 

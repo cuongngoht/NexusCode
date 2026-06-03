@@ -22,4 +22,6 @@ export type WebviewMessage =
   | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string }
   | { type: 'stopTask' }
   | { type: 'openSourceControl' }
+  | { type: 'openSettings' }
+  | { type: 'openAbout' }
   | { type: 'ready' };

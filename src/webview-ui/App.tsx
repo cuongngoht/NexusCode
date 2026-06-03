@@ -59,6 +59,8 @@ export function App() {
 
   const handleStop = useCallback(() => getVsCodeApi().postMessage({ type: 'stopTask' }), []);
   const handleOpenScm = useCallback(() => getVsCodeApi().postMessage({ type: 'openSourceControl' }), []);
+  const handleOpenSettings = useCallback(() => getVsCodeApi().postMessage({ type: 'openSettings' }), []);
+  const handleAbout = useCallback(() => getVsCodeApi().postMessage({ type: 'openAbout' }), []);
 
   return (
     <I18nContext.Provider value={LOCALES[locale]}>
@@ -80,6 +82,8 @@ export function App() {
             onNewConversation={() => dispatch({ type: 'newConversation' })}
             onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
             onLocaleChange={setLocale}
+            onOpenSettings={handleOpenSettings}
+            onAbout={handleAbout}
           />
 
           {state.showHistory && (

@@ -4,6 +4,8 @@
     "newConversation": "New conversation",
     "history": "History ({{count}})",
     "more": "More",
+    "settings": "Settings",
+    "about": "About",
     "switchLang": "Chuyển sang tiếng Việt"
   },
   "provider": {

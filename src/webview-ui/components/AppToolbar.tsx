@@ -1,6 +1,7 @@
+import { useEffect, useRef, useState } from 'react';
 import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
 import {
-  IconAdd, IconHistory, IconMore,
+  IconAdd, IconHistory, IconMore, IconSettings, IconInfo,
   IconSparkle, IconBrain, IconTool, IconGlobe, IconAgent, IconSearch,
 } from '../NexusIcons';
 import type { ProviderId, TaskMode, ProviderInfo } from '../messages';
@@ -30,6 +31,70 @@ function getProviderOptions(
     });
 }
 
+interface MoreMenuProps {
+  onSettings: () => void;
+  onAbout: () => void;
+}
+
+function MoreMenu({ onSettings, onAbout }: MoreMenuProps) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleItem = (cb: () => void) => {
+    setOpen(false);
+    cb();
+  };
+
+  return (
+    <div className="fl-dd" ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="fl-iconbtn"
+        title={t.toolbar.more}
+        data-open={open ? '1' : undefined}
+        onClick={() => setOpen(o => !o)}
+      >
+        <IconMore size={16} />
+      </button>
+
+      {open && (
+        <div className="fl-dd-menu" style={{ right: 0, left: 'auto', minWidth: 140 }}>
+          <button
+            type="button"
+            className="fl-dd-opt"
+            onClick={() => handleItem(onSettings)}
+          >
+            <IconSettings size={15} />
+            <span className="fl-dd-opt-main">
+              <span className="fl-dd-opt-label">{t.toolbar.settings}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="fl-dd-opt"
+            onClick={() => handleItem(onAbout)}
+          >
+            <IconInfo size={15} />
+            <span className="fl-dd-opt-main">
+              <span className="fl-dd-opt-label">{t.toolbar.about}</span>
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   provider: ProviderId;
   selectedModel?: string;
@@ -46,25 +111,28 @@ interface Props {
   onNewConversation: () => void;
   onToggleHistory: () => void;
   onLocaleChange: (l: Locale) => void;
+  onOpenSettings: () => void;
+  onAbout: () => void;
 }
 
 export function AppToolbar({
   provider, mode, availableProviders, providerDetection, isRunning,
   showHistory, conversationCount, locale,
   onProviderChange, onModelChange, onModeChange, onNewConversation, onToggleHistory, onLocaleChange,
+  onOpenSettings, onAbout,
 }: Props) {
   const t = useT();
   const providerOptions = getProviderOptions(availableProviders, providerDetection, t);
 
   const modeOptions: DropdownOption[] = [
-    { value: 'ask',          label: t.mode.ask.label,                   desc: t.mode.ask.desc,                   icon: IconSparkle },
-    { value: 'edit',         label: t.mode.edit.label,                  desc: t.mode.edit.desc,                  icon: IconTool },
-    { value: 'research',     label: t.mode.research.label,              desc: t.mode.research.desc,              icon: IconGlobe },
-    { value: 'review',       label: t.mode.review.label,                desc: t.mode.review.desc,                icon: IconAgent },
-    { value: 'debug',        label: t.mode.debug.label,                 desc: t.mode.debug.desc,                 icon: IconSearch },
-    { value: 'plan',         label: t.mode.plan.label,                  desc: t.mode.plan.desc,                  icon: IconBrain },
-    { value: 'test',         label: t.mode.test.label,                  desc: t.mode.test.desc,                  icon: IconTool },
-    { value: 'scan-project', label: t.mode['scan-project'].label,       desc: t.mode['scan-project'].desc,       icon: IconSearch },
+    { value: 'ask', label: t.mode.ask.label, desc: t.mode.ask.desc, icon: IconSparkle },
+    { value: 'edit', label: t.mode.edit.label, desc: t.mode.edit.desc, icon: IconTool },
+    { value: 'research', label: t.mode.research.label, desc: t.mode.research.desc, icon: IconGlobe },
+    { value: 'review', label: t.mode.review.label, desc: t.mode.review.desc, icon: IconAgent },
+    { value: 'debug', label: t.mode.debug.label, desc: t.mode.debug.desc, icon: IconSearch },
+    { value: 'plan', label: t.mode.plan.label, desc: t.mode.plan.desc, icon: IconBrain },
+    { value: 'test', label: t.mode.test.label, desc: t.mode.test.desc, icon: IconTool },
+    { value: 'scan-project', label: t.mode['scan-project'].label, desc: t.mode['scan-project'].desc, icon: IconSearch },
   ];
 
   return (
@@ -98,9 +166,7 @@ export function AppToolbar({
           >
             <IconHistory size={16} />
           </button>
-          <button type="button" className="fl-iconbtn" title={t.toolbar.more}>
-            <IconMore size={16} />
-          </button>
+          <MoreMenu onSettings={onOpenSettings} onAbout={onAbout} />
         </div>
       </div>
 
