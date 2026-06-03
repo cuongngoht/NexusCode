@@ -233,12 +233,12 @@ export function Composer({
             ) : (
               <button
                 type="button"
-                className={mode === 'review' ? 'fl-cmp-send-btn fl-cmp-send-btn--review' : 'fl-cmp-send-btn'}
+                className="fl-cmp-send-btn"
                 disabled={mode !== 'review' && !prompt.trim()}
                 title={mode === 'review' ? t.review.sendTitle : t.composer.send}
                 onClick={handleRun}
               >
-                {mode === 'review' ? t.review.sendButton : <IconArrowUp size={16} />}
+                <IconArrowUp size={16} />
               </button>
             )}
           </div>
