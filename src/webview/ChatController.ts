@@ -14,11 +14,17 @@ import { scanWorkspace } from '../context/workspaceScanner';
 import { detectPackageInfo } from '../context/packageDetector';
 import { loadRules } from '../context/rulesLoader';
 import { getGitStatus } from '../git/gitStatus';
+import { buildGitReviewContext } from '../git/gitReviewContext';
+import { ensureReviewAgentMarkdown, loadReviewAgentMarkdown, getReviewAgentPath } from '../context/reviewAgentLoader';
+import { buildReviewPrompt } from '../context/reviewPromptBuilder';
 import { ChatHistoryStore } from './ChatHistoryStore';
 import type { ChatHistoryState, SerializedChatMessage } from '../core/chat/ChatHistory';
 
 const SCAN_PROJECT_DEFAULT =
   "Summarize this project's architecture, detected units, tech stack, and suggest next steps.";
+
+const REVIEW_DEFAULT =
+  'Review the current branch against the selected base branch. Focus on bugs, regressions, security, tests, and maintainability.';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -42,6 +48,7 @@ export class ChatController {
     private readonly detector: ProviderDetector,
     private readonly globalState: vscode.Memento,
     workspaceState: vscode.Memento,
+    private readonly extensionPath: string = '',
   ) {
     this.historyStore = new ChatHistoryStore(workspaceState);
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
@@ -77,6 +84,12 @@ export class ChatController {
         this._latestHistory = msg.history;
         await this.historyStore.save(msg.history);
         break;
+      case 'getReviewContext':
+        await this.handleGetReviewContext(msg.baseBranch);
+        break;
+      case 'openReviewAgentFile':
+        await this.handleOpenReviewAgentFile();
+        break;
     }
   }
 
@@ -86,7 +99,7 @@ export class ChatController {
     mode: TaskMode,
     model?: string,
   ): Promise<void> {
-    if (!prompt.trim() && mode !== 'scan-project') {
+    if (!prompt.trim() && mode !== 'scan-project' && mode !== 'review') {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
       return;
     }
@@ -110,7 +123,9 @@ export class ChatController {
       return;
     }
 
-    const effectivePrompt = prompt.trim() || SCAN_PROJECT_DEFAULT;
+    const effectivePrompt =
+      prompt.trim() ||
+      (mode === 'review' ? REVIEW_DEFAULT : SCAN_PROJECT_DEFAULT);
     const workspaceRoot = workspaceFolders[0].uri.fsPath;
     const cfg = vscode.workspace.getConfiguration('nexus');
     const enableEnhancement = cfg.get<boolean>('enablePromptEnhancement', true);
@@ -166,7 +181,7 @@ export class ChatController {
         const workspace = scanWorkspace(workspaceRoot);
         const packages = detectPackageInfo(workspaceRoot);
         const rules = loadRules(workspaceRoot);
-        ctx.enhancedPrompt = buildEnhancedPrompt(ctx.originalPrompt, {
+        const basePrompt = buildEnhancedPrompt(ctx.originalPrompt, {
           workspace,
           packages,
           rules,
@@ -174,6 +189,19 @@ export class ChatController {
           projectMap: ctx.projectMap,
           conversationContext: ctx.conversationContext,
         });
+
+        if (mode === 'review') {
+          const reviewContext = buildGitReviewContext(workspaceRoot);
+          const reviewAgentMarkdown = loadReviewAgentMarkdown(workspaceRoot, this.extensionPath);
+          ctx.enhancedPrompt = buildReviewPrompt({
+            userPrompt: ctx.originalPrompt,
+            reviewAgentMarkdown,
+            reviewContext,
+            baseWorkspacePrompt: basePrompt,
+          });
+        } else {
+          ctx.enhancedPrompt = basePrompt;
+        }
       }
 
       // Emit run-agent step (creates AssistantMessage if no pre-steps ran)
@@ -342,6 +370,41 @@ export class ChatController {
 
   async refreshProviders(): Promise<void> {
     await this.sendAvailableProviders();
+  }
+
+  private async handleGetReviewContext(baseBranch?: string): Promise<void> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      this.post({ type: 'reviewContextError', message: 'No workspace folder is open.' });
+      return;
+    }
+
+    try {
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+      const context = buildGitReviewContext(workspaceRoot, baseBranch);
+      ensureReviewAgentMarkdown(workspaceRoot, this.extensionPath);
+      this.post({ type: 'reviewContext', context });
+    } catch (err) {
+      this.post({ type: 'reviewContextError', message: String(err) });
+    }
+  }
+
+  private async handleOpenReviewAgentFile(): Promise<void> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      this.post({ type: 'reviewContextError', message: 'No workspace folder is open.' });
+      return;
+    }
+
+    try {
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+      const filePath = getReviewAgentPath(workspaceRoot);
+      ensureReviewAgentMarkdown(workspaceRoot, this.extensionPath);
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
+      await vscode.window.showTextDocument(doc);
+    } catch (err) {
+      this.post({ type: 'reviewContextError', message: String(err) });
+    }
   }
 
   dispose(): void {

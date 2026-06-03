@@ -27,6 +27,18 @@ export interface ProviderModel {
 
 export interface GitChange { status: string; path: string; }
 
+export interface ReviewContext {
+  baseBranch: string;
+  compareBranch: string;
+  currentBranch: string;
+  availableBranches: string[];
+  changedFiles: GitChange[];
+  diffStat: string;
+  diff: string;
+  diffTruncated: boolean;
+  message?: string;
+}
+
 let _seq = 0;
 const uid = () => `${++_seq}`;
 
@@ -106,6 +118,8 @@ export interface AppState {
   isDetecting: boolean;
   showHistory: boolean;
   saveKey: number;
+  reviewContext?: ReviewContext;
+  reviewContextError?: string;
 }
 
 export function createInitialState(): AppState {
@@ -124,6 +138,8 @@ export function createInitialState(): AppState {
     isDetecting: true,
     showHistory: false,
     saveKey: 0,
+    reviewContext: undefined,
+    reviewContextError: undefined,
   };
 }
 
@@ -157,7 +173,9 @@ export type ExtMsg =
   | { type: 'activityStarted'; activityKind: string; label: string }
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
-  | { type: 'historyError'; message: string };
+  | { type: 'historyError'; message: string }
+  | { type: 'reviewContext'; context: ReviewContext }
+  | { type: 'reviewContextError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -308,7 +326,12 @@ export function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, selectedModel: action.value };
 
     case 'setMode':
-      return { ...state, mode: action.value };
+      return {
+        ...state,
+        mode: action.value,
+        reviewContext: action.value === 'review' ? state.reviewContext : undefined,
+        reviewContextError: action.value === 'review' ? state.reviewContextError : undefined,
+      };
 
     case 'toggleHistory':
       return { ...state, showHistory: !state.showHistory };
@@ -563,5 +586,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'historyError':
       return state;
+
+    case 'reviewContext':
+      return { ...state, reviewContext: msg.context, reviewContextError: undefined };
+
+    case 'reviewContextError':
+      return { ...state, reviewContextError: msg.message };
   }
 }

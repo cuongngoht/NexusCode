@@ -127,5 +127,17 @@
     "title": "Chưa có CLI nào được cấu hình",
     "subtitle": "Mở Cài đặt, nhấn Scan để tìm các CLI đã cài trên máy, sau đó bật những công cụ bạn muốn dùng.",
     "cta": "Mở Cài đặt"
+  },
+  "review": {
+    "panelTitle": "Review branch",
+    "loading": "Đang tải…",
+    "labelBase": "Base",
+    "labelCompare": "So sánh",
+    "refresh": "Làm mới",
+    "editAgent": "Sửa agent",
+    "metaChangedFiles": "{{count}} file thay đổi",
+    "placeholder": "Thêm yêu cầu review nếu cần…",
+    "sendButton": "Review",
+    "sendTitle": "Review branch"
   }
 }

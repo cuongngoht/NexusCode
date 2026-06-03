@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconSparkle, IconTool, IconGlobe, IconAgent, IconSearch } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { ProviderId, TaskMode, ProviderInfo } from '../messages';
+import type { ProviderId, TaskMode, ProviderInfo, ReviewContext } from '../messages';
 
 interface Attachment {
   name: string;
@@ -15,31 +15,46 @@ interface Props {
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
+  reviewContext?: ReviewContext;
+  reviewContextError?: string;
   onRun: (prompt: string) => void;
   onStop: () => void;
   onProviderChange: (v: ProviderId) => void;
   onModeChange: (v: TaskMode) => void;
+  onRefreshReviewContext: (baseBranch?: string) => void;
+  onOpenReviewAgentFile: () => void;
 }
 
 export function Composer({
   isRunning, elapsed, provider, mode,
   availableProviders, providerDetection,
+  reviewContext, reviewContextError,
   onRun, onStop, onProviderChange, onModeChange,
+  onRefreshReviewContext, onOpenReviewAgentFile,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [selectedBase, setSelectedBase] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync selectedBase when reviewContext first loads or the server returns a different base branch
+  useEffect(() => {
+    if (reviewContext?.baseBranch && reviewContext.baseBranch !== selectedBase) {
+      setSelectedBase(reviewContext.baseBranch);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewContext?.baseBranch]);
 
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
-    if (!trimmed || isRunning) return;
+    if ((!trimmed && mode !== 'review') || isRunning) return;
     onRun(trimmed);
     setPrompt('');
     setAttachments([]);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     textareaRef.current?.focus();
-  }, [prompt, isRunning, onRun]);
+  }, [prompt, isRunning, mode, onRun]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -112,11 +127,78 @@ export function Composer({
         </div>
       )}
 
+      {mode === 'review' && (
+        <div className="nx-review-panel">
+          <div className="nx-review-panel-header">
+            <span className="nx-review-title">{t.review.panelTitle}</span>
+            <div className="nx-review-actions">
+              <button type="button" onClick={() => onRefreshReviewContext(selectedBase || undefined)} disabled={isRunning}>
+                {t.review.refresh}
+              </button>
+              <button type="button" onClick={onOpenReviewAgentFile} disabled={isRunning}>
+                {t.review.editAgent}
+              </button>
+            </div>
+          </div>
+
+          <div className="nx-review-branch-row">
+            <div className="nx-review-branch-group">
+              <label className="nx-review-branch-label">{t.review.labelBase}</label>
+              {reviewContext?.availableBranches?.length ? (
+                <select
+                  className="nx-review-branch-select"
+                  value={selectedBase}
+                  disabled={isRunning}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSelectedBase(val);
+                    onRefreshReviewContext(val);
+                  }}
+                >
+                  {reviewContext.availableBranches.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="nx-review-branch-value">{selectedBase || t.review.loading}</span>
+              )}
+            </div>
+
+            <span className="nx-review-arrow">→</span>
+
+            <div className="nx-review-branch-group">
+              <label className="nx-review-branch-label">{t.review.labelCompare}</label>
+              <span className="nx-review-branch-value nx-review-branch-value--compare">
+                {reviewContext?.compareBranch || t.review.loading}
+              </span>
+            </div>
+          </div>
+
+          {reviewContextError && (
+            <div className="nx-review-error">{reviewContextError}</div>
+          )}
+
+          {reviewContext?.message && (
+            <div className="nx-review-error">{reviewContext.message}</div>
+          )}
+
+          {reviewContext && !reviewContext.message && (
+            <div className="nx-review-meta">
+              <span>{interp(t.review.metaChangedFiles, { count: String(reviewContext.changedFiles.length) })}</span>
+            </div>
+          )}
+
+          {reviewContext?.diffStat && (
+            <pre className="nx-review-stat">{reviewContext.diffStat}</pre>
+          )}
+        </div>
+      )}
+
       <div className="fl-cmp-box">
         <textarea
           ref={textareaRef}
           className="fl-cmp-input fl-scroll"
-          placeholder={t.composer.placeholder}
+          placeholder={mode === 'review' ? t.review.placeholder : t.composer.placeholder}
           value={prompt}
           rows={1}
           disabled={isRunning}
@@ -151,12 +233,12 @@ export function Composer({
             ) : (
               <button
                 type="button"
-                className="fl-cmp-send-btn"
-                disabled={!prompt.trim()}
-                title={t.composer.send}
+                className={mode === 'review' ? 'fl-cmp-send-btn fl-cmp-send-btn--review' : 'fl-cmp-send-btn'}
+                disabled={mode !== 'review' && !prompt.trim()}
+                title={mode === 'review' ? t.review.sendTitle : t.composer.send}
                 onClick={handleRun}
               >
-                <IconArrowUp size={16} />
+                {mode === 'review' ? t.review.sendButton : <IconArrowUp size={16} />}
               </button>
             )}
           </div>

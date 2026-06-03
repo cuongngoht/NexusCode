@@ -3,7 +3,7 @@ import { AgentCommand, AgentResult } from '../core/agent';
 import type { IProcessRunner, RunOptions } from '../core/runner/IProcessRunner';
 import { CommandGuard } from './commandGuard';
 
-// Heuristic: dòng stderr trông như internal diagnostic log, không phải user-facing error
+// Heuristic: stderr lines that look like internal diagnostic logs, not user-facing errors
 function isInternalLog(line: string): boolean {
   return (
     /^\[[\w.]+\] /.test(line) ||          // [ClassName] log format

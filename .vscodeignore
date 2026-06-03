@@ -10,3 +10,4 @@ vite.config.ts
 !out/**
 !media/webview/**
 node_modules/**
+.nexus/**

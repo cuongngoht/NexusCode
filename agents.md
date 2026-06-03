@@ -1,189 +1,115 @@
 # NexusCode — Agent Architecture
 
-Common design blueprint for all agents in NexusCode. Every agent — current and future — must follow this contract.
+> **Project**: `nexus-code` v0.1.5 — VS Code Extension (engine ≥ 1.85.0)
+>
+> **What it does**: A chat panel inside VS Code that routes user prompts to any installed CLI coding agent (Claude Code, Codex CLI, Gemini CLI, Copilot CLI, Aider, Custom). The extension spawns the CLI as a child process, streams output back to the webview in real time, and persists conversation history per workspace.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
+1. [VS Code Extension Overview](#vs-code-extension-overview)
 2. [Clean Architecture Layers](#clean-architecture-layers)
-3. [Domain Layer — Files](#domain-layer--files)
-4. [Application Layer — Files](#application-layer--files)
-5. [Infrastructure Layer — Files](#infrastructure-layer--files)
-6. [Interface Layer — Files](#interface-layer--files)
-7. [SOLID Principles Applied](#solid-principles-applied)
-8. [Class Hierarchy](#class-hierarchy)
-9. [Agent Lifecycle](#agent-lifecycle)
+3. [Domain Layer](#domain-layer)
+4. [Application Layer](#application-layer)
+5. [Infrastructure Layer](#infrastructure-layer)
+6. [Interface Layer](#interface-layer)
+7. [Chat History](#chat-history)
+8. [Pipeline Step Pattern](#pipeline-step-pattern)
+9. [Output Parser Pattern](#output-parser-pattern)
 10. [Adding a New Agent](#adding-a-new-agent)
-11. [Pipeline Step Pattern](#pipeline-step-pattern)
-12. [i18n Rules](#i18n-rules)
+11. [i18n Rules](#i18n-rules)
+12. [VS Code Extension Best Practices](#vs-code-extension-best-practices)
 13. [Full File Tree](#full-file-tree)
+14. [Build Commands](#build-commands)
 
 ---
 
-## Overview
+## VS Code Extension Overview
 
-NexusCode routes user prompts to CLI-based coding agents (Claude, Codex, Gemini, etc.).
-The agent system follows **Clean Architecture** so each layer is independently testable and replaceable.
-**SOLID principles** enforce a stable contract that lets any agent be swapped, extended, or combined without touching unrelated code.
-
-```text
-┌─────────────────────────────────────────────────┐
-│                Interface Layer                  │  ← VS Code Webview / UI
-├─────────────────────────────────────────────────┤
-│               Application Layer                 │  ← Use Cases, Router, Registry
-├─────────────────────────────────────────────────┤
-│                 Domain Layer                    │  ← Interfaces, Entities, Value Objects
-├─────────────────────────────────────────────────┤
-│              Infrastructure Layer               │  ← Concrete Agents, Process Runner
-└─────────────────────────────────────────────────┘
-           dependency arrows point inward only
+```
+User opens VS Code
+      │
+      ▼
+extension.ts (activate)          ← composition root — wires all dependencies
+      │
+      ├── ChatViewProvider        ← WebviewViewProvider registered at 'nexus.chatView'
+      │     └── ChatController    ← bridges webview messages ↔ use cases
+      │
+      ├── SettingsPanel           ← WebviewPanel for provider config
+      └── AboutPanel              ← WebviewPanel for version info
 ```
 
-**Dependency rule**: outer layers depend on inner layers. Inner layers never import outer layers.
+**Key VS Code APIs in use:**
+
+| API                                          | Where                           | Purpose                                                                                |
+| -------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------- |
+| `vscode.window.registerWebviewViewProvider`  | `extension.ts`                  | Mount the React chat panel in the sidebar                                              |
+| `vscode.workspace.getConfiguration('nexus')` | `ChatController`, `CustomAgent` | Read extension settings                                                                |
+| `context.globalState` (Memento)              | `ChatController`                | Persist last-used provider across workspaces                                           |
+| `context.workspaceState` (Memento)           | `ChatHistoryStore`              | Persist conversation history per workspace                                             |
+| `vscode.commands.registerCommand`            | `extension.ts`                  | `nexus.openChat`, `nexus.openSettings`, `nexus.openAbout`, `nexus.summarizeProjectMap` |
+| `vscode.workspace.workspaceFolders`          | `ChatController`                | Get workspace root for process CWD and context building                                |
+
+**Webview security model:**
+
+- `enableScripts: true` — required for React
+- `localResourceRoots` — locked to `media/` and `media/webview/`
+- All communication via `postMessage` — typed in `webviewProtocol.ts`
+- `retainContextWhenHidden: true` — preserves React state when panel is hidden
 
 ---
 
 ## Clean Architecture Layers
 
-| Layer | Location | Responsibility |
-| --- | --- | --- |
-| Domain | `src/core/` | Contracts, entities, value objects — no I/O |
-| Application | `src/application/` | Use cases, orchestration, routing |
-| Infrastructure | `src/providers/` | Concrete agents, process execution |
-| Interface | `src/webview/` + `src/webview-ui/` | VS Code API, React UI |
+```
+┌─────────────────────────────────────────────────┐
+│            Interface Layer                      │  VS Code Webview + React UI
+├─────────────────────────────────────────────────┤
+│           Application Layer                     │  Use Cases, Router, Registry, Pipeline
+├─────────────────────────────────────────────────┤
+│              Domain Layer                       │  Interfaces, Entities, Value Objects
+├─────────────────────────────────────────────────┤
+│           Infrastructure Layer                  │  Concrete Agents, Process Execution
+└─────────────────────────────────────────────────┘
+         dependency arrows point inward only
+```
+
+**Dependency rule**: outer layers import inner layers. Inner layers never import outer layers.
+
+| Layer          | Location                                        | Allowed imports                  |
+| -------------- | ----------------------------------------------- | -------------------------------- |
+| Domain         | `src/core/`                                     | Nothing (zero I/O, zero VS Code) |
+| Application    | `src/application/`                              | Domain only                      |
+| Infrastructure | `src/providers/`, `src/runner/`, `src/context/` | Domain + Node.js                 |
+| Interface      | `src/webview/`, `src/extension.ts`              | All layers + VS Code API         |
 
 ---
 
-## Domain Layer — Files
+## Domain Layer
 
-Contains only **interfaces**, **entities**, and **value objects**.
-Zero dependencies on Node.js I/O, VS Code API, or any external library.
-
----
+All files in `src/core/` have **zero external dependencies** — no Node.js I/O, no VS Code API.
 
 ### `src/core/agent/IAgent.ts`
 
-The core contract every agent must satisfy.
+The contract every agent must satisfy:
 
 ```typescript
 export interface IAgent {
-  readonly id: AgentId
-  readonly displayName: string
-  readonly capabilities: AgentCapabilities
-
-  isAvailable(): Promise<boolean>
-  buildCommand(task: AgentTask): AgentCommand
-  parseOutput(raw: string): AgentOutput
+  readonly id: AgentId;
+  readonly displayName: string;
+  readonly capabilities: AgentCapabilities;
+  readonly seededModels: ReadonlyArray<ProviderModel>;
+  readonly defaultModel?: string;
+  readonly outputParser?: IOutputParser;
+  isAvailable(): Promise<boolean>;
+  buildCommand(task: AgentTask): AgentCommand;
+  parseOutput(raw: string): AgentOutput;
 }
 ```
 
----
-
-### `src/core/agent/IDetectable.ts`
-
-Separate detection contract — not all agents need custom detection logic.
-
-```typescript
-export interface IDetectable {
-  detect(): Promise<DetectionResult>
-}
-```
-
----
-
-### `src/core/agent/IStreamable.ts`
-
-For agents that produce incremental output.
-
-```typescript
-export interface IStreamable {
-  onStdout(handler: (chunk: string) => void): void
-  onStderr(handler: (chunk: string) => void): void
-  onComplete(handler: (result: AgentResult) => void): void
-}
-```
-
----
-
-### `src/core/agent/IStoppable.ts`
-
-For agents that support mid-task cancellation.
-
-```typescript
-export interface IStoppable {
-  stop(): Promise<void>
-}
-```
-
-> **Interface Segregation (ISP)**: each interface has exactly one responsibility.
-> A read-only research agent implements `IAgent` only.
-> A long-running file editor additionally implements `IStreamable + IStoppable`.
-
----
-
-### `src/core/agent/AgentCapabilities.ts`
-
-Immutable value object describing what an agent can do.
-
-```typescript
-export class AgentCapabilities {
-  constructor(
-    readonly canEditFiles: boolean,
-    readonly canRunShell: boolean,
-    readonly canSearchWeb: boolean,
-    readonly supportsStreaming: boolean,
-  ) {}
-
-  static none(): AgentCapabilities {
-    return new AgentCapabilities(false, false, false, false)
-  }
-
-  supports(required: Partial<AgentCapabilities>): boolean {
-    return Object.entries(required).every(
-      ([key, val]) => (this as Record<string, unknown>)[key] === val,
-    )
-  }
-}
-```
-
----
-
-### `src/core/agent/AgentCommand.ts`
-
-Immutable value object representing a shell command to run.
-
-```typescript
-export class AgentCommand {
-  constructor(
-    readonly executable: string,
-    readonly args: ReadonlyArray<string>,
-    readonly env?: Readonly<Record<string, string>>,
-  ) {}
-}
-```
-
----
-
-### `src/core/agent/AgentResult.ts`
-
-Immutable value object holding the outcome of a completed task.
-
-```typescript
-export class AgentResult {
-  constructor(
-    readonly exitCode: number,
-    readonly stdout: string,
-    readonly stderr: string,
-    readonly durationMs: number,
-  ) {}
-
-  get succeeded(): boolean {
-    return this.exitCode === 0
-  }
-}
-```
+> `seededModels` — fallback list when the CLI cannot enumerate models dynamically.
+> `outputParser` — optional. When present, streamed stdout is parsed into `ParsedActivity[]` for live UI rendering.
 
 ---
 
@@ -192,62 +118,118 @@ export class AgentResult {
 Entity with identity. Owns its own state transitions.
 
 ```typescript
-export type AgentId    = 'claude' | 'codex' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto'
-export type TaskMode   = 'edit' | 'debug' | 'test' | 'refactor' | 'research' | 'ask'
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type AgentId    = 'claude' | 'codex' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type TaskMode   = 'ask' | 'research' | 'scan-project' | 'plan' | 'edit' | 'debug' | 'test' | 'review';
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export class AgentTask {
-  readonly id: string
-  readonly startedAt: number
-  private _status: TaskStatus = 'pending'
-  private _result?: AgentResult
-
   constructor(
     readonly prompt: string,
     readonly enhancedPrompt: string,
     readonly agentId: AgentId,
     readonly mode: TaskMode,
-  ) {
-    this.id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    this.startedAt = Date.now()
-  }
+    readonly model?: string,
+    readonly cwd?: string,   // workspace root, passed to ProcessRunner
+  ) { ... }
 
-  get status(): TaskStatus          { return this._status }
-  get result(): AgentResult | undefined { return this._result }
-
-  start():  void { this._status = 'running' }
-  cancel(): void { this._status = 'cancelled' }
-
-  complete(result: AgentResult): void {
-    this._result = result
-    this._status = result.succeeded ? 'completed' : 'failed'
-  }
+  start():  void
+  cancel(): void
+  complete(result: AgentResult): void
 }
 ```
 
 ---
 
-### `src/core/agent/index.ts`
+### `src/core/agent/IOutputParser.ts`
 
-Barrel export — all domain types come from one import path.
+For agents that emit structured progress lines (file edits, shell commands, etc.):
 
 ```typescript
-export type { IAgent }       from './IAgent'
-export type { IDetectable }  from './IDetectable'
-export type { IStreamable }  from './IStreamable'
-export type { IStoppable }   from './IStoppable'
-export { AgentCapabilities } from './AgentCapabilities'
-export { AgentCommand }      from './AgentCommand'
-export { AgentResult }       from './AgentResult'
-export { AgentTask }         from './AgentTask'
-export type { AgentId, TaskMode, TaskStatus } from './AgentTask'
+export type ActivityKind =
+  | "read"
+  | "edit"
+  | "bash"
+  | "write"
+  | "todo"
+  | "search"
+  | "tool_call"
+  | "plain";
+export type ActivityStatus = "running" | "done" | "error";
+
+export interface ParsedActivity {
+  kind: ActivityKind;
+  status: ActivityStatus;
+  label: string;
+  raw: string;
+}
+
+export interface IOutputParser {
+  parse(chunk: string): ParsedActivity[];
+}
+```
+
+---
+
+### `src/core/agent/` — other interfaces (ISP)
+
+```typescript
+IDetectable  → detect(): Promise<DetectionResult>
+IStreamable  → onStdout / onStderr / onComplete
+IStoppable   → stop(): Promise<void>
+```
+
+A simple read-only agent implements only `IAgent`. A long-running interactive agent also implements `IStreamable + IStoppable`.
+
+---
+
+### `src/core/pipeline/PipelineContext.ts`
+
+Mutable context passed through the pipeline for a single task run:
+
+```typescript
+export type PipelineContext = {
+  readonly workspaceRoot: string;
+  readonly originalPrompt: string;
+  readonly mode: TaskMode;
+  readonly model: string | undefined;
+  readonly providerId: ProviderId;
+  readonly enableEnhancement: boolean;
+  // Enriched by pre-steps:
+  projectMap?: string;
+  conversationContext?: string; // last 8 messages, max 12k chars
+  enhancedPrompt: string;
+};
+```
+
+---
+
+### `src/core/chat/ChatHistory.ts`
+
+Serializable DTOs for workspace-persisted conversation history:
+
+```typescript
+export interface SerializedUserMessage    { role: 'user';      prompt: string; ... }
+export interface SerializedAssistantMessage { role: 'assistant'; content: string; ... }
+export type SerializedChatMessage = SerializedUserMessage | SerializedAssistantMessage;
+
+export interface SerializedConversation {
+  id: string; title: string; createdAt: number; updatedAt: number;
+  messages: SerializedChatMessage[];
+  gitChanges?: { status: string; path: string }[];
+}
+
+export interface ChatHistoryState {
+  version: 1;
+  activeConversationId: string;
+  conversations: SerializedConversation[];
+}
 ```
 
 ---
 
 ### `src/core/events/IEventBus.ts`
 
-Decouples task execution from the UI.
+Decouples task execution from the UI. Used internally by `RunAgentUseCase` and forwarded to the webview by `ChatController`.
 
 ```typescript
 export type NexusEvent =
@@ -255,754 +237,262 @@ export type NexusEvent =
   | { kind: 'stdout';         task: AgentTask; chunk: string }
   | { kind: 'stderr';         task: AgentTask; chunk: string }
   | { kind: 'task_completed'; task: AgentTask; result: AgentResult }
+  | { kind: 'task_stopped';   task: AgentTask }
   | { kind: 'task_error';     task: AgentTask; error: string }
-  | { kind: 'git_status';     output: string }
-
-export interface IEventBus {
-  emit(event: NexusEvent): void
-  on(kind: NexusEvent['kind'], handler: (event: NexusEvent) => void): void
-  off(kind: NexusEvent['kind'], handler: (event: NexusEvent) => void): void
-}
+  | { kind: 'step_started';   stepLabel: string; stepIndex: number; totalSteps: number; ... }
+  | { kind: 'step_completed'; stepLabel: string }
+  | { kind: 'step_error';     stepLabel: string; error: string }
+  | { kind: 'activity_started'; activityKind: string; label: string }
+  | { kind: 'activity_done';    activityKind: string; label: string; status: 'done' | 'error' };
 ```
 
 ---
 
-### `src/core/runner/IProcessRunner.ts`
+### `src/core/types.ts`
 
-Abstracts process spawning so use cases never touch Node.js directly.
+Shared value types used by both extension and webview sides:
 
 ```typescript
-export interface RunOptions {
-  onStdout?: (chunk: string) => void
-  onStderr?: (chunk: string) => void
-}
-
-export interface IProcessRunner {
-  run(command: AgentCommand, options?: RunOptions): Promise<AgentResult>
-  stop(): Promise<void>
-}
+export type ProviderId =
+  | "codex"
+  | "claude"
+  | "gemini"
+  | "copilot"
+  | "aider"
+  | "custom"
+  | "auto";
+// ProviderId (UI-facing) and AgentId (core) must have identical values — keep in sync
 ```
 
 ---
 
-## Application Layer — Files
-
-Orchestrates domain objects. No knowledge of how agents are implemented or how output is displayed.
-
----
-
-### `src/application/AgentRegistry.ts`
-
-Stores and retrieves agent instances by id.
-
-```typescript
-import type { IAgent, AgentId } from '../core/agent'
-
-export class AgentRegistry {
-  private readonly agents = new Map<AgentId, IAgent>()
-
-  register(agent: IAgent): void {
-    if (this.agents.has(agent.id)) {
-      throw new Error(`Agent '${agent.id}' is already registered`)
-    }
-    this.agents.set(agent.id, agent)
-  }
-
-  get(id: AgentId): IAgent {
-    const agent = this.agents.get(id)
-    if (!agent) throw new Error(`Agent '${id}' not found`)
-    return agent
-  }
-
-  getAll(): ReadonlyArray<IAgent> {
-    return [...this.agents.values()]
-  }
-}
-```
-
----
-
-### `src/application/AgentRouter.ts`
-
-Picks the best available agent for a given mode and required capabilities.
-
-```typescript
-import type { IAgent, AgentId, TaskMode, AgentCapabilities } from '../core/agent'
-import { AgentRegistry } from './AgentRegistry'
-
-const CAPABILITY_BY_MODE: Record<TaskMode, Partial<AgentCapabilities>> = {
-  research: { canSearchWeb: true },
-  ask:      { canSearchWeb: true },
-  edit:     { canEditFiles: true },
-  debug:    { canRunShell: true },
-  test:     { canRunShell: true },
-  refactor: { canEditFiles: true },
-}
-
-export class AgentRouter {
-  constructor(private readonly registry: AgentRegistry) {}
-
-  async resolve(agentId: AgentId, mode: TaskMode): Promise<IAgent> {
-    if (agentId !== 'auto') {
-      const agent = this.registry.get(agentId)
-      if (await agent.isAvailable()) return agent
-      throw new Error(`Agent '${agentId}' is not available`)
-    }
-
-    const required  = CAPABILITY_BY_MODE[mode]
-    const available = await this.findAvailable(required)
-    if (!available) throw new Error(`No agent available for mode '${mode}'`)
-    return available
-  }
-
-  private async findAvailable(
-    required: Partial<AgentCapabilities>,
-  ): Promise<IAgent | undefined> {
-    const candidates = this.registry
-      .getAll()
-      .filter(a => a.capabilities.supports(required))
-
-    for (const agent of candidates) {
-      if (await agent.isAvailable()) return agent
-    }
-    return undefined
-  }
-}
-```
-
----
+## Application Layer
 
 ### `src/application/usecases/RunAgentUseCase.ts`
 
-Single entry point for executing one task end-to-end.
+Single entry point for executing one task end-to-end. Emits all lifecycle events.
+
+```
+execute(task)
+  → router.resolve(agentId, mode)   picks available IAgent
+  → agent.buildCommand(task)         AgentCommand (value object)
+  → task.start()
+  → eventBus.emit('task_started')
+  → runner.run(command, { onStdout, onStderr })
+  → task.complete(result)
+  → eventBus.emit('task_completed')
+```
+
+### `src/application/AgentRouter.ts`
+
+Picks the right agent. If `agentId === 'auto'`, finds the first available agent whose `capabilities.supports(required)` is true for the given mode.
+
+### `src/core/providerDetector.ts`
+
+Separate from `AgentRouter` — detects installed CLIs and their versions for the Settings UI. Results are **cached for 30 s** to avoid repeated slow PATH lookups.
 
 ```typescript
-import type { AgentTask, AgentResult } from '../../core/agent'
-import type { IEventBus }              from '../../core/events'
-import type { IProcessRunner }         from '../../core/runner'
-import { AgentRouter }                 from '../AgentRouter'
-
-export class RunAgentUseCase {
-  constructor(
-    private readonly router:   AgentRouter,
-    private readonly runner:   IProcessRunner,
-    private readonly eventBus: IEventBus,
-  ) {}
-
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const agent   = await this.router.resolve(task.agentId, task.mode)
-    const command = agent.buildCommand(task)
-
-    task.start()
-    this.eventBus.emit({ kind: 'task_started', task })
-
-    try {
-      const result = await this.runner.run(command, {
-        onStdout: chunk => this.eventBus.emit({ kind: 'stdout', task, chunk }),
-        onStderr: chunk => this.eventBus.emit({ kind: 'stderr', task, chunk }),
-      })
-
-      task.complete(result)
-      this.eventBus.emit({ kind: 'task_completed', task, result })
-      return result
-
-    } catch (error) {
-      task.cancel()
-      this.eventBus.emit({ kind: 'task_error', task, error: String(error) })
-      throw error
-    }
-  }
+export class ProviderDetector {
+  detectAll(): Promise<ProviderDetectionResult[]>; // cached, used on 'ready'
+  detectOne(id): Promise<ProviderDetectionResult>; // uncached, used on-demand
+  invalidate(): void; // force re-detect
 }
 ```
 
----
-
-### `src/application/usecases/DetectAgentsUseCase.ts`
-
-Discovers which agents are installed on the user's machine.
-
-```typescript
-import type { AgentId }  from '../../core/agent'
-import { AgentRegistry } from '../AgentRegistry'
-
-export interface DetectedAgent {
-  id:          AgentId
-  displayName: string
-  available:   boolean
-}
-
-export class DetectAgentsUseCase {
-  constructor(private readonly registry: AgentRegistry) {}
-
-  async execute(): Promise<DetectedAgent[]> {
-    const results = await Promise.allSettled(
-      this.registry.getAll().map(async agent => ({
-        id:          agent.id,
-        displayName: agent.displayName,
-        available:   await agent.isAvailable(),
-      })),
-    )
-
-    return results
-      .filter((r): r is PromiseFulfilledResult<DetectedAgent> => r.status === 'fulfilled')
-      .map(r => r.value)
-  }
-}
-```
+Each provider has a `ProviderSpec` in the `SPECS` array: `binary`, `versionArgs`, `versionPattern`, `seededModels`.
 
 ---
 
-## Infrastructure Layer — Files
-
-Concrete implementations. Depends on domain interfaces; never imported by application or domain layers.
-
----
+## Infrastructure Layer
 
 ### `src/providers/base/BaseAgent.ts`
 
-Abstract base — shared `isAvailable()` logic. Subclasses override only what differs.
+Shared `isAvailable()` using cross-platform `which` / `where` via `spawnSync`:
 
 ```typescript
-import type {
-  IAgent, AgentId, AgentTask, AgentCommand, AgentOutput, AgentCapabilities,
-} from '../../core/agent'
-import { exec }     from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-export abstract class BaseAgent implements IAgent {
-  abstract readonly id:           AgentId
-  abstract readonly displayName:  string
-  abstract readonly capabilities: AgentCapabilities
-
-  protected abstract get executableName(): string
-  abstract buildCommand(task: AgentTask): AgentCommand
-  abstract parseOutput(raw: string):      AgentOutput
-
-  async isAvailable(): Promise<boolean> {
-    try {
-      await execAsync(`which ${this.executableName}`)
-      return true
-    } catch {
-      return false
-    }
-  }
+async isAvailable(): Promise<boolean> {
+  const cmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(cmd, [this.executableName], { timeout: 5000, shell: false });
+  return result.status === 0;
+  // Never throws — router safely tries the next candidate
 }
 ```
 
-> **Open/Closed (OCP)**: `BaseAgent` is closed for modification.
-> Adding a new agent only requires a new subclass — zero changes to existing code.
+Subclasses must declare:
+
+- `abstract readonly id: AgentId`
+- `abstract readonly displayName: string`
+- `abstract readonly capabilities: AgentCapabilities`
+- `abstract readonly seededModels: ReadonlyArray<ProviderModel>`
+- `abstract readonly executableName: string`
+- `abstract buildCommand(task: AgentTask): AgentCommand`
+- `abstract parseOutput(raw: string): AgentOutput`
+
+Optionally override `readonly outputParser?: IOutputParser` (default: `undefined`).
 
 ---
 
-### `src/providers/claude/ClaudeAgent.ts`
+### `src/runner/processRunner.ts`
+
+Spawns the CLI using `spawn` (not `exec`) with `shell: false` for security:
 
 ```typescript
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
-
-export class ClaudeAgent extends BaseAgent {
-  readonly id           = 'claude' as const
-  readonly displayName  = 'Claude (Anthropic)'
-  readonly capabilities = new AgentCapabilities(
-    /* canEditFiles      */ true,
-    /* canRunShell       */ true,
-    /* canSearchWeb      */ false,
-    /* supportsStreaming */ true,
-  )
-
-  protected get executableName() { return 'claude' }
-
-  buildCommand(task: AgentTask): AgentCommand {
-    return new AgentCommand('claude', [task.enhancedPrompt])
-  }
-
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'markdown' }
-  }
-}
+const child = spawn(command.executable, [...command.args], {
+  cwd: options.cwd,
+  shell: false, // never use shell: true — avoids injection
+  env: {
+    ...process.env,
+    ...command.env,
+    TERM: "xterm-256color",
+    COLORTERM: "truecolor",
+  },
+});
 ```
 
+Stop sequence: `SIGTERM` → wait 3 s → `SIGKILL`.
+
+**Stderr noise filtering**: internal diagnostic lines (`[ClassName]`, stack traces, `at file://`) are filtered before being forwarded to the UI.
+
+### `src/runner/commandGuard.ts`
+
+Validates the executable name before every spawn. Rejects shell metacharacters: `; & | \` $ < > \ !`
+
 ---
 
-### `src/providers/codex/CodexAgent.ts`
+### `src/webview/ChatHistoryStore.ts`
+
+Persists conversation history to `context.workspaceState` (per-workspace Memento):
 
 ```typescript
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
+const HISTORY_KEY = "nexus.chatHistory.v1";
+const MAX_CONVERSATIONS = 50;
 
-export class CodexAgent extends BaseAgent {
-  readonly id           = 'codex' as const
-  readonly displayName  = 'Codex (OpenAI)'
-  readonly capabilities = new AgentCapabilities(true, true, false, true)
-
-  protected get executableName() { return 'codex' }
-
-  buildCommand(task: AgentTask): AgentCommand {
-    return new AgentCommand('codex', [task.enhancedPrompt])
-  }
-
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'markdown' }
-  }
+export class ChatHistoryStore {
+  load(): ChatHistoryState | null; // safe fallback on corrupt data
+  save(history): Promise<void>; // trims to 50 newest by updatedAt
+  clear(): Promise<void>;
 }
 ```
 
 ---
 
-### `src/providers/gemini/GeminiAgent.ts`
+## Interface Layer
+
+### `src/webview/webviewProtocol.ts` — Message contract
+
+**Extension → Webview:**
+
+| Message                                                                   | When                                                 |
+| ------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `historyLoaded`                                                           | On `ready` — sends saved conversations to hydrate UI |
+| `availableProviders`                                                      | On `ready` — installed CLIs + detection results      |
+| `stepStarted / stepCompleted / stepError`                                 | Pipeline steps                                       |
+| `taskStarted / stdout / stderr / taskCompleted / taskStopped / taskError` | Agent execution                                      |
+| `gitStatus`                                                               | After task completes (if enabled)                    |
+| `activityStarted / activityDone`                                          | Per-file/per-command activity from output parser     |
+
+**Webview → Extension:**
+
+| Message                                        | When                                           |
+| ---------------------------------------------- | ---------------------------------------------- |
+| `ready`                                        | Webview first loads                            |
+| `runTask`                                      | User submits prompt                            |
+| `stopTask`                                     | User clicks Stop                               |
+| `saveHistory`                                  | After task ends, new/delete/clear conversation |
+| `saveProvider`                                 | User changes provider                          |
+| `openSettings / openAbout / openSourceControl` | Toolbar actions                                |
+
+---
+
+### `src/webview/ChatController.ts`
+
+Central bridge. On `ready`:
+
+1. Loads history from `ChatHistoryStore` → posts `historyLoaded`
+2. Runs `ProviderDetector.detectAll()` → posts `availableProviders`
+
+On `runTask`:
+
+1. Builds `conversationContext` from `_latestHistory` (last 8 messages, ≤ 12k chars)
+2. Runs pre-pipeline steps
+3. Calls `buildEnhancedPrompt()` with workspace context + conversation context
+4. Spawns the CLI via `RunAgentUseCase`
+
+On `saveHistory`: stores to `ChatHistoryStore`, updates `_latestHistory`.
+
+---
+
+### `src/webview-ui/` — React UI
+
+**Stack**: React 18, Vite, FluentUI components, custom CSS variables.
+
+**State**: single `useReducer` with `AppState` in `messages.ts`. All extension events arrive as `extMsg` actions.
+
+**Key state fields:**
+
+| Field           | Purpose                                                                    |
+| --------------- | -------------------------------------------------------------------------- |
+| `conversations` | All loaded conversations                                                   |
+| `activeConvId`  | Which conversation is shown                                                |
+| `saveKey`       | Integer that increments on save-worthy events; drives `useEffect` autosave |
+| `isRunning`     | Whether a task is in progress                                              |
+| `isDetecting`   | Shows skeleton while waiting for `availableProviders`                      |
+
+**Autosave pattern** (no debounce needed — driven by discrete events):
 
 ```typescript
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
-
-export class GeminiAgent extends BaseAgent {
-  readonly id           = 'gemini' as const
-  readonly displayName  = 'Gemini (Google)'
-  readonly capabilities = new AgentCapabilities(
-    /* canEditFiles      */ true,
-    /* canRunShell       */ false,
-    /* canSearchWeb      */ true,
-    /* supportsStreaming */ true,
-  )
-
-  protected get executableName() { return 'gemini' }
-
-  buildCommand(task: AgentTask): AgentCommand {
-    const args = ['--prompt', task.enhancedPrompt]
-    if (this.capabilities.canSearchWeb) args.push('--web')
-    return new AgentCommand('gemini', args)
+useEffect(() => {
+  if (state.saveKey > 0 && state.saveKey !== saveKeyRef.current) {
+    saveKeyRef.current = state.saveKey;
+    getVsCodeApi().postMessage({
+      type: "saveHistory",
+      history: serializeHistory(stateRef.current),
+    });
   }
-
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'markdown' }
-  }
-}
+}, [state.saveKey]);
 ```
+
+`saveKey` increments on: `taskCompleted`, `taskStopped`, `taskError`, `newConversation`, `deleteConversation`, `clearHistory`. It does **not** increment on `tick` (elapsed timer).
 
 ---
 
-### `src/providers/copilot/CopilotAgent.ts`
+## Chat History
 
-```typescript
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
+Conversation history is stored per-workspace in `context.workspaceState`:
 
-export class CopilotAgent extends BaseAgent {
-  readonly id           = 'copilot' as const
-  readonly displayName  = 'Copilot (GitHub)'
-  readonly capabilities = new AgentCapabilities(true, false, false, true)
+- Key: `nexus.chatHistory.v1`
+- Max: 50 conversations (trimmed by `updatedAt` descending)
+- Conversations are serialized with only **completed** messages; streaming messages are excluded
 
-  protected get executableName() { return 'copilot' }
+**Conversation context for prompts:**
 
-  buildCommand(task: AgentTask): AgentCommand {
-    return new AgentCommand('copilot', [task.enhancedPrompt])
-  }
+- Built from the last 8 messages of the active conversation
+- Limited to 12,000 characters total
+- Each assistant message truncated to 2,000 characters
+- Injected into the enhanced prompt under `# Previous conversation context`
 
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'markdown' }
-  }
-}
+**Hydration on load:**
+
 ```
-
----
-
-### `src/providers/aider/AiderAgent.ts`
-
-```typescript
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
-
-export class AiderAgent extends BaseAgent {
-  readonly id           = 'aider' as const
-  readonly displayName  = 'Aider'
-  readonly capabilities = new AgentCapabilities(true, true, false, true)
-
-  protected get executableName() { return 'aider' }
-
-  buildCommand(task: AgentTask): AgentCommand {
-    return new AgentCommand('aider', ['--message', task.enhancedPrompt])
-  }
-
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'text' }
-  }
-}
-```
-
----
-
-### `src/providers/custom/CustomAgent.ts`
-
-Reads command + args from VS Code settings at runtime.
-
-```typescript
-import * as vscode                                            from 'vscode'
-import { BaseAgent }                                          from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask, AgentOutput } from '../../core/agent'
-
-export class CustomAgent extends BaseAgent {
-  readonly id           = 'custom' as const
-  readonly displayName  = 'Custom'
-  readonly capabilities = new AgentCapabilities(true, true, false, true)
-
-  protected get executableName(): string {
-    return vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? ''
-  }
-
-  buildCommand(task: AgentTask): AgentCommand {
-    const cfg      = vscode.workspace.getConfiguration('nexus')
-    const command  = cfg.get<string>('customProvider.command') ?? ''
-    const template = cfg.get<string[]>('customProvider.args') ?? ['{{prompt}}']
-    const args     = template.map(a => a.replace('{{prompt}}', task.enhancedPrompt))
-    return new AgentCommand(command, args)
-  }
-
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'text' }
-  }
-}
-```
-
----
-
-## Interface Layer — Files
-
-Consumes application-layer use cases. Handles VS Code API calls and React UI events.
-
----
-
-### `src/webview/ChatController.ts` (simplified)
-
-Bridges VS Code webview messages to application use cases.
-
-```typescript
-import { RunAgentUseCase }     from '../application/usecases/RunAgentUseCase'
-import { DetectAgentsUseCase } from '../application/usecases/DetectAgentsUseCase'
-import { AgentTask }           from '../core/agent'
-import type { IEventBus }      from '../core/events'
-import { PromptBuilder }       from '../context/PromptBuilder'
-
-export class ChatController {
-  constructor(
-    private readonly runAgent:      RunAgentUseCase,
-    private readonly detectAgents:  DetectAgentsUseCase,
-    private readonly promptBuilder: PromptBuilder,
-    private readonly eventBus:      IEventBus,
-  ) {}
-
-  async handleRunTask(message: RunTaskMessage): Promise<void> {
-    const enhanced = await this.promptBuilder.build(message.prompt, message.mode)
-    const task     = new AgentTask(message.prompt, enhanced, message.provider, message.mode)
-    await this.runAgent.execute(task)
-  }
-
-  async handleReady(): Promise<void> {
-    const agents = await this.detectAgents.execute()
-    this.postMessage({ type: 'availableProviders', providers: agents })
-  }
-
-  private postMessage(msg: unknown): void { /* postMessage to webview */ }
-}
-```
-
-> **Dependency Inversion (DIP)**: `ChatController` never imports `ClaudeAgent` or `GeminiAgent` directly.
-> It depends on `RunAgentUseCase`, which depends on `IAgent`.
-> Concrete agents are injected at startup in `extension.ts`.
-
----
-
-### `src/extension.ts` — Composition Root
-
-The only place where `new ConcreteClass()` is called.
-
-```typescript
-import * as vscode            from 'vscode'
-import { AgentRegistry }      from './application/AgentRegistry'
-import { AgentRouter }        from './application/AgentRouter'
-import { RunAgentUseCase }    from './application/usecases/RunAgentUseCase'
-import { DetectAgentsUseCase } from './application/usecases/DetectAgentsUseCase'
-import { ClaudeAgent }        from './providers/claude/ClaudeAgent'
-import { CodexAgent }         from './providers/codex/CodexAgent'
-import { GeminiAgent }        from './providers/gemini/GeminiAgent'
-import { CopilotAgent }       from './providers/copilot/CopilotAgent'
-import { AiderAgent }         from './providers/aider/AiderAgent'
-import { CustomAgent }        from './providers/custom/CustomAgent'
-import { ProcessRunner }      from './runner/ProcessRunner'
-import { EventBus }           from './core/events/EventBus'
-import { ChatController }     from './webview/ChatController'
-import { PromptBuilder }      from './context/PromptBuilder'
-
-export function activate(context: vscode.ExtensionContext): void {
-  const registry = new AgentRegistry()
-  registry.register(new ClaudeAgent())
-  registry.register(new CodexAgent())
-  registry.register(new GeminiAgent())
-  registry.register(new CopilotAgent())
-  registry.register(new AiderAgent())
-  registry.register(new CustomAgent())
-
-  const eventBus      = new EventBus()
-  const runner        = new ProcessRunner()
-  const router        = new AgentRouter(registry)
-  const runUseCase    = new RunAgentUseCase(router, runner, eventBus)
-  const detectUseCase = new DetectAgentsUseCase(registry)
-  const builder       = new PromptBuilder()
-
-  const controller = new ChatController(runUseCase, detectUseCase, builder, eventBus)
-  // ... register controller with ChatViewProvider
-}
-```
-
----
-
-## SOLID Principles Applied
-
-### S — Single Responsibility
-
-| Class | Single Responsibility |
-| --- | --- |
-| `IAgent` | Declares the agent contract |
-| `AgentRegistry` | Stores and retrieves agent instances |
-| `AgentRouter` | Picks the right agent for a task |
-| `RunAgentUseCase` | Executes one task end-to-end |
-| `DetectAgentsUseCase` | Discovers available agents |
-| `BaseAgent` | Shared detection and lifecycle logic |
-| `ClaudeAgent` | Claude-specific command construction |
-| `ChatController` | Bridges VS Code messages to use cases |
-
-### O — Open/Closed
-
-Adding a new agent requires:
-
-1. Create `src/providers/<name>/<Name>Agent.ts` extending `BaseAgent`
-2. Register it in `extension.ts`
-
-No changes to `AgentRouter`, `AgentRegistry`, `RunAgentUseCase`, or any existing agent.
-
-### L — Liskov Substitution
-
-`AgentRouter.resolve()` returns `IAgent`. The caller never needs to know the concrete class. Every `BaseAgent` subclass:
-
-- Always returns a valid `AgentCommand` from `buildCommand()`
-- Always returns a `boolean` from `isAvailable()` — never throws
-- Never adds required arguments beyond what `IAgent` declares
-
-### I — Interface Segregation
-
-```text
-IAgent       ← isAvailable, buildCommand, parseOutput
-IDetectable  ← detect()
-IStreamable  ← onStdout, onStderr, onComplete
-IStoppable   ← stop()
-```
-
-A simple one-shot agent implements only `IAgent`. A long-running interactive agent also implements `IStreamable + IStoppable`. No agent is forced to implement methods it does not need.
-
-### D — Dependency Inversion
-
-```text
-extension.ts  (composition root)
-  │
-  ├── creates ClaudeAgent, GeminiAgent, ...  ← concrete
-  ├── registers them in AgentRegistry        ← concrete
-  │
-  └── injects into RunAgentUseCase           ← depends on IAgent via Registry
-        └── injected into ChatController     ← depends on RunAgentUseCase
-```
-
-`ChatController` and `RunAgentUseCase` are tested by injecting mock agents — no real processes spawned.
-
----
-
-## Class Hierarchy
-
-```text
-IAgent (interface)
- └── BaseAgent (abstract)
-      ├── ClaudeAgent
-      ├── CodexAgent
-      ├── GeminiAgent
-      ├── CopilotAgent
-      ├── AiderAgent
-      └── CustomAgent
-
-IDetectable (interface)
- └── BaseAgent (partial implementation)
-
-IStreamable (interface)
- └── RunAgentUseCase (wraps ProcessRunner streams)
-
-IStoppable (interface)
- └── RunAgentUseCase (calls ProcessRunner.stop)
-```
-
----
-
-## Agent Lifecycle
-
-```text
-User Input
-    │
-    ▼
-ChatController.handleRunTask()
-    ├── PromptBuilder.build()           → enriches prompt with workspace context
-    └── new AgentTask(...)              → entity, status = 'pending'
-    │
-    ▼
-RunAgentUseCase.execute(task)
-    ├── AgentRouter.resolve()           → picks available IAgent for mode
-    ├── agent.buildCommand(task)        → AgentCommand (value object)
-    ├── task.start()                    → status = 'running'
-    ├── eventBus.emit('task_started')
-    │
-    ▼
-ProcessRunner.run(command)
-    ├── onStdout → eventBus.emit('stdout') → UI streams live output
-    └── onStderr → eventBus.emit('stderr')
-    │
-    ▼
-Process exits
-    ├── task.complete(result)           → status = 'completed' | 'failed'
-    ├── eventBus.emit('task_completed')
-    └── optional: GitStatus → eventBus.emit('git_status')
-```
-
----
-
-## Adding a New Agent
-
-Follow these 6 steps. Nothing else changes.
-
-**Step 1** — Add id to `AgentId` in `src/core/agent/AgentTask.ts`:
-
-```typescript
-export type AgentId = 'claude' | 'codex' | ... | 'mycli' | 'auto'
-```
-
-**Step 2** — Create the agent file:
-
-```typescript
-// src/providers/myCli/MyCliAgent.ts
-
-import { BaseAgent }       from '../base/BaseAgent'
-import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent'
-import type { AgentOutput } from '../../core/agent'
-import type { ProviderModel } from '../../core/types'
-
-export class MyCliAgent extends BaseAgent {
-  readonly id           = 'mycli' as const
-  readonly displayName  = 'My CLI'
-  readonly capabilities = new AgentCapabilities(true, false, false, true)
-  readonly seededModels: ReadonlyArray<ProviderModel> = [
-    { id: 'model-a', label: 'Model A', source: 'seeded' },
-  ]
-  readonly defaultModel = 'model-a'
-
-  protected readonly executableName = 'mycli'
-
-  buildCommand(task: AgentTask): AgentCommand {
-    const args = task.model
-      ? ['--model', task.model, task.enhancedPrompt]
-      : [task.enhancedPrompt]
-    return new AgentCommand('mycli', args)
-  }
-
-  parseOutput(raw: string): AgentOutput {
-    return { content: raw.trim(), format: 'text' }
-  }
-}
-```
-
-**Step 3** — Register in `src/extension.ts`:
-
-```typescript
-import { MyCliAgent } from './providers/myCli/MyCliAgent'
-
-registry.register(new MyCliAgent())
-```
-
-**Step 4** — Add id to `ProviderId` in `src/webview-ui/messages.ts` (mirrors `AgentId`).
-
-**Step 5** — Add id to the `all` array in `getProviderOptions()` inside `src/webview-ui/components/AppToolbar.tsx`.
-
-**Step 6** — Add a `ProviderSpec` entry in `src/core/providerDetector.ts` (`SPECS` array) for version detection and model listing in the UI.
-
----
-
-## Full File Tree
-
-```text
-src/
-├── core/                              ← Domain layer (zero I/O)
-│   ├── agent/
-│   │   ├── IAgent.ts
-│   │   ├── IDetectable.ts
-│   │   ├── IStreamable.ts
-│   │   ├── IStoppable.ts
-│   │   ├── AgentCapabilities.ts
-│   │   ├── AgentCommand.ts
-│   │   ├── AgentTask.ts
-│   │   ├── AgentResult.ts
-│   │   ├── AgentOutput.ts
-│   │   └── index.ts
-│   ├── events/
-│   │   ├── IEventBus.ts
-│   │   └── EventBus.ts
-│   └── runner/
-│       └── IProcessRunner.ts
-│
-├── application/                       ← Application layer (use cases)
-│   ├── AgentRegistry.ts
-│   ├── AgentRouter.ts
-│   └── usecases/
-│       ├── RunAgentUseCase.ts
-│       └── DetectAgentsUseCase.ts
-│
-├── providers/                         ← Infrastructure layer (concrete agents)
-│   ├── base/
-│   │   └── BaseAgent.ts
-│   ├── claude/
-│   │   └── ClaudeAgent.ts
-│   ├── codex/
-│   │   └── CodexAgent.ts
-│   ├── gemini/
-│   │   └── GeminiAgent.ts
-│   ├── copilot/
-│   │   └── CopilotAgent.ts
-│   ├── aider/
-│   │   └── AiderAgent.ts
-│   └── custom/
-│       └── CustomAgent.ts
-│
-├── runner/                            ← Infrastructure layer (process execution)
-│   ├── ProcessRunner.ts
-│   └── commandGuard.ts
-│
-├── context/                           ← Infrastructure layer (workspace context)
-│   ├── PromptBuilder.ts
-│   ├── WorkspaceScanner.ts
-│   ├── PackageDetector.ts
-│   └── RulesLoader.ts
-│
-├── webview/                           ← Interface layer (VS Code bridge)
-│   ├── ChatController.ts
-│   ├── ChatViewProvider.ts
-│   └── webviewProtocol.ts
-│
-├── webview-ui/                        ← Interface layer (React UI)
-│   ├── App.tsx
-│   └── components/
-│
-└── extension.ts                       ← Composition root
+'ready' →  historyStore.load()
+        →  post { type: 'historyLoaded', history }
+        →  reducer: deserializeConversation() for each → Conversation[]
 ```
 
 ---
 
 ## Pipeline Step Pattern
 
-Pre-processing steps that run before the CLI agent. Defined in `src/application/pipeline/`.
+Pre-processing steps that run before the CLI agent. Only `scan-project` mode has a pre-step today.
+
+### Step contract
+
+```typescript
+export interface IPipelineStep {
+  readonly label: string; // semantic key, NOT a display string
+  execute(ctx: PipelineContext, emit: (e: NexusEvent) => void): Promise<void>;
+}
+```
 
 ### Adding a new pre-step
 
@@ -1010,137 +500,378 @@ Pre-processing steps that run before the CLI agent. Defined in `src/application/
 
 ```typescript
 // src/application/pipeline/MyStep.ts
-import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
-import type { PipelineContext } from '../../core/pipeline/PipelineContext';
-import type { NexusEvent } from '../../core/events/IEventBus';
+import type { IPipelineStep } from "../../core/pipeline/IPipelineStep";
+import type { PipelineContext } from "../../core/pipeline/PipelineContext";
+import type { NexusEvent } from "../../core/events/IEventBus";
 
 export class MyStep implements IPipelineStep {
-  readonly label = 'my-step-key';   // semantic key, NOT a display string
+  readonly label = "my-key"; // semantic key
 
-  async execute(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
+  async execute(
+    ctx: PipelineContext,
+    emit: (e: NexusEvent) => void,
+  ): Promise<void> {
+    emit({
+      kind: "activity_started",
+      activityKind: "read",
+      label: "Loading data...",
+    });
     // enrich ctx here, e.g. ctx.projectMap = ...
+    emit({
+      kind: "activity_done",
+      activityKind: "read",
+      label: "Loading data...",
+      status: "done",
+    });
   }
 }
 ```
 
-**Step 2** — Register in `src/application/pipeline/createPreSteps.ts`:
+**Step 2** — Register in `createPreSteps.ts`:
 
 ```typescript
 case 'my-mode':
-  return [new MyStep(deps.myDep)]
+  return [new MyStep(deps.myDep)];
 ```
 
-**Step 3** — Add the i18n label (see [i18n Rules](#i18n-rules)):
+**Step 3** — Add i18n keys (see [i18n Rules](#i18n-rules)):
 
 ```json
-// vi.json → en.json
-"pipeline": { "steps": { "my-step-key": "Nhãn hiển thị" } }
+"pipeline": { "steps": { "my-key": "My Step Label" } }
 ```
 
-### Event order
+### Event order during execution
 
-```text
-step_started  (pre-step, index=0)  → creates AssistantMessage in UI
-step_completed (pre-step)          → marks step ✓
-step_started  (analyze, index=N)   → adds step to UI
-task_started                       → NO new message (already exists)
-stdout / stderr                    → streams into message.lines
-task_completed                     → isStreaming = false
-step_completed (analyze)           → marks step ✓
+```
+step_started  (index=0)     → creates AssistantMessage in UI
+activity_started / done     → live sub-progress within that step
+step_completed              → marks step ✓
+step_started  (analyze)     → adds run-agent step to UI
+task_started                → NO new message (already exists)
+stdout / stderr             → streams into message.lines
+task_completed              → isStreaming = false
+step_completed (analyze)    → marks final step ✓
 ```
 
-### Rules
+---
 
-- `IPipelineStep.label` must be a **semantic key** (e.g. `'scan'`, `'analyze'`), never a display string.
-- Steps mutate `PipelineContext` to share data with later steps.
-- `createPreSteps()` is the only place to add/remove pre-steps — `ChatController` never changes.
+## Output Parser Pattern
+
+Agents that emit structured progress (Claude Code, Codex) have a dedicated parser:
+
+```typescript
+// src/providers/claude/ClaudeOutputParser.ts
+export class ClaudeOutputParser implements IOutputParser {
+  parse(chunk: string): ParsedActivity[] {
+    // parse ANSI-escaped lines → classify as edit/bash/read/write/etc.
+    // return [] for lines that are plain output
+  }
+}
+```
+
+Parsers are registered on the agent:
+
+```typescript
+export class ClaudeAgent extends BaseAgent {
+  readonly outputParser = new ClaudeOutputParser();
+  ...
+}
+```
+
+`RunAgentUseCase` checks `agent.outputParser` and, if present, pipes each stdout chunk through it. Parsed activities are emitted as `activity_started` / `activity_done` events, which the webview renders as sub-steps.
+
+---
+
+## Adding a New Agent
+
+Follow these steps — nothing else changes.
+
+**Step 1** — Add id to `AgentId` in `src/core/agent/AgentTask.ts` AND `ProviderId` in `src/core/types.ts`:
+
+```typescript
+export type AgentId = "..." | "mycli" | "auto";
+export type ProviderId = "..." | "mycli" | "auto";
+```
+
+**Step 2** — Create the agent:
+
+```typescript
+// src/providers/myCli/MyCliAgent.ts
+import { BaseAgent } from "../base/BaseAgent";
+import { AgentCapabilities, AgentCommand } from "../../core/agent";
+import type { AgentTask, AgentOutput } from "../../core/agent";
+import type { ProviderModel } from "../../core/types";
+
+export class MyCliAgent extends BaseAgent {
+  readonly id = "mycli" as const;
+  readonly displayName = "My CLI";
+  readonly capabilities = new AgentCapabilities(true, false, false, true);
+  readonly seededModels: ReadonlyArray<ProviderModel> = [
+    { id: "model-a", label: "Model A", source: "seeded" },
+  ];
+  readonly defaultModel = "model-a";
+  protected readonly executableName = "mycli";
+
+  buildCommand(task: AgentTask): AgentCommand {
+    const args = task.model
+      ? ["--model", task.model, task.enhancedPrompt]
+      : [task.enhancedPrompt];
+    return new AgentCommand("mycli", args);
+  }
+
+  parseOutput(raw: string): AgentOutput {
+    return { content: raw.trim(), format: "text" };
+  }
+}
+```
+
+**Step 3** — Register in `src/extension.ts` (composition root):
+
+```typescript
+registry.register(new MyCliAgent());
+```
+
+**Step 4** — Add a `ProviderSpec` to the `SPECS` array in `src/core/providerDetector.ts`.
+
+**Step 5** — Add id to the `all` array in `getProviderOptions()` in `src/webview-ui/components/AppToolbar.tsx` if a UI entry is needed.
 
 ---
 
 ## i18n Rules
 
-> **CRITICAL**: Every time you add user-visible text to `src/webview-ui/`, you MUST update both i18n files.
+> **CRITICAL**: Every user-visible string added to `src/webview-ui/` MUST be in both i18n files.
 
-### How it works
+- `src/webview-ui/i18n/vi.json` — Vietnamese, **TypeScript type master** (`Messages = typeof vi`)
+- `src/webview-ui/i18n/en.json` — English, must have identical key structure
+- Missing key in `en.json` = TypeScript compile error
+- Access via `const t = useT()` → `t.section.key`
+- Interpolation: `interp(t.toolbar.history, { count: 3 })` for `{{count}}` placeholders
 
-- `src/webview-ui/i18n/vi.json` is the **source of truth** for TypeScript types (`Messages = typeof vi`).
-- `src/webview-ui/i18n/en.json` must have **identical keys** with English translations.
-- Missing key in `en.json` = TypeScript compile error.
-- Access via `const t = useT()` → `t.section.key`.
-
-### Checklist — when adding frontend labels
-
-- [ ] Add key + Vietnamese string to `vi.json`
-- [ ] Add same key + English string to `en.json`
-- [ ] Use `t.section.key` in JSX — **never hardcode strings**
-- [ ] Run `npm run compile:webview` and confirm zero errors
-
-### Labels sent from the extension backend
-
-Pipeline steps and other backend events send **semantic keys** (e.g. `'scan'`, `'analyze'`), not translated strings. The frontend translates them:
+**Pipeline step labels** are semantic keys (e.g., `'scan'`), not translated strings. The frontend translates:
 
 ```typescript
-// AssistantMessage.tsx
 const stepLabels = t.pipeline.steps as Record<string, string>;
 const displayLabel = stepLabels[step.label] ?? step.label;
 ```
 
-When adding a new pipeline step:
-1. Set `IPipelineStep.label` to a short lowercase key: `readonly label = 'index'`
-2. Add the key to `vi.json`: `"pipeline": { "steps": { "index": "Lập chỉ mục" } }`
-3. Add the key to `en.json`: `"pipeline": { "steps": { "index": "Indexing" } }`
+---
 
-### i18n file locations
+## VS Code Extension Best Practices
 
-| File | Purpose |
-| --- | --- |
-| `src/webview-ui/i18n/vi.json` | Vietnamese (source of truth / type master) |
-| `src/webview-ui/i18n/en.json` | English (must mirror vi.json structure) |
-| `src/webview-ui/i18n/index.ts` | `useT()` hook, `interp()` for `{{placeholder}}` |
+These apply to all code in this project.
+
+### Activation and lifecycle
+
+- **Activate lazily**: `activationEvents` in `package.json` should be as specific as possible. Avoid `*`.
+- **Dispose everything**: commands, providers, event listeners must be pushed to `context.subscriptions`. `ChatController` has its own `dispose()` method chained from `ChatViewProvider`.
+- **Composition root is `extension.ts`**: all `new ConcreteClass()` calls happen there. Use cases and controllers are never instantiated elsewhere.
+
+### Webview communication
+
+- **Typed protocol**: all messages go through `webviewProtocol.ts` (extension side) and `messages.ts` (webview side). Never use raw `any` in postMessage calls.
+- **Never block the extension host**: webview message handlers are `async`. Heavy work (file scanning, process spawning) is awaited without blocking the VS Code UI thread.
+- **`retainContextWhenHidden: true`**: preserves React state and avoids a full re-mount when the panel is hidden.
+- **One-way security**: the webview cannot call VS Code APIs directly — it must always postMessage to the extension host.
+
+### Process spawning
+
+- Always use `spawn` with `shell: false` — never `exec` or `shell: true`.
+- Always run `CommandGuard.validate(executable)` before spawning.
+- Spawn with `cwd: workspaceRoot` so the CLI runs in the right directory.
+- Set `TERM` and `COLORTERM` env vars so CLIs render ANSI output correctly.
+- Implement `stop()` with SIGTERM → wait → SIGKILL; never leave zombie processes.
+
+### State persistence
+
+| What to persist                  | API                                          | Key                    |
+| -------------------------------- | -------------------------------------------- | ---------------------- |
+| User preferences (last provider) | `context.globalState`                        | `nexus.lastProvider`   |
+| Conversation history             | `context.workspaceState`                     | `nexus.chatHistory.v1` |
+| Provider/CLI config              | `vscode.workspace.getConfiguration('nexus')` | —                      |
+
+- `globalState` = shared across all workspaces.
+- `workspaceState` = scoped to the current workspace folder.
+- Always wrap `Memento.get()` in try/catch — stored data may be corrupted or from an older version.
+
+### Security
+
+- `CommandGuard` blocks shell metacharacters on the executable name.
+- Process args are passed as an array (never concatenated as a shell string).
+- Webview `localResourceRoots` is locked to `media/`.
+- Never embed secrets in webview HTML; read them from `getConfiguration` when needed.
+
+### Performance
+
+- `ProviderDetector` caches results for 30 s to avoid blocking PATH lookups on every UI render.
+- `BaseAgent.isAvailable()` uses `spawnSync` with a 5 s timeout to prevent hangs.
+- Stderr noise (stack traces, internal logs) is filtered before forwarding to avoid flooding the UI.
+- Conversation history is trimmed to 50 entries and only the last 8 messages are passed as context.
+
+### Testing
+
+- Domain layer (`src/core/`) has zero external dependencies — unit test without mocks.
+- Use case tests inject mock `IAgent`, `IProcessRunner`, `IEventBus`.
+- Webview reducer tests use `vitest` without any VS Code or browser APIs.
+- Never mock the filesystem in tests that need to verify actual file I/O — use real temp paths.
 
 ---
 
-## Design Rules
+## Full File Tree
 
-1. **Domain types never import from infrastructure.** `IAgent`, `AgentTask`, `AgentCapabilities` have zero external dependencies.
-2. **Use cases depend on interfaces, never concrete classes.** `RunAgentUseCase` knows `IAgent`, not `ClaudeAgent`.
-3. **`extension.ts` is the only composition root.** All `new ConcreteClass()` calls happen there.
-4. **Value objects are immutable.** `AgentCapabilities`, `AgentCommand`, `AgentResult` have no setters.
-5. **Entities own their state transitions.** Only `AgentTask` can call its own `start()`, `complete()`, `cancel()`.
-6. **One use case = one public method.** `RunAgentUseCase.execute()`, `DetectAgentsUseCase.execute()`.
-7. **No agent knows about another agent.** Routing is the router's job, not the agent's.
-8. **`BaseAgent.isAvailable()` never throws.** Returns `false` on any error so the router safely tries the next candidate.
+```
+src/
+├── core/                              ← Domain layer (zero I/O, zero VS Code)
+│   ├── agent/
+│   │   ├── IAgent.ts                  ← main contract (includes seededModels, outputParser)
+│   │   ├── IOutputParser.ts           ← streaming output → ParsedActivity[]
+│   │   ├── IDetectable.ts
+│   │   ├── IStreamable.ts
+│   │   ├── IStoppable.ts
+│   │   ├── AgentCapabilities.ts
+│   │   ├── AgentCommand.ts
+│   │   ├── AgentTask.ts               ← AgentId, TaskMode, TaskStatus
+│   │   ├── AgentResult.ts
+│   │   ├── AgentOutput.ts
+│   │   └── index.ts
+│   ├── chat/
+│   │   └── ChatHistory.ts             ← serializable history DTOs
+│   ├── events/
+│   │   └── IEventBus.ts
+│   ├── pipeline/
+│   │   ├── IPipelineStep.ts
+│   │   └── PipelineContext.ts
+│   ├── runner/
+│   │   └── IProcessRunner.ts
+│   ├── eventBus.ts                    ← EventBus implementation (wildcard '*' listener)
+│   ├── providerDetector.ts            ← ProviderDetector, SPECS, 30s cache
+│   └── types.ts                       ← ProviderId, TaskMode, ProviderModel, GitFileChange
+│
+├── application/                       ← Application layer (use cases)
+│   ├── AgentRegistry.ts
+│   ├── AgentRouter.ts
+│   ├── pipeline/
+│   │   ├── createPreSteps.ts          ← factory: mode → IPipelineStep[]
+│   │   └── ScanProjectStep.ts
+│   └── usecases/
+│       ├── RunAgentUseCase.ts
+│       ├── DetectAgentsUseCase.ts
+│       ├── BuildProjectMapUseCase.ts
+│       └── SummarizeProjectMapUseCase.ts
+│
+├── providers/                         ← Infrastructure: concrete agents
+│   ├── base/
+│   │   ├── BaseAgent.ts               ← cross-platform isAvailable(), abstract base
+│   │   └── DefaultOutputParser.ts
+│   ├── claude/
+│   │   ├── ClaudeAgent.ts
+│   │   └── ClaudeOutputParser.ts
+│   ├── codex/
+│   │   ├── CodexAgent.ts
+│   │   └── CodexOutputParser.ts
+│   ├── gemini/
+│   │   ├── GeminiAgent.ts
+│   │   └── GeminiOutputParser.ts
+│   ├── copilot/
+│   │   ├── CopilotAgent.ts
+│   │   └── CopilotOutputParser.ts
+│   ├── aider/
+│   │   └── AiderAgent.ts
+│   └── custom/
+│       └── CustomAgent.ts             ← reads command from vscode.workspace.getConfiguration
+│
+├── runner/                            ← Infrastructure: process execution
+│   ├── processRunner.ts               ← spawn/SIGTERM/SIGKILL, stderr noise filter
+│   └── commandGuard.ts                ← rejects shell metacharacters
+│
+├── context/                           ← Infrastructure: workspace context
+│   ├── promptBuilder.ts               ← buildEnhancedPrompt()
+│   ├── workspaceScanner.ts
+│   ├── packageDetector.ts
+│   ├── rulesLoader.ts
+│   └── project-map/                   ← file tree scanning + AI summary
+│
+├── output/                            ← Infrastructure: output normalization
+│   ├── outputNormalizer.ts
+│   └── parsers/
+│       ├── claudeParser.ts
+│       ├── codexParser.ts
+│       ├── geminiParser.ts
+│       └── genericParser.ts
+│
+├── git/                               ← Infrastructure: git integration
+│   ├── gitStatus.ts
+│   └── gitDiff.ts
+│
+├── webview/                           ← Interface: VS Code ↔ React bridge
+│   ├── ChatController.ts              ← handles all WebviewMessages
+│   ├── ChatViewProvider.ts            ← WebviewViewProvider
+│   ├── ChatPanel.ts                   ← WebviewPanel (standalone panel)
+│   ├── ChatHistoryStore.ts            ← workspaceState-backed history
+│   ├── getHtml.ts
+│   └── webviewProtocol.ts             ← typed ExtensionMessage / WebviewMessage
+│
+├── webview-ui/                        ← Interface: React app (built by Vite → media/webview/)
+│   ├── App.tsx
+│   ├── messages.ts                    ← AppState, reducer, serialization helpers
+│   ├── vscodeApi.ts
+│   ├── theme.ts
+│   ├── components/
+│   │   ├── AppToolbar.tsx
+│   │   ├── Composer.tsx
+│   │   ├── MessageList.tsx
+│   │   ├── AssistantMessage.tsx
+│   │   └── ConversationHistory.tsx
+│   └── i18n/
+│       ├── vi.json                    ← Vietnamese (type master)
+│       ├── en.json                    ← English (must mirror vi.json structure)
+│       └── index.ts                   ← useT(), interp()
+│
+├── settings/                          ← Interface: Settings + About webview panels
+│   ├── SettingsPanel.ts
+│   ├── SettingsHtml.ts
+│   ├── AboutPanel.ts
+│   └── AboutHtml.ts
+│
+├── config/                            ← Infrastructure: extension config
+│   ├── ConfigService.ts
+│   ├── DefaultConfig.ts
+│   └── NexusConfig.ts
+│
+└── extension.ts                       ← Composition root (activate / deactivate)
+```
 
 ---
 
 ## Build Commands
 
 ```bash
-npm run compile              # TypeScript + Vite (full build)
-npm run compile:extension    # TypeScript only
-npm run compile:webview      # Vite only
+npm run compile              # TypeScript (tsc) + Vite — full build
+npm run compile:extension    # TypeScript only (tsc -p ./)
+npm run compile:webview      # Vite only → media/webview/
 npm run watch                # TypeScript watch
 npm run watch:webview        # Vite watch
-npm run test:webview         # Vitest
+npm run test:webview         # Vitest (reducer, parsers, domain)
 
-npx @vscode/vsce package --no-dependencies   # produce .vsix
-code --install-extension nexus-visual-code-<version>.vsix
+# Package for distribution:
+npx @vscode/vsce package --no-dependencies
+code --install-extension nexus-code-<version>.vsix
 ```
 
-Always run `npm run compile` and confirm zero errors before packaging.
+**Before every commit**: `npm run compile` must exit zero errors.
+
+**Webview build output** (`media/webview/`) is committed and packaged in the `.vsix`. Do not gitignore it.
 
 ---
 
-## Key Conventions
+## Key Invariants
 
-- `AgentId` (`src/core/agent/AgentTask.ts`) and `ProviderId` (`src/core/types.ts` + `src/webview-ui/messages.ts`) must have identical values — keep them in sync
-- `BaseAgent.isAvailable()` uses cross-platform `which`/`where` via `spawnSync` — never throws, returns `false` on error
-- `ProcessRunner` accepts callbacks (`onStdout`, `onStderr`) and returns `AgentResult` — never imports the event bus directly
-- `RunAgentUseCase` owns all task lifecycle events: `task_started → stdout/stderr → task_completed/task_stopped/task_error`
-- `CommandGuard.validate()` runs before every spawn — rejects shell metacharacters `; & | $ < > \ !`
-- Domain layer (`src/core/agent/`) has zero external dependencies — no Node.js I/O, no VS Code API
-- `extension.ts` is the only composition root — all `new ConcreteClass()` calls happen there
-- The webview build output goes to `media/webview/` — this directory is committed and packaged in the .vsix
-- VS Code settings namespace: `nexus.*`
-- **i18n**: any user-visible string in `src/webview-ui/` must exist in both `vi.json` and `en.json` — `vi.json` is the TypeScript type master; missing keys in `en.json` cause compile errors
-- **Pipeline step labels**: `IPipelineStep.label` is a semantic key (e.g. `'scan'`), not a display string — the frontend translates via `t.pipeline.steps[label]`
+1. **Domain layer has zero external imports** — `src/core/` never imports Node.js, VS Code API, or any npm package.
+2. **`extension.ts` is the only composition root** — all `new ConcreteClass()` calls happen there.
+3. **`BaseAgent.isAvailable()` never throws** — always returns `boolean` so `AgentRouter` can safely iterate candidates.
+4. **Value objects are immutable** — `AgentCapabilities`, `AgentCommand`, `AgentResult` have no setters.
+5. **`AgentId` and `ProviderId` must have identical values** — `AgentTask.ts` and `core/types.ts` must stay in sync.
+6. **Pipeline step `label` is a semantic key**, never a translated string — the frontend translates via `t.pipeline.steps[label]`.
+7. **`shell: false` in all `spawn` calls** — never allow shell interpolation of user-controlled strings.
+8. **i18n: `vi.json` is the TypeScript type master** — add every new key to both files or the webview build fails.
+9. **`saveKey` drives autosave** — increment it on task-end and conversation mutations; never on `tick`.
+10. **Streaming assistant messages are not serialized** — `serializeHistory()` skips messages where `isStreaming === true`.

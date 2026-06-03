@@ -127,5 +127,17 @@
     "title": "No CLI configured",
     "subtitle": "Open Settings, click Scan to find CLIs installed on this machine, then enable the ones you want to use.",
     "cta": "Open Settings"
+  },
+  "review": {
+    "panelTitle": "Review branch",
+    "loading": "Loading…",
+    "labelBase": "Base",
+    "labelCompare": "Compare",
+    "refresh": "Refresh",
+    "editAgent": "Edit agent",
+    "metaChangedFiles": "{{count}} changed files",
+    "placeholder": "Add extra review instructions if needed…",
+    "sendButton": "Review",
+    "sendTitle": "Review branch"
   }
 }

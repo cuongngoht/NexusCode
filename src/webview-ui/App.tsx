@@ -93,6 +93,20 @@ export function App() {
   const handleOpenSettings = useCallback(() => getVsCodeApi().postMessage({ type: 'openSettings' }), []);
   const handleAbout = useCallback(() => getVsCodeApi().postMessage({ type: 'openAbout' }), []);
 
+  const handleRefreshReviewContext = useCallback((baseBranch?: string) => {
+    getVsCodeApi().postMessage({ type: 'getReviewContext', baseBranch });
+  }, []);
+
+  const handleOpenReviewAgentFile = useCallback(() => {
+    getVsCodeApi().postMessage({ type: 'openReviewAgentFile' });
+  }, []);
+
+  useEffect(() => {
+    if (state.mode === 'review' && !state.isDetecting) {
+      getVsCodeApi().postMessage({ type: 'getReviewContext' });
+    }
+  }, [state.mode, state.isDetecting]);
+
   return (
     <I18nContext.Provider value={LOCALES[locale]}>
       <FluentProvider theme={getBaseTheme()}>
@@ -141,6 +155,8 @@ export function App() {
                   mode={state.mode}
                   availableProviders={state.availableProviders}
                   providerDetection={state.providerDetection}
+                  reviewContext={state.reviewContext}
+                  reviewContextError={state.reviewContextError}
                   onRun={handleRun}
                   onStop={handleStop}
                   onProviderChange={v => {
@@ -148,6 +164,8 @@ export function App() {
                     getVsCodeApi().postMessage({ type: 'saveProvider', provider: v });
                   }}
                   onModeChange={v => dispatch({ type: 'setMode', value: v })}
+                  onRefreshReviewContext={handleRefreshReviewContext}
+                  onOpenReviewAgentFile={handleOpenReviewAgentFile}
                 />
               )}
             </div>

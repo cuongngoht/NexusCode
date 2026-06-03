@@ -1,4 +1,4 @@
-import { ProviderId, TaskMode, GitFileChange } from '../core/types';
+import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
 import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
 
@@ -20,7 +20,9 @@ export type ExtensionMessage =
   | { type: 'activityStarted'; activityKind: string; label: string }
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
-  | { type: 'historyError'; message: string };
+  | { type: 'historyError'; message: string }
+  | { type: 'reviewContext'; context: GitReviewContext }
+  | { type: 'reviewContextError'; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -31,4 +33,6 @@ export type WebviewMessage =
   | { type: 'openAbout' }
   | { type: 'ready' }
   | { type: 'saveProvider'; provider: ProviderId }
-  | { type: 'saveHistory'; history: ChatHistoryState };
+  | { type: 'saveHistory'; history: ChatHistoryState }
+  | { type: 'getReviewContext'; baseBranch?: string }
+  | { type: 'openReviewAgentFile' };

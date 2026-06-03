@@ -48,6 +48,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.detector,
       this.globalState,
       this.workspaceState,
+      this.extensionUri.fsPath,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {
