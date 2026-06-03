@@ -7,7 +7,26 @@ import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
 import { ConversationHistory } from './components/ConversationHistory';
 import { Composer } from './components/Composer';
-import { I18nContext, LOCALES, type Locale } from './i18n';
+import { I18nContext, LOCALES, type Locale, useT } from './i18n';
+
+function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const t = useT();
+  return (
+    <div className="nx-setup-banner">
+      <div className="nx-setup-orb">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+        </svg>
+      </div>
+      <p className="nx-setup-title">{t.setup.title}</p>
+      <p className="nx-setup-subtitle">{t.setup.subtitle}</p>
+      <button type="button" className="nx-setup-cta" onClick={onOpenSettings}>
+        {t.setup.cta}
+      </button>
+    </div>
+  );
+}
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
@@ -94,22 +113,28 @@ export function App() {
             />
           )}
 
-          <MessageList
-            conversation={activeConv}
-            isRunning={state.isRunning}
-            onOpenScm={handleOpenScm}
-            onCloseGit={() => {
-              dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
-            }}
-            onSendSuggestion={handleRun}
-          />
+          {state.isDetecting ? null : state.needsSetup ? (
+            <SetupBanner onOpenSettings={handleOpenSettings} />
+          ) : (
+            <>
+              <MessageList
+                conversation={activeConv}
+                isRunning={state.isRunning}
+                onOpenScm={handleOpenScm}
+                onCloseGit={() => {
+                  dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
+                }}
+                onSendSuggestion={handleRun}
+              />
 
-          <Composer
-            isRunning={state.isRunning}
-            elapsed={state.elapsed}
-            onRun={handleRun}
-            onStop={handleStop}
-          />
+              <Composer
+                isRunning={state.isRunning}
+                elapsed={state.elapsed}
+                onRun={handleRun}
+                onStop={handleStop}
+              />
+            </>
+          )}
         </div>
       </FluentProvider>
     </I18nContext.Provider>

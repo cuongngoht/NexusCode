@@ -26,6 +26,7 @@ import { ProjectMapMarkdownRenderer } from './context/project-map/summary/Projec
 import { ProjectMapSummaryWriter } from './context/project-map/summary/ProjectMapSummaryWriter';
 import type { AgentId } from './core/agent/AgentTask';
 import { ConfigService } from './config/ConfigService';
+import { ProviderDetector } from './core/providerDetector';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { AboutPanel } from './settings/AboutPanel';
 
@@ -61,12 +62,15 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const configService = new ConfigService();
+  const detector = new ProviderDetector();
 
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
     eventBus,
     buildProjectMap,
+    configService,
+    detector,
   );
 
   context.subscriptions.push(
@@ -85,7 +89,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.openSettings', () => {
-      void SettingsPanel.createOrShow(context.extensionUri, configService);
+      void SettingsPanel.createOrShow(
+        context.extensionUri,
+        configService,
+        detector,
+        () => { void provider.refreshProviders(); },
+      );
     }),
   );
 

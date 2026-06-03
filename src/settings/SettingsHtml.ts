@@ -38,7 +38,6 @@ export function getSettingsHtml(
     })
     .join('\n');
 
-  // Embed JSON safely in inline script — escape </script> to prevent early tag close
   const safeJson = JSON.stringify(config).replace(/<\/script>/gi, '<\\/script>');
 
   return /* html */`<!DOCTYPE html>
@@ -72,7 +71,16 @@ export function getSettingsHtml(
     .section-desc {
       font-size: 0.875em;
       color: var(--vscode-descriptionForeground);
-      margin: 0 0 16px;
+      margin: 0 0 12px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-header h2 {
+      margin: 0;
     }
     .provider-row {
       margin-bottom: 14px;
@@ -117,6 +125,23 @@ export function getSettingsHtml(
     .save-btn:hover {
       background: var(--vscode-button-hoverBackground);
     }
+    .scan-btn {
+      padding: 4px 12px;
+      background: transparent;
+      color: var(--vscode-button-secondaryForeground);
+      border: 1px solid var(--vscode-button-secondaryBackground);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.85em;
+      font-family: var(--vscode-font-family);
+    }
+    .scan-btn:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+    .scan-btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
     .status {
       margin-top: 10px;
       font-size: 0.85em;
@@ -135,7 +160,10 @@ export function getSettingsHtml(
   <h1>Nexus Settings</h1>
   <hr />
   <h2>General</h2>
-  <h2>CLI Providers</h2>
+  <div class="section-header">
+    <h2>CLI Providers</h2>
+    <button class="scan-btn" id="scanBtn">Scan for CLIs</button>
+  </div>
   <p class="section-desc">Choose which local CLI tools Nexus can use.</p>
 
   <div id="providers">${rows}</div>
@@ -147,6 +175,14 @@ export function getSettingsHtml(
     (function () {
       const vscode = acquireVsCodeApi();
       const base = ${safeJson};
+
+      document.getElementById('scanBtn').addEventListener('click', function () {
+        const btn = document.getElementById('scanBtn');
+        btn.disabled = true;
+        btn.textContent = 'Scanning…';
+        document.getElementById('status').textContent = '';
+        vscode.postMessage({ type: 'settings.scan' });
+      });
 
       document.getElementById('saveBtn').addEventListener('click', function () {
         const checkboxes = document.querySelectorAll('#providers input[type=checkbox]');
@@ -164,6 +200,24 @@ export function getSettingsHtml(
       window.addEventListener('message', function (event) {
         const msg = event.data;
         const status = document.getElementById('status');
+
+        if (msg.type === 'settings.scanResult') {
+          const btn = document.getElementById('scanBtn');
+          btn.disabled = false;
+          btn.textContent = 'Scan for CLIs';
+          const detectionMap = {};
+          (msg.detection || []).forEach(function (d) { detectionMap[d.id] = d; });
+          const checkboxes = document.querySelectorAll('#providers input[type=checkbox]');
+          checkboxes.forEach(function (cb) {
+            const info = detectionMap[cb.name];
+            if (info !== undefined) { cb.checked = info.installed; }
+          });
+          const found = (msg.detection || []).filter(function (d) { return d.installed; }).length;
+          status.textContent = 'Scan complete. ' + found + ' CLI(s) found.';
+          status.className = 'status ok';
+          return;
+        }
+
         if (msg.type === 'settings.saved') {
           status.textContent = 'Settings saved.';
           status.className = 'status ok';

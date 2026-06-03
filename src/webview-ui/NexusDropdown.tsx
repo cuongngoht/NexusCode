@@ -16,9 +16,10 @@ interface Props {
   placeholder?: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  style?: React.CSSProperties;
 }
 
-export function NexusDropdown({ value, options, placeholder, onChange, disabled }: Props) {
+export function NexusDropdown({ value, options, placeholder, onChange, disabled, style }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -35,7 +36,7 @@ export function NexusDropdown({ value, options, placeholder, onChange, disabled 
   const selected = options.find(o => o.value === value);
 
   return (
-    <div className="fl-dd" ref={ref}>
+    <div className="fl-dd" ref={ref} style={style}>
       <button
         type="button"
         className="fl-dd-trigger"

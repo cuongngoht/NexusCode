@@ -22,6 +22,17 @@ export class ConfigService {
     }
   }
 
+  async hasConfig(): Promise<boolean> {
+    const uri = this.configUri;
+    if (!uri) return false;
+    try {
+      await vscode.workspace.fs.stat(uri);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async saveConfig(config: NexusConfig): Promise<void> {
     const uri = this.configUri;
     if (!uri) {

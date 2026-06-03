@@ -5,6 +5,8 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
+import { ConfigService } from '../config/ConfigService';
+import { ProviderDetector } from '../core/providerDetector';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'nexus.chatView';
@@ -16,6 +18,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly runAgent: RunAgentUseCase,
     private readonly eventBus: IEventBus,
     private readonly buildProjectMap: BuildProjectMapUseCase,
+    private readonly configService: ConfigService,
+    private readonly detector: ProviderDetector,
   ) { }
 
   resolveWebviewView(
@@ -38,6 +42,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.eventBus,
       (msg) => { webviewView.webview.postMessage(msg).then(undefined, () => { }); },
       this.buildProjectMap,
+      this.configService,
+      this.detector,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {
@@ -48,5 +54,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.controller?.dispose();
       this.controller = undefined;
     });
+  }
+
+  async refreshProviders(): Promise<void> {
+    await this.controller?.refreshProviders();
   }
 }

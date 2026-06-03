@@ -13,6 +13,9 @@
     "autoDetectBadge": "Mặc định",
     "customCli": "CLI tùy chỉnh"
   },
+  "model": {
+    "auto": "Model mặc định"
+  },
   "mode": {
     "ask": {
       "label": "Hỏi đáp",
@@ -106,5 +109,10 @@
       "analyze": "Phân tích",
       "summarize": "Tóm tắt AI"
     }
+  },
+  "setup": {
+    "title": "Chưa có CLI nào được cấu hình",
+    "subtitle": "Mở Cài đặt, nhấn Scan để tìm các CLI đã cài trên máy, sau đó bật những công cụ bạn muốn dùng.",
+    "cta": "Mở Cài đặt"
   }
 }

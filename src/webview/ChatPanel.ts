@@ -5,6 +5,8 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
+import { ConfigService } from '../config/ConfigService';
+import { ProviderDetector } from '../core/providerDetector';
 
 export class ChatPanel {
   static readonly viewType = 'nexusChat';
@@ -19,6 +21,8 @@ export class ChatPanel {
     runAgent: RunAgentUseCase,
     eventBus: IEventBus,
     buildProjectMap: BuildProjectMapUseCase,
+    configService: ConfigService,
+    detector: ProviderDetector,
   ): ChatPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
@@ -43,7 +47,7 @@ export class ChatPanel {
       },
     );
 
-    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus, buildProjectMap);
+    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus, buildProjectMap, configService, detector);
     return ChatPanel.instance;
   }
 
@@ -53,6 +57,8 @@ export class ChatPanel {
     runAgent: RunAgentUseCase,
     eventBus: IEventBus,
     buildProjectMap: BuildProjectMapUseCase,
+    configService: ConfigService,
+    detector: ProviderDetector,
   ) {
     this.panel = panel;
     this.controller = new ChatController(
@@ -60,6 +66,8 @@ export class ChatPanel {
       eventBus,
       (msg) => { this.panel.webview.postMessage(msg).then(undefined, () => { }); },
       buildProjectMap,
+      configService,
+      detector,
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);

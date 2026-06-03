@@ -8,6 +8,7 @@ import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapU
 import { createPreSteps } from '../application/pipeline/createPreSteps';
 import type { PipelineContext } from '../core/pipeline/PipelineContext';
 import { ProviderDetector } from '../core/providerDetector';
+import { ConfigService } from '../config/ConfigService';
 import { buildEnhancedPrompt } from '../context/promptBuilder';
 import { scanWorkspace } from '../context/workspaceScanner';
 import { detectPackageInfo } from '../context/packageDetector';
@@ -20,7 +21,6 @@ const SCAN_PROJECT_DEFAULT =
 const RUN_STEP_LABEL = 'analyze';
 
 export class ChatController {
-  private readonly detector: ProviderDetector;
   private readonly disposables: vscode.Disposable[] = [];
   private _pipelineActive = false;
 
@@ -29,8 +29,9 @@ export class ChatController {
     private readonly eventBus: IEventBus,
     private readonly post: (msg: ExtensionMessage) => void,
     private readonly buildProjectMap: BuildProjectMapUseCase,
+    private readonly configService: ConfigService,
+    private readonly detector: ProviderDetector,
   ) {
-    this.detector = new ProviderDetector();
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
     this.eventBus.on('*', busListener);
     this.disposables.push({ dispose: () => this.eventBus.off('*', busListener) });
@@ -256,8 +257,21 @@ export class ChatController {
 
   private async sendAvailableProviders(): Promise<void> {
     const detection = await this.detector.detectAll();
-    const providers = detection.filter(d => d.installed).map(d => d.id);
-    this.post({ type: 'availableProviders', providers, detection });
+    const configured = await this.configService.hasConfig();
+    if (!configured) {
+      this.post({ type: 'availableProviders', providers: [], detection, needsSetup: true });
+      await vscode.commands.executeCommand('nexus.openSettings');
+      return;
+    }
+    const config = await this.configService.loadConfig();
+    const providers = detection
+      .filter(d => d.installed && config.providers[d.id as keyof typeof config.providers]?.enabled)
+      .map(d => d.id);
+    this.post({ type: 'availableProviders', providers, detection, needsSetup: false });
+  }
+
+  async refreshProviders(): Promise<void> {
+    await this.sendAvailableProviders();
   }
 
   dispose(): void {

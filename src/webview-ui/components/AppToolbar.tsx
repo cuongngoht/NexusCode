@@ -19,7 +19,7 @@ function getProviderOptions(
   return all
     .filter(id => {
       if (id === 'auto' || id === 'custom') return true;
-      if (!detectionDone) return true;
+      if (!detectionDone) return false;
       return availableSet.has(id);
     })
     .map(id => {
@@ -116,13 +116,22 @@ interface Props {
 }
 
 export function AppToolbar({
-  provider, mode, availableProviders, providerDetection, isRunning,
+  provider, selectedModel, mode, availableProviders, providerDetection, isRunning,
   showHistory, conversationCount, locale,
   onProviderChange, onModelChange, onModeChange, onNewConversation, onToggleHistory, onLocaleChange,
   onOpenSettings, onAbout,
 }: Props) {
   const t = useT();
   const providerOptions = getProviderOptions(availableProviders, providerDetection, t);
+
+  const currentInfo = providerDetection.find(d => d.id === provider);
+  const showModelSelector = !!currentInfo?.supportsModelSelection && currentInfo.models.length > 0;
+  const modelOptions: DropdownOption[] = showModelSelector
+    ? [
+        { value: '', label: t.model.auto, icon: IconSparkle },
+        ...currentInfo!.models.map(m => ({ value: m.id, label: m.label, icon: IconBrain })),
+      ]
+    : [];
 
   const modeOptions: DropdownOption[] = [
     { value: 'ask', label: t.mode.ask.label, desc: t.mode.ask.desc, icon: IconSparkle },
@@ -186,6 +195,15 @@ export function AppToolbar({
           onChange={v => onModeChange(v as TaskMode)}
           disabled={isRunning}
         />
+        {showModelSelector && (
+          <NexusDropdown
+            value={selectedModel ?? ''}
+            options={modelOptions}
+            onChange={v => onModelChange(v || undefined)}
+            disabled={isRunning}
+            style={{ gridColumn: '1 / -1' }}
+          />
+        )}
       </div>
     </>
   );

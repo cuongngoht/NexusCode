@@ -12,7 +12,7 @@ export type ExtensionMessage =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitFileChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderDetectionResult[] }
+  | { type: 'availableProviders'; providers: string[]; detection: ProviderDetectionResult[]; needsSetup: boolean }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
   | { type: 'stepError'; stepLabel: string; error: string };

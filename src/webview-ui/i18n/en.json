@@ -13,6 +13,9 @@
     "autoDetectBadge": "Default",
     "customCli": "Custom CLI"
   },
+  "model": {
+    "auto": "Default model"
+  },
   "mode": {
     "ask": {
       "label": "Ask",
@@ -106,5 +109,10 @@
       "analyze": "Analyzing",
       "summarize": "AI Summary"
     }
+  },
+  "setup": {
+    "title": "No CLI configured",
+    "subtitle": "Open Settings, click Scan to find CLIs installed on this machine, then enable the ones you want to use.",
+    "cta": "Open Settings"
   }
 }

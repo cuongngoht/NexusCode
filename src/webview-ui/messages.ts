@@ -85,6 +85,8 @@ export interface AppState {
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
+  needsSetup: boolean;
+  isDetecting: boolean;
   showHistory: boolean;
 }
 
@@ -100,6 +102,8 @@ export function createInitialState(): AppState {
     mode: 'ask',
     availableProviders: [],
     providerDetection: [],
+    needsSetup: false,
+    isDetecting: true,
     showHistory: false,
   };
 }
@@ -127,7 +131,7 @@ export type ExtMsg =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[] }
+  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[]; needsSetup: boolean }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
   | { type: 'stepError'; stepLabel: string; error: string };
@@ -144,13 +148,13 @@ export type AppAction =
   | { type: 'newConversation' }
   | { type: 'selectConversation'; id: string }
   | {
-      type: 'sendUserMessage';
-      prompt: string;
-      provider: ProviderId;
-      mode: TaskMode;
-      model?: string;
-      timestamp: number;
-    };
+    type: 'sendUserMessage';
+    prompt: string;
+    provider: ProviderId;
+    mode: TaskMode;
+    model?: string;
+    timestamp: number;
+  };
 
 // ── Reducer helpers ───────────────────────────────────────────────────────
 
@@ -362,6 +366,6 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       }));
 
     case 'availableProviders':
-      return { ...state, availableProviders: msg.providers, providerDetection: msg.detection };
+      return { ...state, availableProviders: msg.providers, providerDetection: msg.detection, needsSetup: msg.needsSetup, isDetecting: false };
   }
 }

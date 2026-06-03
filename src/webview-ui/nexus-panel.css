@@ -1118,3 +1118,75 @@
   font-size: 10px;
   font-weight: 600;
 }
+
+/* ============================================================
+   SETUP BANNER (first-run / no CLI configured)
+   ============================================================ */
+.nx-setup-banner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 24px;
+  gap: 0;
+  animation: nx-fade-up 220ms var(--curveDecelerate);
+}
+
+.nx-setup-orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--colorBrandForeground1);
+  background: radial-gradient(circle at 50% 38%, rgba(40, 153, 245, 0.20) 0%, rgba(12, 22, 32, 0.8) 70%);
+  border: 1px solid rgba(40, 153, 245, 0.22);
+  box-shadow: 0 0 32px -8px rgba(40, 153, 245, 0.32);
+  flex-shrink: 0;
+}
+
+.nx-setup-title {
+  font-size: 14px;
+  font-weight: var(--fontWeightSemibold);
+  color: var(--colorNeutralForeground1);
+  margin: 0 0 6px;
+}
+
+.nx-setup-subtitle {
+  font-size: 12.5px;
+  color: var(--colorNeutralForeground3);
+  max-width: 260px;
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+
+.nx-setup-cta {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorCompoundBrandBackground);
+  color: #fff;
+  font-family: var(--fontFamilyBase);
+  font-size: 13px;
+  font-weight: var(--fontWeightSemibold);
+  transition: background var(--durationFast);
+}
+
+.nx-setup-cta:hover {
+  background: var(--colorCompoundBrandBackgroundHover);
+}
+
+.vscode-light .nx-setup-orb {
+  background: radial-gradient(circle at 50% 38%, rgba(40, 153, 245, 0.14) 0%, rgba(240, 248, 255, 0.9) 70%);
+}
