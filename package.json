@@ -14,6 +14,9 @@
     "onView:nexus.chatView"
   ],
   "main": "./out/extension.js",
+  "bin": {
+    "nexus": "./out/cli/index.js"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -92,6 +95,7 @@
     "compile:extension": "tsc -p ./",
     "compile:webview": "vite build",
     "compile": "npm run compile:extension && npm run compile:webview",
+    "build:cli": "tsc -p tsconfig.json",
     "watch": "tsc -watch -p ./",
     "watch:webview": "vite build --watch",
     "test:webview": "vitest run"
@@ -111,6 +115,7 @@
   "dependencies": {
     "@fluentui/react-components": "^9.74.1",
     "@fluentui/react-icons": "^2.0.328",
+    "commander": "^12.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }

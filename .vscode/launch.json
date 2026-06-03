@@ -41,6 +41,28 @@
         "webpack:///./*": "${workspaceFolder}/*"
       }
     }
+    {
+      // Debug nexus map CLI với breakpoint trên TypeScript source
+      "name": "Debug: nexus map",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/out/cli/index.js",
+      "args": ["map", "--root", "${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "sourceMaps": true,
+      "preLaunchTask": "compile:extension"
+    },
+    {
+      // Debug nexus map với --json flag
+      "name": "Debug: nexus map --json",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/out/cli/index.js",
+      "args": ["map", "--root", "${workspaceFolder}", "--json"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "sourceMaps": true,
+      "preLaunchTask": "compile:extension"
+    }
   ],
   "compounds": [
     {

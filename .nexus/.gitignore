@@ -1,0 +1,4 @@
+scan-cache.json
+file-tree.txt
+tmp/
+*.cache.json

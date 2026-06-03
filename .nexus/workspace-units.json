@@ -1,0 +1,20 @@
+[
+  {
+    "id": "root",
+    "name": "NexusCode",
+    "rootPath": "",
+    "kind": "frontend",
+    "languages": [
+      "TypeScript"
+    ],
+    "frameworks": [
+      "Vite"
+    ],
+    "markers": [
+      "package.json",
+      "tsconfig.json",
+      "vite.config.ts"
+    ],
+    "confidence": 1
+  }
+]
