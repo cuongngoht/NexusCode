@@ -101,7 +101,8 @@
   "pipeline": {
     "steps": {
       "scan": "Quét dự án",
-      "analyze": "Phân tích"
+      "analyze": "Phân tích",
+      "summarize": "Tóm tắt AI"
     }
   }
 }

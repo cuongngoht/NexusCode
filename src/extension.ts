@@ -12,11 +12,19 @@ import { AiderAgent } from './providers/aider/AiderAgent';
 import { CustomAgent } from './providers/custom/CustomAgent';
 import { ChatViewProvider } from './webview/ChatViewProvider';
 import { BuildProjectMapUseCase } from './application/usecases/BuildProjectMapUseCase';
+import { SummarizeProjectMapUseCase } from './application/usecases/SummarizeProjectMapUseCase';
 import { NexusFileTreeScanner } from './context/project-map/NexusFileTreeScanner';
 import { NexusMarkerDetector } from './context/project-map/NexusMarkerDetector';
 import { NexusProjectUnitDetector } from './context/project-map/NexusProjectUnitDetector';
 import { NexusProjectMapBuilder } from './context/project-map/NexusProjectMapBuilder';
 import { NexusProjectMapWriter } from './context/project-map/NexusProjectMapWriter';
+import { ProjectMapSummaryPromptBuilder } from './context/project-map/summary/ProjectMapSummaryPromptBuilder';
+import { ProjectMapAiRunner } from './infrastructure/ai/ProjectMapAiRunner';
+import { AiJsonExtractor } from './context/project-map/summary/AiJsonExtractor';
+import { ProjectMapSummaryValidator } from './context/project-map/summary/ProjectMapSummaryValidator';
+import { ProjectMapMarkdownRenderer } from './context/project-map/summary/ProjectMapMarkdownRenderer';
+import { ProjectMapSummaryWriter } from './context/project-map/summary/ProjectMapSummaryWriter';
+import type { AgentId } from './core/agent/AgentTask';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -40,6 +48,15 @@ export function activate(context: vscode.ExtensionContext): void {
     new NexusProjectMapWriter(),
   );
 
+  const summarizeProjectMap = new SummarizeProjectMapUseCase(
+    new ProjectMapSummaryPromptBuilder(),
+    new ProjectMapAiRunner(registry, runner),
+    new AiJsonExtractor(),
+    new ProjectMapSummaryValidator(),
+    new ProjectMapMarkdownRenderer(),
+    new ProjectMapSummaryWriter(),
+  );
+
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
@@ -58,6 +75,37 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.openChat', () => {
       vscode.commands.executeCommand('workbench.view.extension.nexus');
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nexus.summarizeProjectMap', async () => {
+      const selected = await vscode.window.showQuickPick(
+        ['gemini', 'claude', 'codex', 'custom'],
+        { placeHolder: 'Select AI provider for project map summary' },
+      );
+      if (!selected) { return; }
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('No workspace folder open.');
+        return;
+      }
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Generating AI Project Summary…', cancellable: false },
+        async () => {
+          try {
+            const result = await summarizeProjectMap.execute({
+              workspaceRoot,
+              provider: selected as AgentId,
+            });
+            vscode.window.showInformationMessage(
+              `Project summary written: ${result.filesWritten.join(', ')}`,
+            );
+          } catch (err) {
+            vscode.window.showErrorMessage(`Summarize failed: ${err}`);
+          }
+        },
+      );
     }),
   );
 }

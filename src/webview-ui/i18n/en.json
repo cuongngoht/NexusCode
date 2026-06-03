@@ -101,7 +101,8 @@
   "pipeline": {
     "steps": {
       "scan": "Scanning project",
-      "analyze": "Analyzing"
+      "analyze": "Analyzing",
+      "summarize": "AI Summary"
     }
   }
 }

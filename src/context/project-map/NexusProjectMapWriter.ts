@@ -4,6 +4,7 @@ import type { ProjectMapResult } from './types';
 
 const GITIGNORE_CONTENT = `scan-cache.json
 file-tree.txt
+project-summary.raw.txt
 tmp/
 *.cache.json
 `;

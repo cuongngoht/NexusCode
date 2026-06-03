@@ -10,7 +10,10 @@ export type NexusEvent =
   | { kind: 'task_error'; task: AgentTask; error: string }
   | { kind: 'step_started'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { kind: 'step_completed'; stepLabel: string }
-  | { kind: 'step_error'; stepLabel: string; error: string };
+  | { kind: 'step_error'; stepLabel: string; error: string }
+  | { kind: 'summarize_started'; provider: string }
+  | { kind: 'summarize_completed'; filesWritten: string[] }
+  | { kind: 'summarize_error'; error: string };
 
 export type NexusEventKind = NexusEvent['kind'];
 
