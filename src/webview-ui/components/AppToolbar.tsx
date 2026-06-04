@@ -111,9 +111,8 @@ export function AppToolbar({
         </button>
         <button
           type="button"
-          className="fl-iconbtn"
+          className={`fl-iconbtn nx-hist-btn${showHistory ? ' nx-hist-btn-on' : ''}`}
           title={interp(t.toolbar.history, { count: conversationCount })}
-          data-active={showHistory ? '1' : undefined}
           onClick={onToggleHistory}
         >
           <IconHistory size={16} />

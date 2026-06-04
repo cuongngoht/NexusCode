@@ -4,6 +4,7 @@ import { BuildProjectMapUseCase } from '../usecases/BuildProjectMapUseCase';
 import { ScanProjectStep } from './ScanProjectStep';
 import { ReadSourceContextStep } from './ReadSourceContextStep';
 import { BrainstormAgentsStep } from './BrainstormAgentsStep';
+import { DebugPreStep } from './DebugPreStep';
 
 export type PreStepDeps = {
   buildProjectMap: BuildProjectMapUseCase;
@@ -21,6 +22,9 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
         new ReadSourceContextStep(),
         new BrainstormAgentsStep(deps.extensionPath),
       ];
+
+    case 'debug':
+      return [new DebugPreStep()];
 
     default:
       return [];

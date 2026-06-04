@@ -1,5 +1,6 @@
 import type { TaskMode } from '../agent/AgentTask';
 import type { ProviderId } from '../types';
+import type { DebugContext } from '../../debug/DebugContext';
 
 export type PipelineContext = {
   readonly workspaceRoot: string;
@@ -13,5 +14,6 @@ export type PipelineContext = {
   sourceContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
+  debugContext?: DebugContext;
   enhancedPrompt: string;
 };

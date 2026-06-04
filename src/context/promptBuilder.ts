@@ -1,6 +1,8 @@
 import { TaskMode } from '../core/types';
 import { WorkspaceInfo } from './workspaceScanner';
 import { PackageInfo } from './packageDetector';
+import type { DebugContext } from '../debug/DebugContext';
+import { buildDebugPrompt } from '../debug/debugPrompt';
 
 export interface PromptContext {
   workspace: WorkspaceInfo;
@@ -11,6 +13,7 @@ export interface PromptContext {
   sourceContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
+  debugContext?: DebugContext;
 }
 
 const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
@@ -89,8 +92,13 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
   }
 
   lines.push('');
-  lines.push('# Task');
-  lines.push(userPrompt);
+
+  if (ctx.mode === 'debug' && ctx.debugContext) {
+    lines.push(buildDebugPrompt(userPrompt, ctx.debugContext));
+  } else {
+    lines.push('# Task');
+    lines.push(userPrompt);
+  }
 
   return lines.join('\n');
 }

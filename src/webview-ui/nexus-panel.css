@@ -50,6 +50,11 @@ html, body, #root {
   --colorBrandSubtleBackground: rgba(40, 153, 245, 0.10);
   --colorBrandSubtleStroke: rgba(40, 153, 245, 0.30);
 
+  --colorSubtleBackground: transparent;
+  --colorSubtleBackgroundHover: rgba(255, 255, 255, 0.055);
+  --colorSubtleBackgroundPressed: rgba(255, 255, 255, 0.09);
+  --colorSubtleBackgroundSelected: rgba(255, 255, 255, 0.07);
+
   --colorPaletteGreenForeground1: var(--vscode-testing-iconPassed, #54b054);
   --colorPaletteGreenBackground: rgba(84, 176, 84, 0.14);
   --colorPaletteRedForeground1: var(--vscode-errorForeground, #e87979);
@@ -1190,66 +1195,136 @@ html, body, #root {
 }
 
 /* ============================================================
-   CONVERSATION HISTORY PANEL
+   CONVERSATION HISTORY PANEL  (Fluent v9 redesign)
    ============================================================ */
-.nx-history {
-  border-bottom: 1px solid var(--colorNeutralStroke3);
-  background: var(--colorNeutralBackground2);
-  max-height: 200px;
-  overflow-y: auto;
+
+/* History icon: blue-tinted circle bg when panel is open */
+.nx-hist-btn { position: relative; }
+.nx-hist-btn-on {
+  background: var(--colorBrandSubtleBackground) !important;
+  color: var(--colorBrandForeground1) !important;
+  border-radius: var(--borderRadiusCircular) !important;
+}
+.nx-hist-btn-on::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: var(--borderRadiusCircular);
+  box-shadow: 0 0 0 1.5px var(--colorBrandSubtleStroke);
+  pointer-events: none;
+}
+
+/* Panel container */
+.nx-hist {
   flex-shrink: 0;
+  background: var(--colorNeutralBackground2);
+  border-bottom: 1px solid var(--colorNeutralStroke3);
 }
 
-.nx-history-list {
-  list-style: none;
-  margin: 0;
-  padding: 3px 0;
-}
+/* List */
+.nx-hist-list { padding: 4px 0; }
 
-.nx-history-item {
+/* Row */
+.nx-hist-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
+  gap: 10px;
+  padding: 0 12px 0 16px;
+  height: 36px;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--colorNeutralForeground2);
   transition: background var(--durationFast);
+  user-select: none;
+}
+.nx-hist-row:hover { background: var(--colorSubtleBackgroundHover); }
+.nx-hist-row:focus-visible {
+  outline: 1px solid var(--colorBrandStroke1);
+  outline-offset: -1px;
 }
 
-.nx-history-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.nx-history-item[data-active] {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--colorNeutralForeground1);
-}
-
-.nx-history-dot {
-  width: 5px;
-  height: 5px;
+/* Bullet dot — empty circle for inactive, filled blue for active */
+.nx-hist-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--colorBrandForeground1);
   flex-shrink: 0;
-  opacity: 0;
+  background: transparent;
+  border: 1.5px solid var(--colorNeutralStroke1);
+  transition: background var(--durationFast), border-color var(--durationFast);
+}
+.nx-hist-dot-active {
+  background: var(--colorBrandForeground1);
+  border-color: var(--colorBrandForeground1);
 }
 
-.nx-history-item[data-active] .nx-history-dot {
-  opacity: 1;
-}
-
-.nx-history-title {
+/* Title */
+.nx-hist-title {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.nx-history-count {
-  font-size: 10px;
+/* Message count */
+.nx-hist-count {
+  font-size: 12px;
   color: var(--colorNeutralForeground4);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+  min-width: 16px;
+  text-align: right;
+}
+
+/* Per-row delete button — hidden until row is hovered */
+.nx-hist-del {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--borderRadiusSmall);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--colorNeutralForeground4);
+  opacity: 0;
+  transition: opacity var(--durationFast), background var(--durationFast), color var(--durationFast);
+}
+.nx-hist-row:hover .nx-hist-del { opacity: 1; }
+.nx-hist-del:hover {
+  background: var(--colorSubtleBackgroundPressed);
+  color: var(--colorNeutralForeground1);
+}
+
+/* Footer: clear-all button */
+.nx-hist-foot { padding: 6px 14px 10px; }
+
+.nx-hist-clear {
+  appearance: none;
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground1);
+  cursor: pointer;
+  color: var(--colorNeutralForeground2);
+  font-size: 12.5px;
+  font-family: var(--fontFamilyBase);
+  padding: 5px 12px;
+  transition: background var(--durationFast), border-color var(--durationFast), color var(--durationFast);
+}
+.nx-hist-clear:hover {
+  background: var(--colorSubtleBackgroundHover);
+  color: var(--colorNeutralForeground1);
+}
+.nx-hist-clear-confirm {
+  border-color: var(--colorPaletteRedForeground1);
+  color: var(--colorPaletteRedForeground1);
+  background: var(--colorPaletteRedBackground);
 }
 
 /* ============================================================

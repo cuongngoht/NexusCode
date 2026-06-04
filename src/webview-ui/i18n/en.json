@@ -99,7 +99,8 @@
   "history": {
     "ariaLabel": "Conversation history",
     "deleteConversation": "Delete conversation",
-    "clearAll": "Clear all"
+    "clearAll": "Clear all",
+    "confirmClear": "Confirm clear all?"
   },
   "git": {
     "changedFiles": "Changed files",
@@ -118,7 +119,8 @@
       "prepare-brainstorm-agents": "Preparing brainstorm agents",
       "analyze": "Analyzing",
       "summarize": "AI Summary",
-      "read-source-context": "Reading source"
+      "read-source-context": "Reading source",
+      "debug-prepare": "Analyzing error signal"
     },
     "activities": {
       "read": "Reading file",
