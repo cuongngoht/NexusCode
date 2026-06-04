@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { reducer, createInitialState, serializeHistory } from './messages';
+import { reducer, createInitialState, serializeHistory, aggregateConversationTokenUsage } from './messages';
 import type { AppAction, AppState, ProviderInfo } from './messages';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
+import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 
 function s(): AppState { return createInitialState(); }
 const act = (state: AppState, action: AppAction) => reducer(state, action);
@@ -292,5 +293,109 @@ describe('history serialization roundtrip', () => {
     const history = serializeHistory(state);
     expect(history.conversations[0].messages).toHaveLength(1); // only user message
     expect(history.conversations[0].messages[0].role).toBe('user');
+  });
+});
+
+const sampleUsage: TokenRunUsage = {
+  taskId: 'task_1',
+  provider: 'claude',
+  providerLabel: 'Claude',
+  mode: 'ask',
+  model: 'sonnet',
+  inputTokens: 500,
+  outputTokens: 200,
+  totalTokens: 700,
+  originalPromptTokens: 100,
+  enhancedPromptTokens: 500,
+  contextOverheadTokens: 400,
+  source: 'estimated',
+  tokenizer: 'gpt-tokenizer/o200k_base',
+  startedAt: 1000,
+  completedAt: 2000,
+};
+
+describe('token usage — reducer and aggregation', () => {
+  it('tokenUsageUpdated attaches usage to latest assistant message', () => {
+    let state = act(s(), { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'tokenUsageUpdated', taskId: '1', phase: 'final', usage: sampleUsage } });
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    const msg = conv.messages[0];
+    expect(msg.role).toBe('assistant');
+    if (msg.role === 'assistant') {
+      expect(msg.tokenUsage).toEqual(sampleUsage);
+    }
+  });
+
+  it('conversation tokenUsage aggregates after tokenUsageUpdated', () => {
+    let state = act(s(), { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'tokenUsageUpdated', taskId: '1', phase: 'final', usage: sampleUsage } });
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    expect(conv.tokenUsage.runs).toBe(1);
+    expect(conv.tokenUsage.totalTokens).toBe(700);
+    expect(conv.tokenUsage.inputTokens).toBe(500);
+    expect(conv.tokenUsage.outputTokens).toBe(200);
+  });
+
+  it('aggregation groups by provider correctly', () => {
+    const codexUsage: TokenRunUsage = {
+      ...sampleUsage,
+      taskId: 'task_2',
+      provider: 'codex',
+      providerLabel: 'Codex',
+      inputTokens: 300,
+      outputTokens: 100,
+      totalTokens: 400,
+    };
+    // First run with claude
+    let state = act(s(), { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'tokenUsageUpdated', taskId: '1', phase: 'final', usage: sampleUsage } });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '1', exitCode: 0 } });
+    // Second run with codex
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '2', provider: 'codex', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'tokenUsageUpdated', taskId: '2', phase: 'final', usage: codexUsage } });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '2', exitCode: 0 } });
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    expect(conv.tokenUsage.runs).toBe(2);
+    expect(conv.tokenUsage.byProvider['claude'].totalTokens).toBe(700);
+    expect(conv.tokenUsage.byProvider['codex'].totalTokens).toBe(400);
+  });
+
+  it('history serialization preserves assistant tokenUsage', () => {
+    let state = act(s(), { type: 'sendUserMessage', prompt: 'hello', provider: 'claude', mode: 'ask', timestamp: 1000 });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'stdout', chunk: 'response\n' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'tokenUsageUpdated', taskId: '1', phase: 'final', usage: sampleUsage } });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '1', exitCode: 0 } });
+
+    const history = serializeHistory(state);
+    const assistantMsg = history.conversations[0].messages.find(m => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    if (assistantMsg?.role === 'assistant') {
+      expect(assistantMsg.tokenUsage).toEqual(sampleUsage);
+    }
+  });
+
+  it('history deserialization rebuilds conversation tokenUsage', () => {
+    let state = act(s(), { type: 'sendUserMessage', prompt: 'hello', provider: 'claude', mode: 'ask', timestamp: 1000 });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'stdout', chunk: 'response\n' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'tokenUsageUpdated', taskId: '1', phase: 'final', usage: sampleUsage } });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '1', exitCode: 0 } });
+
+    const history = serializeHistory(state);
+    const fresh = act(s(), { type: 'extMsg', msg: { type: 'historyLoaded', history } });
+    const conv = fresh.conversations[0];
+    expect(conv.tokenUsage.runs).toBe(1);
+    expect(conv.tokenUsage.totalTokens).toBe(700);
+    expect(conv.tokenUsage.byProvider['claude']).toBeDefined();
+  });
+
+  it('aggregateConversationTokenUsage: skips messages without tokenUsage', () => {
+    const usage = aggregateConversationTokenUsage([
+      { id: '1', role: 'user', prompt: 'hi', provider: 'claude', mode: 'ask', timestamp: 1 },
+      { id: '2', role: 'assistant', providerLabel: 'Claude', mode: 'ask', lines: [], isStreaming: false, steps: [] },
+    ]);
+    expect(usage.runs).toBe(0);
+    expect(usage.totalTokens).toBe(0);
   });
 });

@@ -3,6 +3,12 @@ import type {
   SerializedConversation,
   SerializedChatMessage,
 } from '../core/chat/ChatHistory';
+import type {
+  TokenRunUsage,
+  ConversationTokenUsage,
+  ProviderTokenSummary,
+  TokenUsageSource,
+} from '../core/tokens/TokenUsage';
 
 export type { ChatHistoryState };
 
@@ -85,6 +91,9 @@ export interface AssistantMessage {
   exitCode?: number;
   errorText?: string;
   steps: PipelineStep[];
+  tokenUsage?: TokenRunUsage;
+  enhancedPrompt?: string;
+  planSaved?: boolean;
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -99,10 +108,56 @@ export interface Conversation {
   gitMessage?: string;
   createdAt?: number;
   updatedAt?: number;
+  tokenUsage: ConversationTokenUsage;
+}
+
+export function emptyTokenUsage(): ConversationTokenUsage {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    runs: 0,
+    byProvider: {},
+  };
+}
+
+export function aggregateConversationTokenUsage(
+  messages: ChatMessage[],
+): ConversationTokenUsage {
+  const usage = emptyTokenUsage();
+  for (const m of messages) {
+    if (m.role !== 'assistant' || !(m as AssistantMessage).tokenUsage) continue;
+    const u = (m as AssistantMessage).tokenUsage!;
+    usage.inputTokens += u.inputTokens;
+    usage.outputTokens += u.outputTokens;
+    usage.totalTokens += u.totalTokens;
+    usage.runs += 1;
+    const key = u.provider;
+    const existing: ProviderTokenSummary = usage.byProvider[key] ?? {
+      provider: key,
+      label: u.providerLabel || key,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      runs: 0,
+      sourceBreakdown: {
+        exact: 0,
+        estimated: 0,
+        heuristic: 0,
+      } as Record<TokenUsageSource, number>,
+    };
+    existing.inputTokens += u.inputTokens;
+    existing.outputTokens += u.outputTokens;
+    existing.totalTokens += u.totalTokens;
+    existing.runs += 1;
+    existing.sourceBreakdown[u.source] += u.totalTokens;
+    usage.byProvider[key] = existing;
+  }
+  return usage;
 }
 
 function makeConversation(): Conversation {
-  return { id: uid(), title: 'New conversation', messages: [], gitChanges: [] };
+  return { id: uid(), title: 'New conversation', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() };
 }
 
 // ── App state ─────────────────────────────────────────────────────────────
@@ -169,7 +224,7 @@ export interface ProviderInfo {
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt: string }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -183,7 +238,14 @@ export type ExtMsg =
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
   | { type: 'reviewContext'; context: GitReviewContext }
-  | { type: 'reviewContextError'; message: string };
+  | { type: 'reviewContextError'; message: string }
+  | {
+      type: 'tokenUsageUpdated';
+      taskId: string;
+      phase: 'preview' | 'final';
+      usage: TokenRunUsage;
+    }
+  | { type: 'planSaved'; taskId: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -249,6 +311,7 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
         exitCode: a.exitCode,
         errorText: a.errorText,
         timestamp: now,
+        tokenUsage: a.tokenUsage,
       };
     });
   return {
@@ -302,6 +365,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       exitCode: m.exitCode,
       errorText: m.errorText,
       steps: [],
+      tokenUsage: m.tokenUsage,
     } satisfies AssistantMessage;
   });
   return {
@@ -312,6 +376,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
     gitMessage: sc.gitMessage,
     createdAt: sc.createdAt,
     updatedAt: sc.updatedAt,
+    tokenUsage: aggregateConversationTokenUsage(messages),
   };
 }
 
@@ -471,9 +536,15 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'taskStarted': {
       const activeConv = state.conversations.find(c => c.id === state.activeConvId);
       const lastMsg = activeConv?.messages[activeConv.messages.length - 1];
-      // Pipeline mode: AssistantMessage already created by stepStarted — don't duplicate
+      // Pipeline mode: AssistantMessage already created by stepStarted — store enhancedPrompt
       if (lastMsg?.role === 'assistant' && lastMsg.isStreaming) {
-        return { ...state, isRunning: true, elapsed: 0 };
+        return {
+          ...updateActiveConv(state, conv =>
+            updateLastAssistant(conv, m => ({ ...m, enhancedPrompt: msg.enhancedPrompt })),
+          ),
+          isRunning: true,
+          elapsed: 0,
+        };
       }
       // Direct (non-pipeline) mode: create AssistantMessage now
       const assistantMsg: AssistantMessage = {
@@ -485,6 +556,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         lines: [],
         isStreaming: true,
         steps: [],
+        enhancedPrompt: msg.enhancedPrompt,
       };
       return {
         ...updateActiveConv(state, conv => ({
@@ -613,5 +685,22 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'reviewContextError':
       return { ...state, reviewContextError: msg.message };
+
+    case 'tokenUsageUpdated':
+      return updateActiveConv(state, conv => {
+        const updated = updateLastAssistant(conv, m => ({
+          ...m,
+          tokenUsage: msg.usage,
+        }));
+        return {
+          ...updated,
+          tokenUsage: aggregateConversationTokenUsage(updated.messages),
+        };
+      });
+
+    case 'planSaved':
+      return updateActiveConv(state, conv =>
+        updateLastAssistant(conv, m => ({ ...m, planSaved: true })),
+      );
   }
 }

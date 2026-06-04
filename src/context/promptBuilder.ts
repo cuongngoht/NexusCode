@@ -14,6 +14,7 @@ export interface PromptContext {
   conversationContext?: string;
   brainstormAgents?: string;
   debugContext?: DebugContext;
+  planContent?: string;
 }
 
 const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
@@ -89,6 +90,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Previous conversation context');
     lines.push(ctx.conversationContext);
+  }
+
+  if (ctx.planContent) {
+    lines.push('');
+    lines.push('# Active Plan');
+    lines.push(ctx.planContent);
   }
 
   lines.push('');

@@ -9,7 +9,9 @@ function isInternalLog(line: string): boolean {
     /^\[[\w.]+\] /.test(line) ||          // [ClassName] log format
     /^\s+at (async )?[\w<]/.test(line) || // stack trace: "    at foo.bar"
     /^\s+at file:\/\//.test(line) ||      // stack trace: "    at file:///..."
-    /^Error: exception \w/.test(line)     // JS Error wrapper around another error
+    /^Error: exception \w/.test(line) ||  // JS Error wrapper around another error
+    /YOLO mode is enabled/i.test(line) || // Gemini CLI startup banner (also on stdout)
+    /All tool calls will be automatically approved/i.test(line)
   );
 }
 

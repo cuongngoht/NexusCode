@@ -1,6 +1,7 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
 import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
+import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 
 export type { ProviderDetectionResult };
 
@@ -8,7 +9,7 @@ export type { ProviderDetectionResult };
 export type ExtensionMessage =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt: string }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -22,7 +23,14 @@ export type ExtensionMessage =
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
   | { type: 'reviewContext'; context: GitReviewContext }
-  | { type: 'reviewContextError'; message: string };
+  | { type: 'reviewContextError'; message: string }
+  | {
+      type: 'tokenUsageUpdated';
+      taskId: string;
+      phase: 'preview' | 'final';
+      usage: TokenRunUsage;
+    }
+  | { type: 'planSaved'; taskId: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =

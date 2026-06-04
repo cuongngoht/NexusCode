@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
@@ -11,6 +13,7 @@ import { buildEnhancedPrompt } from '../../context/promptBuilder';
 import { scanWorkspace } from '../../context/workspaceScanner';
 import { detectPackageInfo } from '../../context/packageDetector';
 import { loadRules } from '../../context/rulesLoader';
+import { loadPlanContent } from '../../context/planLoader';
 import { getGitStatus } from '../../git/gitStatus';
 import { buildGitReviewContext } from '../../git/gitReviewContext';
 import { loadReviewAgentMarkdown } from '../../context/reviewAgentLoader';
@@ -158,6 +161,7 @@ export class RunTaskHandler {
       });
     }
 
+    const planContent = loadPlanContent(workspaceRoot) || undefined;
     return buildEnhancedPrompt(ctx.originalPrompt, {
       workspace,
       packages,
@@ -168,6 +172,7 @@ export class RunTaskHandler {
       conversationContext: ctx.conversationContext,
       brainstormAgents: ctx.brainstormAgents,
       debugContext: ctx.debugContext,
+      planContent,
     });
   }
 
@@ -204,6 +209,10 @@ export class RunTaskHandler {
       this.setupGitStatusListener(task, workspaceRoot);
     }
 
+    if (mode === 'plan') {
+      this.setupPlanSaveListener(task, workspaceRoot);
+    }
+
     try {
       await this.runAgent.execute(task);
       this.eventBus.emit({ kind: 'step_completed', stepLabel: RUN_STEP_LABEL });
@@ -227,5 +236,20 @@ export class RunTaskHandler {
     };
     this.eventBus.on('task_completed', listener);
     this.eventBus.on('task_stopped', listener);
+  }
+
+  private setupPlanSaveListener(task: AgentTask, workspaceRoot: string): void {
+    const listener = (event: NexusEvent) => {
+      if (event.kind === 'task_completed' && event.task.id === task.id) {
+        this.eventBus.off('task_completed', listener);
+        if (event.result.exitCode === 0 && event.result.stdout.trim()) {
+          const nexusDir = path.join(workspaceRoot, '.nexus');
+          fs.mkdirSync(nexusDir, { recursive: true });
+          fs.writeFileSync(path.join(nexusDir, 'plan.md'), event.result.stdout.trim(), 'utf8');
+          this.post({ type: 'planSaved', taskId: task.id });
+        }
+      }
+    };
+    this.eventBus.on('task_completed', listener);
   }
 }

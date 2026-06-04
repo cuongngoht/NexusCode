@@ -189,6 +189,9 @@ export function AssistantMessage({ message }: Props) {
             </button>
           </div>
         )}
+{message.planSaved && !message.isStreaming && (
+          <span className="nx-plan-saved-badge">{t.agent.planSaved}</span>
+        )}
       </div>
     </div>
   );

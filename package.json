@@ -120,6 +120,7 @@
     "@fluentui/react-components": "^9.74.1",
     "@fluentui/react-icons": "^2.0.328",
     "commander": "^12.1.0",
+    "gpt-tokenizer": "^3.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",

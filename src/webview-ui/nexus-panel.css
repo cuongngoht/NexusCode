@@ -1758,3 +1758,135 @@ html, body, #root {
   margin-top: 14px;
   flex-shrink: 0;
 }
+
+/* ============================================================
+   CONVERSATION TOKEN BAR
+   ============================================================ */
+.nx-token-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--colorNeutralStroke3);
+  background: var(--colorNeutralBackground2);
+  color: var(--colorNeutralForeground3);
+  font-size: 11.5px;
+}
+.nx-token-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.nx-token-total {
+  color: var(--colorNeutralForeground1);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nx-token-muted {
+  color: var(--colorNeutralForeground4);
+  white-space: nowrap;
+}
+.nx-token-live {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--colorNeutralBackground4);
+  color: var(--colorNeutralForeground2);
+  white-space: nowrap;
+}
+.nx-token-providers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+.nx-token-chip {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 999px;
+  background: var(--colorNeutralBackground1);
+}
+
+.nx-token-bar-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nx-token-bar--btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.nx-token-bar--btn:hover {
+  background: var(--colorNeutralBackground3);
+}
+.nx-token-bar--expanded {
+  background: var(--colorNeutralBackground3);
+}
+.nx-token-chevron {
+  font-size: 9px;
+  color: var(--colorNeutralForeground4);
+  margin-left: 2px;
+}
+.nx-inspect-prompt-close {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--colorNeutralForeground3);
+}
+.nx-inspect-prompt-close:hover {
+  color: var(--colorNeutralForeground1);
+  background: var(--colorNeutralBackground4);
+}
+.nx-inspect-prompt {
+  margin-top: 0;
+  border-top: none;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 11.5px;
+}
+.nx-inspect-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+  font-weight: 600;
+}
+.nx-inspect-prompt-body {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 10px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  color: var(--colorNeutralForeground1);
+  background: var(--colorNeutralBackground1);
+}
+.fl-act-on {
+  color: var(--colorBrandForeground1);
+}
+.nx-plan-saved-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--colorPaletteGreenBackground2);
+  color: var(--colorPaletteGreenForeground2);
+}

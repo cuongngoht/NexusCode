@@ -76,7 +76,10 @@
     "copy": "Copy",
     "goodResponse": "Good response",
     "badResponse": "Bad response",
-    "retry": "Retry"
+    "retry": "Retry",
+    "inspectPrompt": "Inspect sent prompt",
+    "inspectPromptTitle": "Prompt sent to CLI",
+    "planSaved": "✓ Plan saved"
   },
   "composer": {
     "placeholder": "Ask Nexus about this file…  (⌘↵ to send)",

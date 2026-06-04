@@ -15,5 +15,6 @@ export type PipelineContext = {
   conversationContext?: string;
   brainstormAgents?: string;
   debugContext?: DebugContext;
+  planContent?: string;
   enhancedPrompt: string;
 };

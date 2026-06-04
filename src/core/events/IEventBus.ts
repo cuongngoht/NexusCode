@@ -1,6 +1,7 @@
 import type { AgentTask } from '../agent/AgentTask';
 import type { AgentResult } from '../agent/AgentResult';
 import type { ActivityKind } from '../agent/IOutputParser';
+import type { TokenRunUsage } from '../tokens/TokenUsage';
 
 export type NexusEvent =
   | { kind: 'task_started'; task: AgentTask }
@@ -16,7 +17,13 @@ export type NexusEvent =
   | { kind: 'activity_done'; task: AgentTask; activityKind: ActivityKind; label: string; status: 'done' | 'error' }
   | { kind: 'summarize_started'; provider: string }
   | { kind: 'summarize_completed'; filesWritten: string[] }
-  | { kind: 'summarize_error'; error: string };
+  | { kind: 'summarize_error'; error: string }
+  | {
+      kind: 'token_usage_updated';
+      task: AgentTask;
+      phase: 'preview' | 'final';
+      usage: TokenRunUsage;
+    };
 
 export type NexusEventKind = NexusEvent['kind'];
 

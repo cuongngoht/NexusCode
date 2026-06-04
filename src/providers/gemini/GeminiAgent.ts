@@ -24,7 +24,10 @@ export class GeminiAgent extends BaseAgent {
   buildCommand(task: AgentTask): AgentCommand {
     const args: string[] = ['--yolo'];
     if (task.model) args.push('--model', task.model);
-    args.push('--prompt', task.enhancedPrompt);
+    const prompt = task.cwd
+      ? `Working directory: ${task.cwd}\nAll file paths must be absolute, starting with: ${task.cwd}\n\n${task.enhancedPrompt}`
+      : task.enhancedPrompt;
+    args.push('--prompt', prompt);
     return new AgentCommand('gemini', args);
   }
 

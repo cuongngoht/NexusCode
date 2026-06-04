@@ -97,6 +97,7 @@ export class ChatController {
           provider: event.task.agentId,
           mode: event.task.mode,
           model: event.task.model,
+          enhancedPrompt: event.task.enhancedPrompt,
         });
         break;
       case 'stdout':
@@ -136,6 +137,14 @@ export class ChatController {
         break;
       case 'activity_done':
         this.post({ type: 'activityDone', activityKind: event.activityKind, label: event.label, status: event.status });
+        break;
+      case 'token_usage_updated':
+        this.post({
+          type: 'tokenUsageUpdated',
+          taskId: event.task.id,
+          phase: event.phase,
+          usage: event.usage,
+        });
         break;
     }
   }

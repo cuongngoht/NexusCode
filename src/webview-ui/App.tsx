@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, type AppAction, type ExtMsg } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg } from './messages';
+import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
@@ -37,6 +38,9 @@ export function App() {
   const saveKeyRef = useRef(0);
 
   const activeConv = state.conversations.find(c => c.id === state.activeConvId)!;
+  const lastEnhancedPrompt = (activeConv?.messages ?? [])
+    .filter((m): m is import('./messages').AssistantMessage => m.role === 'assistant')
+    .findLast(m => !!m.enhancedPrompt)?.enhancedPrompt;;
 
   useEffect(() => {
     const api = getVsCodeApi();
@@ -140,7 +144,7 @@ export function App() {
           ) : (
             <div className="nx-chat-area">
               <MessageList
-                conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [] } : activeConv}
+                conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}
                 isRunning={state.isRunning}
                 onOpenScm={handleOpenScm}
                 onCloseGit={() => {
@@ -148,6 +152,14 @@ export function App() {
                 }}
                 onSendSuggestion={handleRun}
               />
+
+              {!state.isDetecting && (
+                <ConversationTokenBar
+                  usage={activeConv.tokenUsage}
+                  isRunning={state.isRunning}
+                  enhancedPrompt={lastEnhancedPrompt}
+                />
+              )}
 
               {!state.isDetecting && (
                 <Composer

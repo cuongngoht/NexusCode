@@ -76,7 +76,10 @@
     "copy": "Sao chép",
     "goodResponse": "Phản hồi tốt",
     "badResponse": "Phản hồi kém",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "inspectPrompt": "Xem prompt đã gửi",
+    "inspectPromptTitle": "Prompt gửi tới CLI",
+    "planSaved": "✓ Kế hoạch đã lưu"
   },
   "composer": {
     "placeholder": "Hỏi Nexus về file này…  (⌘↵ để gửi)",

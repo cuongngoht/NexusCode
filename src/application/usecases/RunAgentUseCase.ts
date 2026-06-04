@@ -2,9 +2,11 @@ import type { AgentTask, AgentResult } from '../../core/agent';
 import type { IEventBus } from '../../core/events/IEventBus';
 import type { IProcessRunner } from '../../core/runner/IProcessRunner';
 import { AgentRouter } from '../AgentRouter';
+import { TokenMeter } from '../../tokens/TokenMeter';
 
 export class RunAgentUseCase {
   private activeTask: AgentTask | null = null;
+  private readonly tokenMeter = new TokenMeter();
 
   constructor(
     private readonly router: AgentRouter,
@@ -20,6 +22,12 @@ export class RunAgentUseCase {
     this.activeTask = task;
     task.start();
     this.eventBus.emit({ kind: 'task_started', task });
+    this.eventBus.emit({
+      kind: 'token_usage_updated',
+      task,
+      phase: 'preview',
+      usage: this.tokenMeter.createPreview(task, agent.displayName),
+    });
 
     try {
       const result = await this.runner.run(command, {
@@ -49,6 +57,12 @@ export class RunAgentUseCase {
 
       task.complete(result);
       this.activeTask = null;
+      this.eventBus.emit({
+        kind: 'token_usage_updated',
+        task,
+        phase: 'final',
+        usage: this.tokenMeter.createFinal(task, result, agent.displayName),
+      });
       this.eventBus.emit({ kind: 'task_completed', task, result });
       return result;
     } catch (error) {

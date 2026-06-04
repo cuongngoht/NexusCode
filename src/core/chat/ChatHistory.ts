@@ -8,6 +8,8 @@ export interface SerializedUserMessage {
   timestamp: number;
 }
 
+import type { TokenRunUsage } from '../tokens/TokenUsage';
+
 export interface SerializedAssistantMessage {
   id: string;
   role: 'assistant';
@@ -18,6 +20,7 @@ export interface SerializedAssistantMessage {
   exitCode?: number;
   errorText?: string;
   timestamp: number;
+  tokenUsage?: TokenRunUsage;
 }
 
 export type SerializedChatMessage = SerializedUserMessage | SerializedAssistantMessage;
