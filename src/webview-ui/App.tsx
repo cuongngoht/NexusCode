@@ -83,6 +83,7 @@ export function App() {
         provider: state.provider,
         mode: state.mode,
         model: state.selectedModel,
+        conversationId: state.activeConvId,
       });
     },
     [state.provider, state.mode, state.selectedModel],

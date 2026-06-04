@@ -6,7 +6,9 @@ import type {
 
 export type { ChatHistoryState };
 
+// Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type ProviderId = 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+// Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type TaskMode =
   | 'ask'
   | 'research'
@@ -26,14 +28,14 @@ export interface ProviderModel {
   source: ProviderModelSource;
 }
 
-export interface GitChange { status: string; path: string; }
+export interface GitFileChange { status: string; path: string; }
 
-export interface ReviewContext {
+export interface GitReviewContext {
   baseBranch: string;
   compareBranch: string;
   currentBranch: string;
   availableBranches: string[];
-  changedFiles: GitChange[];
+  changedFiles: GitFileChange[];
   diffStat: string;
   diff: string;
   diffTruncated: boolean;
@@ -93,7 +95,7 @@ export interface Conversation {
   id: string;
   title: string;
   messages: ChatMessage[];
-  gitChanges: GitChange[];
+  gitChanges: GitFileChange[];
   gitMessage?: string;
   createdAt?: number;
   updatedAt?: number;
@@ -119,8 +121,9 @@ export interface AppState {
   isDetecting: boolean;
   showHistory: boolean;
   saveKey: number;
-  reviewContext?: ReviewContext;
+  reviewContext?: GitReviewContext;
   reviewContextError?: string;
+  historyError?: string;
 }
 
 export function createInitialState(): AppState {
@@ -141,11 +144,15 @@ export function createInitialState(): AppState {
     saveKey: 0,
     reviewContext: undefined,
     reviewContextError: undefined,
+    historyError: undefined,
   };
 }
 
 // ── Extension → webview messages ──────────────────────────────────────────
 
+// Structural mirror of ProviderDetectionResult from src/core/providerDetector.ts —
+// keep in sync (webview bundle cannot import from extension-side modules).
+// id is typed as string here because the webview does not import ProviderId from core.
 export interface ProviderInfo {
   id: string;
   displayName: string;
@@ -166,7 +173,7 @@ export type ExtMsg =
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
-  | { type: 'gitStatus'; changes: GitChange[]; message?: string }
+  | { type: 'gitStatus'; changes: GitFileChange[]; message?: string }
   | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[]; needsSetup: boolean; savedProvider?: string }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
@@ -175,7 +182,7 @@ export type ExtMsg =
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
-  | { type: 'reviewContext'; context: ReviewContext }
+  | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
@@ -255,6 +262,19 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
   };
 }
 
+// ── Runtime deserialization guards ────────────────────────────────────────
+
+const VALID_PROVIDER_IDS: ProviderId[] = ['claude', 'codex', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
+const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review'];
+
+function toProviderId(v: unknown): ProviderId {
+  return VALID_PROVIDER_IDS.includes(v as ProviderId) ? (v as ProviderId) : 'auto';
+}
+
+function toTaskMode(v: unknown): TaskMode {
+  return VALID_TASK_MODES.includes(v as TaskMode) ? (v as TaskMode) : 'ask';
+}
+
 function deserializeConversation(sc: SerializedConversation): Conversation {
   const messages: ChatMessage[] = sc.messages.map(m => {
     if (m.role === 'user') {
@@ -262,8 +282,8 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
         id: m.id,
         role: 'user' as const,
         prompt: m.prompt,
-        provider: m.provider as ProviderId,
-        mode: m.mode as TaskMode,
+        provider: toProviderId(m.provider),
+        mode: toTaskMode(m.mode),
         model: m.model,
         timestamp: m.timestamp,
       } satisfies UserMessage;
@@ -349,7 +369,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'selectConversation':
-      return { ...state, activeConvId: action.id, showHistory: false };
+      return { ...state, activeConvId: action.id, showHistory: false, saveKey: state.saveKey + 1 };
 
     case 'deleteConversation': {
       const remaining = state.conversations.filter(c => c.id !== action.id);
@@ -586,7 +606,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'historyError':
-      return state;
+      return { ...state, historyError: msg.message ?? 'Failed to load history' };
 
     case 'reviewContext':
       return { ...state, reviewContext: msg.context, reviewContextError: undefined };

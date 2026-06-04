@@ -1,22 +1,21 @@
 import type { ExtensionMessage } from '../webviewProtocol';
-import { ChatHistoryStore } from '../ChatHistoryStore';
-import type { ChatHistoryState, SerializedChatMessage } from '../../core/chat/ChatHistory';
-
-const CONTEXT_CHAR_LIMIT = 12_000;
-const CONTEXT_MAX_MESSAGES = 8;
+import type { IChatHistoryStore } from '../IChatHistoryStore';
+import type { ChatHistoryState } from '../../core/chat/ChatHistory';
 
 export class HistoryHandler {
   private _latestHistory: ChatHistoryState | null = null;
 
   constructor(
     private readonly post: (msg: ExtensionMessage) => void,
-    private readonly store: ChatHistoryStore,
+    private readonly store: IChatHistoryStore,
   ) {}
 
   get latestHistory(): ChatHistoryState | null {
     return this._latestHistory;
   }
 
+  // Returns Promise<void> so callers can uniformly await it alongside other async init steps.
+  // store.load() is currently synchronous but the async signature keeps the interface stable.
   async load(): Promise<void> {
     try {
       const history = this.store.load();
@@ -32,32 +31,5 @@ export class HistoryHandler {
   async save(history: ChatHistoryState): Promise<void> {
     this._latestHistory = history;
     await this.store.save(history);
-  }
-
-  buildConversationContext(): string | undefined {
-    const history = this._latestHistory;
-    if (!history) return undefined;
-
-    const conv = history.conversations.find(c => c.id === history.activeConversationId);
-    if (!conv || conv.messages.length === 0) return undefined;
-
-    const messages = conv.messages.slice(-CONTEXT_MAX_MESSAGES);
-    const lines: string[] = [];
-    let chars = 0;
-
-    for (const m of messages) {
-      let text: string;
-      if (m.role === 'user') {
-        text = `User: ${(m as Extract<SerializedChatMessage, { role: 'user' }>).prompt}`;
-      } else {
-        const a = m as Extract<SerializedChatMessage, { role: 'assistant' }>;
-        text = `Assistant: ${a.content.slice(0, 2000)}`;
-      }
-      lines.push(text);
-      chars += text.length;
-      if (chars >= CONTEXT_CHAR_LIMIT) break;
-    }
-
-    return lines.length > 0 ? lines.join('\n') : undefined;
   }
 }

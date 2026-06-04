@@ -5,6 +5,7 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
+import { ChatHistoryStore } from './ChatHistoryStore';
 import { ConfigService } from '../config/ConfigService';
 import { ProviderDetector } from '../core/providerDetector';
 
@@ -47,7 +48,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.configService,
       this.detector,
       this.globalState,
-      this.workspaceState,
+      new ChatHistoryStore(this.workspaceState),
       this.extensionUri.fsPath,
     );
 

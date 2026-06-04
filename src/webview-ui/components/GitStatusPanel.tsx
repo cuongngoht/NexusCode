@@ -1,9 +1,9 @@
-import type { GitChange } from '../messages';
+import type { GitFileChange } from '../messages';
 import { IconBranch, IconClose } from '../NexusIcons';
 import { useT } from '../i18n';
 
 interface Props {
-  changes: GitChange[];
+  changes: GitFileChange[];
   message: string | undefined;
   onOpenScm: () => void;
   onClose: () => void;

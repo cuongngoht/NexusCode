@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconSparkle, IconTool, IconGlobe, IconAgent, IconSearch } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { ProviderId, TaskMode, ProviderInfo, ReviewContext } from '../messages';
+import type { ProviderId, TaskMode, ProviderInfo, GitReviewContext } from '../messages';
 
 interface Attachment {
   name: string;
@@ -15,7 +15,7 @@ interface Props {
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
-  reviewContext?: ReviewContext;
+  reviewContext?: GitReviewContext;
   reviewContextError?: string;
   onRun: (prompt: string) => void;
   onStop: () => void;

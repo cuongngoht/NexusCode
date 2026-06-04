@@ -5,11 +5,12 @@ import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ProviderDetector } from '../core/providerDetector';
 import { ConfigService } from '../config/ConfigService';
-import { ChatHistoryStore } from './ChatHistoryStore';
+import type { IChatHistoryStore } from './IChatHistoryStore';
 import { RunTaskHandler } from './handlers/RunTaskHandler';
 import { HistoryHandler } from './handlers/HistoryHandler';
 import { ProviderHandler } from './handlers/ProviderHandler';
 import { ReviewHandler } from './handlers/ReviewHandler';
+import { buildConversationContext } from '../context/conversationContext';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -26,11 +27,11 @@ export class ChatController {
     configService: ConfigService,
     detector: ProviderDetector,
     globalState: vscode.Memento,
-    workspaceState: vscode.Memento,
+    historyStore: IChatHistoryStore,
     extensionPath: string = '',
   ) {
     this.runTaskHandler = new RunTaskHandler(runAgent, eventBus, post, buildProjectMap, extensionPath);
-    this.historyHandler = new HistoryHandler(post, new ChatHistoryStore(workspaceState));
+    this.historyHandler = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler = new ReviewHandler(post, extensionPath);
 
@@ -52,7 +53,7 @@ export class ChatController {
           msg.mode,
           msg.model,
           this.historyHandler.latestHistory,
-          () => this.historyHandler.buildConversationContext(),
+          () => buildConversationContext(this.historyHandler.latestHistory, msg.conversationId),
         );
         break;
       case 'stopTask':

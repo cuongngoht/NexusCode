@@ -5,6 +5,7 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
+import { ChatHistoryStore } from './ChatHistoryStore';
 import { ConfigService } from '../config/ConfigService';
 import { ProviderDetector } from '../core/providerDetector';
 
@@ -73,7 +74,7 @@ export class ChatPanel {
       configService,
       detector,
       globalState,
-      workspaceState,
+      new ChatHistoryStore(workspaceState),
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);
