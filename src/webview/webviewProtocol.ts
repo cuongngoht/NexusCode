@@ -26,7 +26,7 @@ export type ExtensionMessage =
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
-  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string }
+  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string }
   | { type: 'stopTask' }
   | { type: 'openSourceControl' }
   | { type: 'openSettings' }

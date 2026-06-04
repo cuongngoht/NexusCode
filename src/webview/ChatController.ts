@@ -52,6 +52,7 @@ export class ChatController {
           msg.provider,
           msg.mode,
           msg.model,
+          msg.baseBranch,
           this.historyHandler.latestHistory,
           () => buildConversationContext(this.historyHandler.latestHistory, msg.conversationId),
         );

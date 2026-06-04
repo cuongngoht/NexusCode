@@ -46,6 +46,7 @@ export class RunTaskHandler {
     providerId: ProviderId,
     mode: TaskMode,
     model: string | undefined,
+    baseBranch: string | undefined,
     latestHistory: ChatHistoryState | null,
     buildConversationContext: () => string | undefined,
   ): Promise<void> {
@@ -91,7 +92,7 @@ export class RunTaskHandler {
       if (!ok) return;
 
       if (enableEnhancement) {
-        ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot);
+        ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
       }
 
       await this.executeAgent(ctx, providerId, mode, model, preSteps.length, totalSteps, workspaceRoot, cfg);
@@ -137,12 +138,27 @@ export class RunTaskHandler {
     return true;
   }
 
-  private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string): string {
+  private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, baseBranch?: string): string {
     const workspace = scanWorkspace(workspaceRoot);
     const packages = detectPackageInfo(workspaceRoot);
     const rules = loadRules(workspaceRoot);
 
-    const basePrompt = buildEnhancedPrompt(ctx.originalPrompt, {
+    if (mode === 'review') {
+      const reviewContext = buildGitReviewContext(workspaceRoot, baseBranch);
+      const reviewAgentMarkdown = loadReviewAgentMarkdown(workspaceRoot, this.extensionPath);
+      const workspaceContext = [
+        `Workspace: ${workspace.name}${workspace.gitBranch ? ` | Branch: ${workspace.gitBranch}` : ''}`,
+        rules ? `\n# Project Rules\n${rules}` : '',
+      ].filter(Boolean).join('\n');
+      return buildReviewPrompt({
+        userPrompt: ctx.originalPrompt,
+        reviewAgentMarkdown,
+        reviewContext,
+        baseWorkspacePrompt: workspaceContext || undefined,
+      });
+    }
+
+    return buildEnhancedPrompt(ctx.originalPrompt, {
       workspace,
       packages,
       rules,
@@ -153,19 +169,6 @@ export class RunTaskHandler {
       brainstormAgents: ctx.brainstormAgents,
       debugContext: ctx.debugContext,
     });
-
-    if (mode === 'review') {
-      const reviewContext = buildGitReviewContext(workspaceRoot);
-      const reviewAgentMarkdown = loadReviewAgentMarkdown(workspaceRoot, this.extensionPath);
-      return buildReviewPrompt({
-        userPrompt: ctx.originalPrompt,
-        reviewAgentMarkdown,
-        reviewContext,
-        baseWorkspacePrompt: basePrompt,
-      });
-    }
-
-    return basePrompt;
   }
 
   private async executeAgent(

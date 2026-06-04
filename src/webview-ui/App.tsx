@@ -67,7 +67,7 @@ export function App() {
   }, [state.saveKey]);
 
   const handleRun = useCallback(
-    (prompt: string) => {
+    (prompt: string, baseBranch?: string) => {
       const timestamp = Date.now();
       dispatch({
         type: 'sendUserMessage',
@@ -84,6 +84,7 @@ export function App() {
         mode: state.mode,
         model: state.selectedModel,
         conversationId: state.activeConvId,
+        baseBranch,
       });
     },
     [state.provider, state.mode, state.selectedModel],

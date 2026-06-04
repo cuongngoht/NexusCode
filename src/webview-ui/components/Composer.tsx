@@ -17,7 +17,7 @@ interface Props {
   providerDetection: ProviderInfo[];
   reviewContext?: GitReviewContext;
   reviewContextError?: string;
-  onRun: (prompt: string) => void;
+  onRun: (prompt: string, baseBranch?: string) => void;
   onStop: () => void;
   onProviderChange: (v: ProviderId) => void;
   onModeChange: (v: TaskMode) => void;
@@ -49,7 +49,7 @@ export function Composer({
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
     if ((!trimmed && mode !== 'review') || isRunning) return;
-    onRun(trimmed);
+    onRun(trimmed, mode === 'review' ? selectedBase || undefined : undefined);
     setPrompt('');
     setAttachments([]);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
