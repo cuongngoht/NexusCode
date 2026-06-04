@@ -14,7 +14,8 @@
     "customCli": "Custom CLI"
   },
   "model": {
-    "auto": "Default model"
+    "auto": "Default model",
+    "label": "Model"
   },
   "mode": {
     "ask": {

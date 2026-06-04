@@ -16,7 +16,6 @@
       "preLaunchTask": "compile"
     },
     {
-      // Dùng khi đang chạy watch — không build lại, F5 nhanh hơn
       "name": "Watch & Debug Extension",
       "type": "extensionHost",
       "request": "launch",
@@ -40,7 +39,7 @@
         "webpack:///./~/*": "${workspaceFolder}/node_modules/*",
         "webpack:///./*": "${workspaceFolder}/*"
       }
-    }
+    },
     {
       // Debug nexus map CLI với breakpoint trên TypeScript source
       "name": "Debug: nexus map",

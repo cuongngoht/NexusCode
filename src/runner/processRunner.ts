@@ -49,6 +49,11 @@ export class ProcessRunner implements IProcessRunner {
 
       this.activeProcess = child;
 
+      if (command.stdin !== undefined) {
+        child.stdin.write(command.stdin);
+        child.stdin.end();
+      }
+
       child.stdout.setEncoding('utf8');
       child.stderr.setEncoding('utf8');
 

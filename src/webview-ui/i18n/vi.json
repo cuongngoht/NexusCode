@@ -14,7 +14,8 @@
     "customCli": "CLI tùy chỉnh"
   },
   "model": {
-    "auto": "Model mặc định"
+    "auto": "Model mặc định",
+    "label": "Model"
   },
   "mode": {
     "ask": {

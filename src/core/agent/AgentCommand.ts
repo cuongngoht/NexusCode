@@ -3,5 +3,6 @@ export class AgentCommand {
     readonly executable: string,
     readonly args: ReadonlyArray<string>,
     readonly env?: Readonly<Record<string, string>>,
+    readonly stdin?: string,
   ) { }
 }
