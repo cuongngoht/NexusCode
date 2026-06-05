@@ -16,5 +16,7 @@ export type PipelineContext = {
   brainstormAgents?: string;
   debugContext?: DebugContext;
   planContent?: string;
+  baseBranch?: string;
+  reviewFileContents?: string;
   enhancedPrompt: string;
 };

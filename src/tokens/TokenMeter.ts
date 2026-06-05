@@ -6,9 +6,9 @@ import type { TokenRunUsage } from './TokenUsage';
 export class TokenMeter {
   private readonly counter = new GptTokenCounter();
 
-  createPreview(task: AgentTask, providerLabel: string): TokenRunUsage {
+  createPreview(task: AgentTask, providerLabel: string, inputPrompt: string): TokenRunUsage {
     const originalPromptTokens = this.counter.countText(task.prompt);
-    const enhancedPromptTokens = this.counter.countText(task.enhancedPrompt);
+    const enhancedPromptTokens = this.counter.countText(inputPrompt);
     return {
       taskId: task.id,
       provider: task.agentId,
@@ -27,9 +27,9 @@ export class TokenMeter {
     };
   }
 
-  createFinal(task: AgentTask, result: AgentResult, providerLabel: string): TokenRunUsage {
+  createFinal(task: AgentTask, result: AgentResult, providerLabel: string, inputPrompt: string): TokenRunUsage {
     const originalPromptTokens = this.counter.countText(task.prompt);
-    const enhancedPromptTokens = this.counter.countText(task.enhancedPrompt);
+    const enhancedPromptTokens = this.counter.countText(inputPrompt);
     const outputTokens = this.counter.countText(`${result.stdout}\n${result.stderr}`);
     return {
       taskId: task.id,

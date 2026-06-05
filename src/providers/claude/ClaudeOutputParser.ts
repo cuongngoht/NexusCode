@@ -1,4 +1,5 @@
-import type { IOutputParser, ParsedActivity, ActivityKind } from '../../core/agent/IOutputParser';
+import { BaseOutputParser } from '../base/BaseOutputParser';
+import type { ParsedActivity, ActivityKind } from '../../core/agent/IOutputParser';
 
 // Strip ANSI escape sequences from a string
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
@@ -37,12 +38,9 @@ function formatLabel(toolName: string, args: string): string {
   return cleaned.length > 60 ? cleaned.slice(0, 57) + '…' : cleaned;
 }
 
-export class ClaudeOutputParser implements IOutputParser {
-  parse(chunk: string): ParsedActivity[] {
-    return chunk
-      .split('\n')
-      .filter(l => l.length > 0)
-      .map(line => this.parseLine(line));
+export class ClaudeOutputParser extends BaseOutputParser {
+  protected parseLines(lines: string[]): ParsedActivity[] {
+    return lines.map(line => this.parseLine(line));
   }
 
   private parseLine(raw: string): ParsedActivity {

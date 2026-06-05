@@ -53,7 +53,7 @@ export function buildGitReviewContext(
 
   const nameStatus = git(workspaceRoot, ['diff', '--name-status', range]);
   const diffStat = git(workspaceRoot, ['diff', '--stat', range]);
-  let diff = git(workspaceRoot, ['diff', '--find-renames', range], DIFF_MAX_BUFFER);
+  let diff = git(workspaceRoot, ['diff', '-U5', '--find-renames', range], DIFF_MAX_BUFFER);
 
   let diffTruncated = false;
   if (diff.length > REVIEW_DIFF_CHAR_LIMIT) {

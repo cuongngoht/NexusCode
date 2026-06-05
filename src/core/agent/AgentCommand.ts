@@ -4,5 +4,6 @@ export class AgentCommand {
     readonly args: ReadonlyArray<string>,
     readonly env?: Readonly<Record<string, string>>,
     readonly stdin?: string,
+    readonly inputPrompt?: string,
   ) { }
 }

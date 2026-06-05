@@ -23,11 +23,11 @@ export class ClaudeAgent extends BaseAgent {
 
   protected readonly executableName = 'claude';
 
-  buildCommand(task: AgentTask): AgentCommand {
+  protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
       ? ['--model', task.model, task.enhancedPrompt]
       : [task.enhancedPrompt];
-    return new AgentCommand('claude', args);
+    return new AgentCommand('claude', args, undefined, undefined, task.enhancedPrompt);
   }
 
   parseOutput(raw: string): AgentOutput {

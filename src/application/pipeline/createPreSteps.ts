@@ -5,6 +5,7 @@ import { ScanProjectStep } from './ScanProjectStep';
 import { ReadSourceContextStep } from './ReadSourceContextStep';
 import { BrainstormAgentsStep } from './BrainstormAgentsStep';
 import { DebugPreStep } from './DebugPreStep';
+import { ReviewFileContextStep } from './ReviewFileContextStep';
 
 export type PreStepDeps = {
   buildProjectMap: BuildProjectMapUseCase;
@@ -25,6 +26,9 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
 
     case 'debug':
       return [new DebugPreStep()];
+
+    case 'review':
+      return [new ReviewFileContextStep()];
 
     default:
       return [];

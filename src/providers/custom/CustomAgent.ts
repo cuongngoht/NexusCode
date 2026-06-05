@@ -22,7 +22,7 @@ export class CustomAgent extends BaseAgent {
       .get<string>('customProvider.command') ?? '';
   }
 
-  buildCommand(task: AgentTask): AgentCommand {
+  protected doBuildCommand(task: AgentTask): AgentCommand {
     const cfg = vscode.workspace.getConfiguration('nexus');
     const command = cfg.get<string>('customProvider.command') ?? '';
     const template = cfg.get<string[]>('customProvider.args') ?? ['{{prompt}}'];
@@ -33,7 +33,7 @@ export class CustomAgent extends BaseAgent {
       a.replace('{{prompt}}', task.enhancedPrompt)
         .replace('{{model}}', task.model ?? ''),
     );
-    return new AgentCommand(command, args);
+    return new AgentCommand(command, args, undefined, undefined, task.enhancedPrompt);
   }
 
   parseOutput(raw: string): AgentOutput {

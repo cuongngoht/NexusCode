@@ -25,11 +25,11 @@ export class CodexAgent extends BaseAgent {
 
   protected readonly executableName = 'codex';
 
-  buildCommand(task: AgentTask): AgentCommand {
+  protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
       ? ['--model', task.model, task.enhancedPrompt]
       : [task.enhancedPrompt];
-    return new AgentCommand('codex', args);
+    return new AgentCommand('codex', args, undefined, undefined, task.enhancedPrompt);
   }
 
   parseOutput(raw: string): AgentOutput {

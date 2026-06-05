@@ -19,6 +19,8 @@ export class RunAgentUseCase {
     const command = agent.buildCommand(task);
     const parser = agent.outputParser;
 
+    const inputPrompt = command.inputPrompt ?? task.enhancedPrompt;
+
     this.activeTask = task;
     task.start();
     this.eventBus.emit({ kind: 'task_started', task });
@@ -26,7 +28,7 @@ export class RunAgentUseCase {
       kind: 'token_usage_updated',
       task,
       phase: 'preview',
-      usage: this.tokenMeter.createPreview(task, agent.displayName),
+      usage: this.tokenMeter.createPreview(task, agent.displayName, inputPrompt),
     });
 
     try {
@@ -61,7 +63,7 @@ export class RunAgentUseCase {
         kind: 'token_usage_updated',
         task,
         phase: 'final',
-        usage: this.tokenMeter.createFinal(task, result, agent.displayName),
+        usage: this.tokenMeter.createFinal(task, result, agent.displayName, inputPrompt),
       });
       this.eventBus.emit({ kind: 'task_completed', task, result });
       return result;

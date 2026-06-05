@@ -81,6 +81,7 @@ export class RunTaskHandler {
       enableEnhancement,
       enhancedPrompt: effectivePrompt,
       conversationContext: latestHistory ? buildConversationContext() : undefined,
+      baseBranch: baseBranch || undefined,
     };
 
     const preSteps = createPreSteps(mode, {
@@ -158,6 +159,8 @@ export class RunTaskHandler {
         reviewAgentMarkdown,
         reviewContext,
         baseWorkspacePrompt: workspaceContext || undefined,
+        reviewFileContents: ctx.reviewFileContents,
+        conversationContext: ctx.conversationContext,
       });
     }
 

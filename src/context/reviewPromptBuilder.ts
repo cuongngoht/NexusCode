@@ -5,10 +5,12 @@ export interface ReviewPromptInput {
   reviewAgentMarkdown: string;
   reviewContext: GitReviewContext;
   baseWorkspacePrompt?: string;
+  reviewFileContents?: string;
+  conversationContext?: string;
 }
 
 export function buildReviewPrompt(input: ReviewPromptInput): string {
-  const { userPrompt, reviewAgentMarkdown, reviewContext, baseWorkspacePrompt } = input;
+  const { userPrompt, reviewAgentMarkdown, reviewContext, baseWorkspacePrompt, reviewFileContents, conversationContext } = input;
 
   const request =
     userPrompt.trim() ||
@@ -38,11 +40,15 @@ export function buildReviewPrompt(input: ReviewPromptInput): string {
     '# Diff Stat',
     reviewContext.diffStat || 'No diff stat available.',
 
+    ...(reviewFileContents ? ['# Changed Code Context', reviewFileContents] : []),
+
     '# Git Diff',
     '```diff',
     reviewContext.diff || 'No diff available.',
     '```',
     diffNotice,
+
+    ...(conversationContext ? ['# Previous Conversation Context', conversationContext] : []),
 
     '# User Request',
     request,

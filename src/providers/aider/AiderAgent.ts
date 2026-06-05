@@ -22,11 +22,11 @@ export class AiderAgent extends BaseAgent {
 
   protected readonly executableName = 'aider';
 
-  buildCommand(task: AgentTask): AgentCommand {
+  protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
       ? ['--model', task.model, '--message', task.enhancedPrompt]
       : ['--message', task.enhancedPrompt];
-    return new AgentCommand('aider', args);
+    return new AgentCommand('aider', args, undefined, undefined, task.enhancedPrompt);
   }
 
   parseOutput(raw: string): AgentOutput {

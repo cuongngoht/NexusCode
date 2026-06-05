@@ -23,11 +23,11 @@ export class CopilotAgent extends BaseAgent {
 
   protected readonly executableName = 'copilot';
 
-  buildCommand(task: AgentTask): AgentCommand {
+  protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
       ? ['--model', task.model, '--prompt', task.enhancedPrompt]
       : ['--prompt', task.enhancedPrompt];
-    return new AgentCommand('copilot', args);
+    return new AgentCommand('copilot', args, undefined, undefined, task.enhancedPrompt);
   }
 
   parseOutput(raw: string): AgentOutput {

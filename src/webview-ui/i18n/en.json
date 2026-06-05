@@ -124,7 +124,8 @@
       "analyze": "Analyzing",
       "summarize": "AI Summary",
       "read-source-context": "Reading source",
-      "debug-prepare": "Analyzing error signal"
+      "debug-prepare": "Analyzing error signal",
+        "review-files": "Reading changed files"
     },
     "activities": {
       "read": "Reading file",
