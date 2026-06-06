@@ -43,4 +43,5 @@ export type WebviewMessage =
   | { type: 'saveProvider'; provider: ProviderId }
   | { type: 'saveHistory'; history: ChatHistoryState }
   | { type: 'getReviewContext'; baseBranch?: string }
-  | { type: 'openReviewAgentFile' };
+  | { type: 'openReviewAgentFile' }
+  | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string };

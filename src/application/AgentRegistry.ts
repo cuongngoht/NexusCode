@@ -16,6 +16,10 @@ export class AgentRegistry {
     return agent;
   }
 
+  tryGet(id: AgentId): IAgent | undefined {
+    return this.agents.get(id);
+  }
+
   getAll(): ReadonlyArray<IAgent> {
     return [...this.agents.values()];
   }

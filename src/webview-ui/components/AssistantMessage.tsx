@@ -5,6 +5,7 @@ import rehypeHighlight from 'rehype-highlight';
 import type { AssistantMessage as AssistantMsg, PipelineStep, Activity } from '../messages';
 import { IconSparkle, IconCopy, IconThumbUp, IconThumbDown, IconRetry } from '../NexusIcons';
 import { useT, interp } from '../i18n';
+import { getVsCodeApi } from '../vscodeApi';
 
 interface Props {
   message: AssistantMsg;
@@ -190,7 +191,22 @@ export function AssistantMessage({ message }: Props) {
           </div>
         )}
 {message.planSaved && !message.isStreaming && (
-          <span className="nx-plan-saved-badge">{t.agent.planSaved}</span>
+          <div className="nx-plan-saved-row">
+            <span className="nx-plan-saved-badge">{t.agent.planSaved}</span>
+            {message.providerLabel.startsWith('nexus') && (
+              <button
+                type="button"
+                className="fl-btn-primary nx-apply-plan-btn"
+                onClick={() => getVsCodeApi().postMessage({
+                  type: 'applyPlan',
+                  mode: message.mode,
+                  model: message.model,
+                })}
+              >
+                {t.nexus.applyPlan}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

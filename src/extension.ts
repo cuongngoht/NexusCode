@@ -10,6 +10,8 @@ import { GeminiAgent } from './providers/gemini/GeminiAgent';
 import { CopilotAgent } from './providers/copilot/CopilotAgent';
 import { AiderAgent } from './providers/aider/AiderAgent';
 import { CustomAgent } from './providers/custom/CustomAgent';
+import { NexusAgent } from './providers/nexus/NexusAgent';
+import { NexusOrchestrator } from './application/nexus/NexusOrchestrator';
 import { ChatViewProvider } from './webview/ChatViewProvider';
 import { BuildProjectMapUseCase } from './application/usecases/BuildProjectMapUseCase';
 import { SummarizeProjectMapUseCase } from './application/usecases/SummarizeProjectMapUseCase';
@@ -37,12 +39,17 @@ export function activate(context: vscode.ExtensionContext): void {
   registry.register(new GeminiAgent());
   registry.register(new CopilotAgent());
   registry.register(new AiderAgent());
-  registry.register(new CustomAgent());
+  registry.register(new CustomAgent({
+    getCommand: () => vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? '',
+    getArgs: () => vscode.workspace.getConfiguration('nexus').get<string[]>('customProvider.args') ?? ['{{prompt}}'],
+  }));
+  registry.register(new NexusAgent());
 
   const eventBus = new EventBus();
   const runner = new ProcessRunner();
   const router = new AgentRouter(registry);
   const runAgent = new RunAgentUseCase(router, runner, eventBus);
+  const orchestrator = new NexusOrchestrator(registry, runAgent, eventBus);
 
   const buildProjectMap = new BuildProjectMapUseCase(
     new NexusFileTreeScanner(),
@@ -67,6 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
+    orchestrator,
     eventBus,
     buildProjectMap,
     configService,

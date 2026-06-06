@@ -3,6 +3,7 @@ import { getHtml } from './getHtml';
 import type { WebviewMessage } from './webviewProtocol';
 import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
+import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
 import { ChatHistoryStore } from './ChatHistoryStore';
@@ -20,6 +21,7 @@ export class ChatPanel {
   static createOrShow(
     extensionUri: vscode.Uri,
     runAgent: RunAgentUseCase,
+    orchestrator: NexusOrchestrator,
     eventBus: IEventBus,
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
@@ -50,7 +52,7 @@ export class ChatPanel {
       },
     );
 
-    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, eventBus, buildProjectMap, configService, detector, globalState, workspaceState);
+    ChatPanel.instance = new ChatPanel(panel, extensionUri, runAgent, orchestrator, eventBus, buildProjectMap, configService, detector, globalState, workspaceState);
     return ChatPanel.instance;
   }
 
@@ -58,6 +60,7 @@ export class ChatPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     runAgent: RunAgentUseCase,
+    orchestrator: NexusOrchestrator,
     eventBus: IEventBus,
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
@@ -68,8 +71,9 @@ export class ChatPanel {
     this.panel = panel;
     this.controller = new ChatController(
       runAgent,
+      orchestrator,
       eventBus,
-      (msg) => { this.panel.webview.postMessage(msg).then(undefined, () => { }); },
+      (msg: Parameters<typeof this.panel.webview.postMessage>[0]) => { this.panel.webview.postMessage(msg).then(undefined, () => { }); },
       buildProjectMap,
       configService,
       detector,

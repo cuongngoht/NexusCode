@@ -23,7 +23,8 @@ export type NexusEvent =
       task: AgentTask;
       phase: 'preview' | 'final';
       usage: TokenRunUsage;
-    };
+    }
+  | { kind: 'plan_saved'; task: AgentTask };
 
 export type NexusEventKind = NexusEvent['kind'];
 

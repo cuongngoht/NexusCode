@@ -3,6 +3,7 @@ import { getHtml } from './getHtml';
 import type { WebviewMessage } from './webviewProtocol';
 import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
+import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ChatController } from './ChatController';
 import { ChatHistoryStore } from './ChatHistoryStore';
@@ -17,6 +18,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly runAgent: RunAgentUseCase,
+    private readonly orchestrator: NexusOrchestrator,
     private readonly eventBus: IEventBus,
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly configService: ConfigService,
@@ -42,6 +44,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     this.controller = new ChatController(
       this.runAgent,
+      this.orchestrator,
       this.eventBus,
       (msg) => { webviewView.webview.postMessage(msg).then(undefined, () => { }); },
       this.buildProjectMap,

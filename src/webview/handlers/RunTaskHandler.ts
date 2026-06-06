@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
@@ -7,6 +5,8 @@ import type { ProviderId, TaskMode } from '../../core/types';
 import { AgentTask } from '../../core/agent';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import { RunAgentUseCase } from '../../application/usecases/RunAgentUseCase';
+import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
+import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
@@ -34,6 +34,7 @@ export class RunTaskHandler {
 
   constructor(
     private readonly runAgent: RunAgentUseCase,
+    private readonly orchestrator: NexusOrchestrator,
     private readonly eventBus: IEventBus,
     private readonly post: (msg: ExtensionMessage) => void,
     private readonly buildProjectMap: BuildProjectMapUseCase,
@@ -84,22 +85,62 @@ export class RunTaskHandler {
       baseBranch: baseBranch || undefined,
     };
 
-    const preSteps = createPreSteps(mode, {
-      buildProjectMap: this.buildProjectMap,
-      extensionPath: this.extensionPath,
-    });
-    const totalSteps = preSteps.length + 1;
+    this._pipelineActive = true;
+    try {
+      if (providerId === 'nexus') {
+        if (enableEnhancement) {
+          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
+        }
+        await this.orchestrator.run(ctx, 'auto');
+      } else {
+        const preSteps = createPreSteps(mode, {
+          buildProjectMap: this.buildProjectMap,
+          extensionPath: this.extensionPath,
+        });
+        const totalSteps = preSteps.length + 1;
+
+        const ok = await this.runPreSteps(preSteps, ctx, providerId, mode, model, totalSteps);
+        if (!ok) return;
+
+        if (enableEnhancement) {
+          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
+        }
+
+        await this.executeAgent(ctx, providerId, mode, model, preSteps.length, totalSteps, workspaceRoot, cfg);
+      }
+    } finally {
+      this._pipelineActive = false;
+    }
+  }
+
+  async applyPlan(mode: TaskMode, model?: string, planPath?: string): Promise<void> {
+    const workspaceRoot = requireWorkspaceRoot(this.post);
+    if (!workspaceRoot) return;
+
+    if (this.hasActive()) {
+      this.post({ type: 'taskError', taskId: 'apply-plan', message: 'A task is already running. Stop it first.' });
+      return;
+    }
+
+    const plan = NexusPlanStore.load(workspaceRoot, planPath);
+    if (!plan) {
+      this.post({ type: 'taskError', taskId: 'apply-plan', message: 'No saved plan found. Run a search+plan first.' });
+      return;
+    }
+
+    const ctx: PipelineContext = {
+      workspaceRoot,
+      originalPrompt: plan,
+      enhancedPrompt: plan,
+      mode,
+      model,
+      providerId: 'nexus',
+      enableEnhancement: false,
+    };
 
     this._pipelineActive = true;
     try {
-      const ok = await this.runPreSteps(preSteps, ctx, providerId, mode, model, totalSteps);
-      if (!ok) return;
-
-      if (enableEnhancement) {
-        ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
-      }
-
-      await this.executeAgent(ctx, providerId, mode, model, preSteps.length, totalSteps, workspaceRoot, cfg);
+      await this.orchestrator.run(ctx, 'code');
     } finally {
       this._pipelineActive = false;
     }
@@ -212,16 +253,11 @@ export class RunTaskHandler {
       this.setupGitStatusListener(task, workspaceRoot);
     }
 
-    if (mode === 'plan') {
-      this.setupPlanSaveListener(task, workspaceRoot);
-    }
-
     try {
       await this.runAgent.execute(task);
       this.eventBus.emit({ kind: 'step_completed', stepLabel: RUN_STEP_LABEL });
     } catch {
       this.eventBus.emit({ kind: 'step_error', stepLabel: RUN_STEP_LABEL, error: '' });
-      // task_error already emitted by runAgent and forwarded via forwardEvent
     }
   }
 
@@ -239,20 +275,5 @@ export class RunTaskHandler {
     };
     this.eventBus.on('task_completed', listener);
     this.eventBus.on('task_stopped', listener);
-  }
-
-  private setupPlanSaveListener(task: AgentTask, workspaceRoot: string): void {
-    const listener = (event: NexusEvent) => {
-      if (event.kind === 'task_completed' && event.task.id === task.id) {
-        this.eventBus.off('task_completed', listener);
-        if (event.result.exitCode === 0 && event.result.stdout.trim()) {
-          const nexusDir = path.join(workspaceRoot, '.nexus');
-          fs.mkdirSync(nexusDir, { recursive: true });
-          fs.writeFileSync(path.join(nexusDir, 'plan.md'), event.result.stdout.trim(), 'utf8');
-          this.post({ type: 'planSaved', taskId: task.id });
-        }
-      }
-    };
-    this.eventBus.on('task_completed', listener);
   }
 }

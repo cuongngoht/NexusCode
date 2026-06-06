@@ -79,14 +79,15 @@ export function Composer({
   // Provider options
   const availableSet = new Set(availableProviders);
   const detectionDone = providerDetection.length > 0;
-  const all: ProviderId[] = ['auto', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
+  const all: ProviderId[] = ['nexus', 'auto', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
   const providerOptions: DropdownOption[] = all
     .filter(id => {
-      if (id === 'auto' || id === 'custom') return true;
+      if (id === 'nexus' || id === 'auto' || id === 'custom') return true;
       if (!detectionDone) return false;
       return availableSet.has(id);
     })
     .map(id => {
+      if (id === 'nexus') return { value: 'nexus', label: 'Nexus', icon: IconSparkle, badge: t.nexus.badge };
       if (id === 'auto') return { value: 'auto', label: t.provider.autoDetect, icon: IconSparkle, badge: t.provider.autoDetectBadge };
       if (id === 'custom') return { value: 'custom', label: t.provider.customCli, icon: IconTool };
       const info = providerDetection.find(d => d.id === id);

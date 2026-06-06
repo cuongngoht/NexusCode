@@ -1,4 +1,4 @@
-import type { AgentTask, AgentResult } from '../../core/agent';
+import type { AgentTask, AgentResult, IAgent } from '../../core/agent';
 import type { IEventBus } from '../../core/events/IEventBus';
 import type { IProcessRunner } from '../../core/runner/IProcessRunner';
 import { AgentRouter } from '../AgentRouter';
@@ -16,6 +16,14 @@ export class RunAgentUseCase {
 
   async execute(task: AgentTask): Promise<AgentResult> {
     const agent = await this.router.resolve(task.agentId, task.mode);
+    return this._run(task, agent);
+  }
+
+  async executeWithAgent(task: AgentTask, agent: IAgent): Promise<AgentResult> {
+    return this._run(task, agent);
+  }
+
+  private async _run(task: AgentTask, agent: IAgent): Promise<AgentResult> {
     const command = agent.buildCommand(task);
     const parser = agent.outputParser;
 

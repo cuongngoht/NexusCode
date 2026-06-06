@@ -13,7 +13,7 @@ import type {
 export type { ChatHistoryState };
 
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
-export type ProviderId = 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type ProviderId = 'nexus' | 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type TaskMode =
   | 'ask'
@@ -188,7 +188,7 @@ export function createInitialState(): AppState {
     activeConvId: conv.id,
     isRunning: false,
     elapsed: 0,
-    provider: 'auto',
+    provider: 'nexus',
     selectedModel: undefined,
     mode: 'ask',
     availableProviders: [],
@@ -327,7 +327,7 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
 
 // ── Runtime deserialization guards ────────────────────────────────────────
 
-const VALID_PROVIDER_IDS: ProviderId[] = ['claude', 'codex', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
+const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
 const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review'];
 
 function toProviderId(v: unknown): ProviderId {
@@ -659,7 +659,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'availableProviders': {
-      const VALID_PROVIDERS: ProviderId[] = ['codex', 'claude', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
+      const VALID_PROVIDERS: ProviderId[] = ['nexus', 'codex', 'claude', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
       const restored = msg.savedProvider && (VALID_PROVIDERS as string[]).includes(msg.savedProvider)
         ? msg.savedProvider as ProviderId
         : state.provider;

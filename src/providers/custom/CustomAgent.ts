@@ -1,9 +1,9 @@
-import * as vscode from 'vscode';
 import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
 import { CommandGuard } from '../../runner/commandGuard';
+import type { ICustomCommandConfigProvider } from '../base/ICustomCommandConfigProvider';
 
 export class CustomAgent extends BaseAgent {
   readonly id = 'custom' as const;
@@ -16,16 +16,17 @@ export class CustomAgent extends BaseAgent {
   );
   readonly seededModels: ReadonlyArray<ProviderModel> = [];
 
+  constructor(private readonly config: ICustomCommandConfigProvider) {
+    super();
+  }
+
   protected get executableName(): string {
-    return vscode.workspace
-      .getConfiguration('nexus')
-      .get<string>('customProvider.command') ?? '';
+    return this.config.getCommand();
   }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
-    const cfg = vscode.workspace.getConfiguration('nexus');
-    const command = cfg.get<string>('customProvider.command') ?? '';
-    const template = cfg.get<string[]>('customProvider.args') ?? ['{{prompt}}'];
+    const command = this.config.getCommand();
+    const template = this.config.getArgs();
 
     CommandGuard.validate(command);
 

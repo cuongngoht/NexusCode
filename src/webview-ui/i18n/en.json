@@ -117,6 +117,11 @@
     "search": "Search…",
     "noResults": "No results"
   },
+  "nexus": {
+    "badge": "Smart",
+    "applyPlan": "Apply Plan",
+    "planReady": "Plan ready"
+  },
   "pipeline": {
     "steps": {
       "scan": "Scanning project",
@@ -125,7 +130,10 @@
       "summarize": "AI Summary",
       "read-source-context": "Reading source",
       "debug-prepare": "Analyzing error signal",
-        "review-files": "Reading changed files"
+      "review-files": "Reading changed files",
+      "search": "Searching",
+      "plan": "Planning",
+      "code": "Applying changes"
     },
     "activities": {
       "read": "Reading file",

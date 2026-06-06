@@ -52,8 +52,9 @@
       "properties": {
         "nexus.defaultProvider": {
           "type": "string",
-          "default": "auto",
+          "default": "nexus",
           "enum": [
+            "nexus",
             "auto",
             "codex",
             "claude",

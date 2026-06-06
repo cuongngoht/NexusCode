@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { ExtensionMessage, WebviewMessage } from './webviewProtocol';
 import type { IEventBus, NexusEvent } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
+import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ProviderDetector } from '../core/providerDetector';
 import { ConfigService } from '../config/ConfigService';
@@ -21,6 +22,7 @@ export class ChatController {
 
   constructor(
     runAgent: RunAgentUseCase,
+    orchestrator: NexusOrchestrator,
     private readonly eventBus: IEventBus,
     private readonly post: (msg: ExtensionMessage) => void,
     buildProjectMap: BuildProjectMapUseCase,
@@ -30,7 +32,7 @@ export class ChatController {
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
   ) {
-    this.runTaskHandler = new RunTaskHandler(runAgent, eventBus, post, buildProjectMap, extensionPath);
+    this.runTaskHandler = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath);
     this.historyHandler = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler = new ReviewHandler(post, extensionPath);
@@ -80,6 +82,9 @@ export class ChatController {
         break;
       case 'openReviewAgentFile':
         await this.reviewHandler.openAgentFile();
+        break;
+      case 'applyPlan':
+        await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath);
         break;
     }
   }
@@ -145,6 +150,9 @@ export class ChatController {
           phase: event.phase,
           usage: event.usage,
         });
+        break;
+      case 'plan_saved':
+        this.post({ type: 'planSaved', taskId: event.task.id });
         break;
     }
   }

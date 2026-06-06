@@ -117,6 +117,11 @@
     "search": "Tìm kiếm…",
     "noResults": "Không có kết quả"
   },
+  "nexus": {
+    "badge": "Thông minh",
+    "applyPlan": "Áp dụng kế hoạch",
+    "planReady": "Kế hoạch sẵn sàng"
+  },
   "pipeline": {
     "steps": {
       "scan": "Quét dự án",
@@ -125,7 +130,10 @@
       "summarize": "Tóm tắt AI",
       "read-source-context": "Đọc source code",
       "debug-prepare": "Phân tích tín hiệu lỗi",
-        "review-files": "Đọc file thay đổi"
+      "review-files": "Đọc file thay đổi",
+      "search": "Tìm kiếm",
+      "plan": "Lên kế hoạch",
+      "code": "Áp dụng thay đổi"
     },
     "activities": {
       "read": "Đọc tệp",
