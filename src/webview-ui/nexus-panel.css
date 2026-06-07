@@ -1194,6 +1194,112 @@ html, body, #root {
   color: var(--colorNeutralForeground1);
 }
 
+.fl-att-chip-type {
+  font-size: 10px;
+  opacity: 0.6;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+/* ── File picker overlay ────────────────────────────────────── */
+
+.fl-cmp-add--active {
+  color: var(--colorBrandForeground1);
+  background: var(--colorNeutralBackground2);
+}
+
+.fl-file-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.fl-file-picker {
+  position: fixed;
+  top: 48px;
+  left: 12px;
+  right: 12px;
+  max-height: 60vh;
+  background: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  z-index: 301;
+  overflow: hidden;
+}
+
+.fl-file-picker-search {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  flex-shrink: 0;
+}
+
+.fl-file-picker-search input {
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--colorNeutralForeground1);
+  font-family: inherit;
+}
+
+.fl-file-picker-search input::placeholder {
+  color: var(--colorNeutralForeground4);
+}
+
+.fl-file-picker-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 3px 0;
+}
+
+.fl-file-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.fl-file-picker-item:hover {
+  background: var(--colorNeutralBackground2);
+}
+
+.fl-file-picker-name {
+  font-size: 12px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--colorNeutralForeground1);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.fl-file-picker-dir {
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--colorNeutralForeground4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.3;
+}
+
+.fl-file-picker-empty {
+  padding: 10px;
+  font-size: 11.5px;
+  color: var(--colorNeutralForeground4);
+  text-align: center;
+}
+
 /* ============================================================
    CONVERSATION HISTORY PANEL  (Fluent v9 redesign)
    ============================================================ */
@@ -1889,4 +1995,88 @@ html, body, #root {
   border-radius: 999px;
   background: var(--colorPaletteGreenBackground2);
   color: var(--colorPaletteGreenForeground2);
+}
+
+/* ---- Plan Ready Card ---- */
+.nx-plan-card {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border, var(--colorNeutralStroke1));
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background, var(--colorNeutralBackground4));
+}
+
+.nx-plan-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.nx-plan-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--colorNeutralForeground1);
+}
+
+.nx-plan-card-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--colorPaletteGreenBackground2);
+  color: var(--colorPaletteGreenForeground2);
+}
+
+.nx-plan-card-meta {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, var(--colorNeutralForeground2));
+}
+
+.nx-plan-card-meta-row {
+  display: flex;
+  gap: 6px;
+}
+
+.nx-plan-card-meta-label {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.nx-plan-card-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+}
+
+.nx-plan-card-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.nx-plan-card-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.nx-plan-card-selector-label {
+  flex-shrink: 0;
+  width: 52px;
+  color: var(--vscode-descriptionForeground, var(--colorNeutralForeground2));
+  opacity: 0.8;
+}
+
+.nx-plan-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

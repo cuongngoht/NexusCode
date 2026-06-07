@@ -15,13 +15,14 @@ export interface PromptContext {
   brainstormAgents?: string;
   debugContext?: DebugContext;
   planContent?: string;
+  attachmentContext?: string;
 }
 
 const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
   ask: 'Answer the user directly using the provided context. Do not scan the project broadly unless needed.',
   research: 'Research the topic and cite or summarize relevant findings. Prefer external/web knowledge when available.',
   'scan-project': 'Inspect the project read-only. Summarize architecture, risks, missing pieces, and recommended next steps.',
-  plan: 'Produce an implementation plan only. Do not mutate files or run commands that change project state.',
+  plan: 'Produce an implementation plan only. Do not mutate files or run commands that change project state. Treat attached files and folders as the primary source of truth.',
   brainstorm: [
     'Run an autonomous multi-agent brainstorming session.',
     'Use the provided markdown agent definitions as specialist personas.',
@@ -66,6 +67,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Project Rules');
     lines.push(ctx.rules);
+  }
+
+  if (ctx.attachmentContext) {
+    lines.push('');
+    lines.push('# Attached Files');
+    lines.push(ctx.attachmentContext);
   }
 
   if (ctx.sourceContext) {

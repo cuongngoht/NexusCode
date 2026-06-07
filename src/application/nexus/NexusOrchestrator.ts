@@ -54,8 +54,8 @@ export class NexusOrchestrator {
       this.eventBus.emit({ kind: 'step_completed', stepLabel: stage });
 
       if (stage === 'plan' && isCodingMode(ctx.mode) && result.succeeded && result.stdout.trim()) {
-        NexusPlanStore.save(ctx.workspaceRoot, task.id, result.stdout.trim());
-        this.eventBus.emit({ kind: 'plan_saved', task });
+        const planPath = NexusPlanStore.save(ctx.workspaceRoot, task.id, result.stdout.trim());
+        this.eventBus.emit({ kind: 'plan_saved', task, planPath });
         break;
       }
     }

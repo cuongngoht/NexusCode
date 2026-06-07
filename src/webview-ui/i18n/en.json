@@ -88,6 +88,9 @@
     "mention": "Mention",
     "addFileContext": "Add file context",
     "removeAttachment": "Remove {{name}}",
+    "searchFiles": "Search files…",
+    "noFilesFound": "No files found",
+    "loadingFiles": "Loading…",
     "hintToSend": "to send",
     "working": "Nexus is working… {{elapsed}}s",
     "stop": "Stop",
@@ -120,7 +123,15 @@
   "nexus": {
     "badge": "Smart",
     "applyPlan": "Apply Plan",
-    "planReady": "Plan ready"
+    "planReady": "Plan ready",
+    "planSavedBadge": "Saved",
+    "applyThisPlan": "Apply this plan",
+    "editPlanBeforeApply": "Edit plan before apply",
+    "openSavedPlans": "Open saved plans",
+    "planPath": "Plan path",
+    "mode": "Mode",
+    "model": "Model",
+    "provider": "Provider"
   },
   "pipeline": {
     "steps": {

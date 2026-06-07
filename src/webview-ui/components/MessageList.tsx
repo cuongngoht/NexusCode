@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { ChatMessage, Conversation } from '../messages';
+import type { ChatMessage, Conversation, ProviderInfo } from '../messages';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
 import { GitStatusPanel } from './GitStatusPanel';
@@ -9,6 +9,8 @@ import { useT } from '../i18n';
 interface Props {
   conversation: Conversation;
   isRunning: boolean;
+  providerDetection: ProviderInfo[];
+  availableProviders: string[];
   onOpenScm: () => void;
   onCloseGit: () => void;
   onSendSuggestion: (text: string) => void;
@@ -43,7 +45,7 @@ function EmptyState({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-export function MessageList({ conversation, isRunning, onOpenScm, onCloseGit, onSendSuggestion }: Props) {
+export function MessageList({ conversation, isRunning, providerDetection, availableProviders, onOpenScm, onCloseGit, onSendSuggestion }: Props) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { messages, gitChanges, gitMessage } = conversation;
@@ -64,7 +66,7 @@ export function MessageList({ conversation, isRunning, onOpenScm, onCloseGit, on
           {messages.map((msg: ChatMessage) =>
             msg.role === 'user'
               ? <UserMessage key={msg.id} message={msg} />
-              : <AssistantMessage key={msg.id} message={msg} isRunning={isRunning} />
+              : <AssistantMessage key={msg.id} message={msg} isRunning={isRunning} providerDetection={providerDetection} availableProviders={availableProviders} />
           )}
 
           {(gitChanges.length > 0 || gitMessage) && (

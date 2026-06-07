@@ -2,12 +2,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export class NexusPlanStore {
-  static save(workspaceRoot: string, runId: string, content: string): void {
+  static save(workspaceRoot: string, runId: string, content: string): string {
     const nexusDir = path.join(workspaceRoot, '.nexus');
     const runDir = path.join(nexusDir, 'runs', runId);
     fs.mkdirSync(runDir, { recursive: true });
-    fs.writeFileSync(path.join(runDir, 'plan.md'), content, 'utf8');
+    const runPlanPath = path.join(runDir, 'plan.md');
+    fs.writeFileSync(runPlanPath, content, 'utf8');
     fs.writeFileSync(path.join(nexusDir, 'plan.md'), content, 'utf8');
+    return runPlanPath;
   }
 
   static load(workspaceRoot: string, planPath?: string): string | null {

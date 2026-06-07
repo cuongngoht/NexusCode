@@ -1,7 +1,10 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
+import type { PromptAttachment } from '../core/types';
 import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
+
+export type { PromptAttachment };
 
 export type { ProviderDetectionResult };
 
@@ -30,11 +33,15 @@ export type ExtensionMessage =
       phase: 'preview' | 'final';
       usage: TokenRunUsage;
     }
-  | { type: 'planSaved'; taskId: string };
+  | { type: 'planSaved'; taskId: string; planPath?: string }
+  | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
+  | { type: 'workspaceFiles'; files: string[] };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
-  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string }
+  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string; attachments?: PromptAttachment[] }
+  | { type: 'pickPromptAttachment' }
+  | { type: 'getWorkspaceFiles' }
   | { type: 'stopTask' }
   | { type: 'openSourceControl' }
   | { type: 'openSettings' }
@@ -44,4 +51,6 @@ export type WebviewMessage =
   | { type: 'saveHistory'; history: ChatHistoryState }
   | { type: 'getReviewContext'; baseBranch?: string }
   | { type: 'openReviewAgentFile' }
-  | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string };
+  | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string; provider?: ProviderId }
+  | { type: 'openPlan'; planPath?: string }
+  | { type: 'openSavedPlans' };

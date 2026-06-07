@@ -2,14 +2,17 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import type { AssistantMessage as AssistantMsg, PipelineStep, Activity } from '../messages';
+import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
 import { IconSparkle, IconCopy, IconThumbUp, IconThumbDown, IconRetry } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import { getVsCodeApi } from '../vscodeApi';
+import { PlanReadyCard } from './PlanReadyCard';
 
 interface Props {
   message: AssistantMsg;
   isRunning?: boolean;
+  providerDetection?: ProviderInfo[];
+  availableProviders?: string[];
 }
 
 function StepIcon({ status }: { status: PipelineStep['status'] }) {
@@ -87,7 +90,7 @@ function StatusPill({ message }: { message: AssistantMsg }) {
     : <span className="fl-pill fl-pill-error">{interp(t.agent.statusFailed, { code: message.exitCode })}</span>;
 }
 
-export function AssistantMessage({ message }: Props) {
+export function AssistantMessage({ message, providerDetection = [], availableProviders = [] }: Props) {
   const t = useT();
   const [thumbs, setThumbs] = useState<'up' | 'down' | null>(null);
 
@@ -190,23 +193,28 @@ export function AssistantMessage({ message }: Props) {
             </button>
           </div>
         )}
-{message.planSaved && !message.isStreaming && (
-          <div className="nx-plan-saved-row">
-            <span className="nx-plan-saved-badge">{t.agent.planSaved}</span>
-            {message.providerLabel.startsWith('nexus') && (
-              <button
-                type="button"
-                className="fl-btn-primary nx-apply-plan-btn"
-                onClick={() => getVsCodeApi().postMessage({
-                  type: 'applyPlan',
-                  mode: message.mode,
-                  model: message.model,
-                })}
-              >
-                {t.nexus.applyPlan}
-              </button>
-            )}
-          </div>
+        {message.planSaved && !message.isStreaming && (
+          <PlanReadyCard
+            mode={message.mode as TaskMode}
+            model={message.model}
+            planPath={message.planPath}
+            providerDetection={providerDetection}
+            availableProviders={availableProviders}
+            onApply={(provider, model) => getVsCodeApi().postMessage({
+              type: 'applyPlan',
+              mode: message.mode as TaskMode,
+              model,
+              planPath: message.planPath,
+              provider,
+            })}
+            onEdit={() => getVsCodeApi().postMessage({
+              type: 'openPlan',
+              planPath: message.planPath,
+            })}
+            onOpenSavedPlans={() => getVsCodeApi().postMessage({
+              type: 'openSavedPlans',
+            })}
+          />
         )}
       </div>
     </div>

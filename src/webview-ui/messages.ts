@@ -94,6 +94,7 @@ export interface AssistantMessage {
   tokenUsage?: TokenRunUsage;
   enhancedPrompt?: string;
   planSaved?: boolean;
+  planPath?: string;
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -205,6 +206,12 @@ export function createInitialState(): AppState {
 
 // ── Extension → webview messages ──────────────────────────────────────────
 
+// Mirror of src/core/types.ts PromptAttachment — keep in sync
+export interface PromptAttachment {
+  type: 'file' | 'folder';
+  path: string;
+}
+
 // Structural mirror of ProviderDetectionResult from src/core/providerDetector.ts —
 // keep in sync (webview bundle cannot import from extension-side modules).
 // id is typed as string here because the webview does not import ProviderId from core.
@@ -245,7 +252,9 @@ export type ExtMsg =
       phase: 'preview' | 'final';
       usage: TokenRunUsage;
     }
-  | { type: 'planSaved'; taskId: string };
+  | { type: 'planSaved'; taskId: string; planPath?: string }
+  | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
+  | { type: 'workspaceFiles'; files: string[] };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -700,7 +709,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'planSaved':
       return updateActiveConv(state, conv =>
-        updateLastAssistant(conv, m => ({ ...m, planSaved: true })),
+        updateLastAssistant(conv, m => ({ ...m, planSaved: true, planPath: msg.planPath })),
       );
   }
 }

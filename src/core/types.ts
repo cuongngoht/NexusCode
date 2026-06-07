@@ -40,3 +40,9 @@ export interface GitReviewContext {
   diffTruncated: boolean;
   message?: string;
 }
+
+export interface PromptAttachment {
+  type: 'file' | 'folder';
+  /** Workspace-relative path — never absolute, never contains `..` */
+  path: string;
+}

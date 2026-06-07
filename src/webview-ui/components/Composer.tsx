@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconSparkle, IconTool, IconGlobe, IconAgent, IconSearch } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { ProviderId, TaskMode, ProviderInfo, GitReviewContext } from '../messages';
-
-interface Attachment {
-  name: string;
-}
+import type { ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
 
 interface Props {
   isRunning: boolean;
@@ -17,7 +13,11 @@ interface Props {
   providerDetection: ProviderInfo[];
   reviewContext?: GitReviewContext;
   reviewContextError?: string;
-  onRun: (prompt: string, baseBranch?: string) => void;
+  attachments: PromptAttachment[];
+  onAttachmentsChange: (attachments: PromptAttachment[]) => void;
+  workspaceFiles: string[];
+  onRequestWorkspaceFiles: () => void;
+  onRun: (prompt: string, baseBranch?: string, attachments?: PromptAttachment[]) => void;
   onStop: () => void;
   onProviderChange: (v: ProviderId) => void;
   onModeChange: (v: TaskMode) => void;
@@ -29,14 +29,18 @@ export function Composer({
   isRunning, elapsed, provider, mode,
   availableProviders, providerDetection,
   reviewContext, reviewContextError,
+  attachments, onAttachmentsChange,
+  workspaceFiles, onRequestWorkspaceFiles,
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [selectedBase, setSelectedBase] = useState<string>('');
+  const [fileSearch, setFileSearch] = useState('');
+  const [showFilePicker, setShowFilePicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileSearchRef = useRef<HTMLInputElement>(null);
 
   // Sync selectedBase when reviewContext first loads or the server returns a different base branch
   useEffect(() => {
@@ -46,15 +50,59 @@ export function Composer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewContext?.baseBranch]);
 
+  // Close file picker on Escape
+  useEffect(() => {
+    if (!showFilePicker) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setShowFilePicker(false); setFileSearch(''); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [showFilePicker]);
+
+  // Focus search input when picker opens
+  useEffect(() => {
+    if (showFilePicker) fileSearchRef.current?.focus();
+  }, [showFilePicker]);
+
+  const filteredFiles = useMemo(() => {
+    const q = fileSearch.toLowerCase();
+    const already = new Set(attachments.map(a => a.path));
+    if (!q) return workspaceFiles.filter(f => !already.has(f)).slice(0, 10);
+    // Score: 0 = filename starts with query, 1 = filename contains, 2 = path contains
+    type Scored = { f: string; score: number };
+    const scored: Scored[] = [];
+    for (const f of workspaceFiles) {
+      if (already.has(f)) continue;
+      const name = f.includes('/') ? f.slice(f.lastIndexOf('/') + 1).toLowerCase() : f.toLowerCase();
+      if (name.startsWith(q)) scored.push({ f, score: 0 });
+      else if (name.includes(q)) scored.push({ f, score: 1 });
+      else if (f.toLowerCase().includes(q)) scored.push({ f, score: 2 });
+    }
+    scored.sort((a, b) => a.score - b.score);
+    return scored.slice(0, 60).map(r => r.f);
+  }, [workspaceFiles, fileSearch, attachments]);
+
+  const openFilePicker = useCallback(() => {
+    setShowFilePicker(true);
+    setFileSearch('');
+    if (workspaceFiles.length === 0) onRequestWorkspaceFiles();
+  }, [workspaceFiles.length, onRequestWorkspaceFiles]);
+
+  const pickFile = useCallback((filePath: string) => {
+    onAttachmentsChange([...attachments, { type: 'file', path: filePath }]);
+    setShowFilePicker(false);
+    setFileSearch('');
+  }, [attachments, onAttachmentsChange]);
+
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
     if ((!trimmed && mode !== 'review') || isRunning) return;
-    onRun(trimmed, mode === 'review' ? selectedBase || undefined : undefined);
+    onRun(trimmed, mode === 'review' ? selectedBase || undefined : undefined, attachments);
     setPrompt('');
-    setAttachments([]);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     textareaRef.current?.focus();
-  }, [prompt, isRunning, mode, onRun]);
+  }, [prompt, isRunning, mode, attachments, onRun]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -74,7 +122,7 @@ export function Composer({
   };
 
   const removeAttachment = (i: number) =>
-    setAttachments(prev => prev.filter((_, j) => j !== i));
+    onAttachmentsChange(attachments.filter((_, j) => j !== i));
 
   // Provider options
   const availableSet = new Set(availableProviders);
@@ -108,19 +156,65 @@ export function Composer({
     { value: 'scan-project', label: t.mode['scan-project'].label, desc: t.mode['scan-project'].desc, icon: IconSearch },
   ];
 
+  const closePicker = () => { setShowFilePicker(false); setFileSearch(''); };
+
   return (
+    <>
+    {showFilePicker && (
+      <>
+        <div className="fl-file-picker-backdrop" onClick={closePicker} />
+        <div className="fl-file-picker" role="dialog" aria-label={t.composer.searchFiles}>
+          <div className="fl-file-picker-search">
+            <input
+              ref={fileSearchRef}
+              type="text"
+              placeholder={t.composer.searchFiles}
+              value={fileSearch}
+              onChange={e => setFileSearch(e.target.value)}
+              aria-label={t.composer.searchFiles}
+            />
+          </div>
+          <div className="fl-file-picker-list">
+            {filteredFiles.length === 0 ? (
+              <div className="fl-file-picker-empty">
+                {workspaceFiles.length === 0 ? t.composer.loadingFiles : t.composer.noFilesFound}
+              </div>
+            ) : (
+              filteredFiles.map((f, i) => {
+                const slash = f.lastIndexOf('/');
+                const name = slash >= 0 ? f.slice(slash + 1) : f;
+                const dir  = slash >= 0 ? f.slice(0, slash) : '';
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="fl-file-picker-item"
+                    onClick={() => pickFile(f)}
+                    title={f}
+                  >
+                    <span className="fl-file-picker-name">{name}</span>
+                    {dir && <span className="fl-file-picker-dir">{dir}</span>}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </>
+    )}
     <div className="fl-composer">
       {attachments.length > 0 && (
         <div className="fl-composer-atts">
           {attachments.map((a, i) => (
             <span key={i} className="fl-att-chip">
               <IconDoc size={13} />
-              {a.name}
+              <span className="fl-att-chip-type">{a.type}</span>
+              {a.path}
               <button
                 type="button"
                 className="fl-att-chip-remove"
                 onClick={() => removeAttachment(i)}
-                aria-label={interp(t.composer.removeAttachment, { name: a.name })}
+                aria-label={interp(t.composer.removeAttachment, { name: a.path })}
               >
                 <IconClose size={11} />
               </button>
@@ -213,9 +307,9 @@ export function Composer({
           <div className="fl-cmp-bar-left">
             <button
               type="button"
-              className="fl-cmp-add"
+              className={`fl-cmp-add${showFilePicker ? ' fl-cmp-add--active' : ''}`}
               title={t.composer.attachFile}
-              onClick={() => setAttachments(prev => [...prev, { name: 'context.ts' }])}
+              onClick={openFilePicker}
             >
               <IconAdd size={16} />
             </button>
@@ -265,5 +359,6 @@ export function Composer({
         />
       </div>
     </div>
+    </>
   );
 }

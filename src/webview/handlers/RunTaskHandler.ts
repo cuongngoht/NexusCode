@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
 import type { ProviderId, TaskMode } from '../../core/types';
@@ -10,6 +12,7 @@ import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
+import { buildPromptAttachmentContext } from '../../context/promptAttachments';
 import { scanWorkspace } from '../../context/workspaceScanner';
 import { detectPackageInfo } from '../../context/packageDetector';
 import { loadRules } from '../../context/rulesLoader';
@@ -19,6 +22,7 @@ import { buildGitReviewContext } from '../../git/gitReviewContext';
 import { loadReviewAgentMarkdown } from '../../context/reviewAgentLoader';
 import { buildReviewPrompt } from '../../context/reviewPromptBuilder';
 import { requireWorkspaceRoot } from './workspaceUtils';
+import type { PromptAttachment } from '../../core/types';
 import type { ChatHistoryState } from '../../core/chat/ChatHistory';
 
 const RUN_STEP_LABEL = 'analyze';
@@ -53,6 +57,7 @@ export class RunTaskHandler {
     baseBranch: string | undefined,
     latestHistory: ChatHistoryState | null,
     buildConversationContext: () => string | undefined,
+    attachments?: PromptAttachment[],
   ): Promise<void> {
     if (!prompt.trim() && mode !== 'scan-project' && mode !== 'review') {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
@@ -85,6 +90,15 @@ export class RunTaskHandler {
       baseBranch: baseBranch || undefined,
     };
 
+    const resolvedAttachments = attachments ?? [];
+    if (resolvedAttachments.length > 0 || effectivePrompt.includes('@')) {
+      const attachmentContext = buildPromptAttachmentContext(workspaceRoot, effectivePrompt, resolvedAttachments);
+      if (attachmentContext) {
+        ctx.promptAttachments = resolvedAttachments;
+        ctx.attachmentContext = attachmentContext;
+      }
+    }
+
     this._pipelineActive = true;
     try {
       if (providerId === 'nexus') {
@@ -113,7 +127,7 @@ export class RunTaskHandler {
     }
   }
 
-  async applyPlan(mode: TaskMode, model?: string, planPath?: string): Promise<void> {
+  async applyPlan(mode: TaskMode, model?: string, planPath?: string, providerId?: ProviderId): Promise<void> {
     const workspaceRoot = requireWorkspaceRoot(this.post);
     if (!workspaceRoot) return;
 
@@ -128,19 +142,67 @@ export class RunTaskHandler {
       return;
     }
 
+    const approvedPlanPrompt = [
+      'Apply the following approved implementation plan.',
+      '',
+      'Rules:',
+      '- Follow the plan as closely as possible.',
+      '- Do not introduce unrelated changes.',
+      '- Before editing, inspect the relevant files.',
+      '- If the plan is impossible or unsafe, stop and explain why.',
+      '- After editing, summarize changed files and verification steps.',
+      '',
+      '<approved_plan>',
+      plan,
+      '</approved_plan>',
+    ].join('\n');
+
+    const effectiveProvider: ProviderId = providerId ?? 'nexus';
+
     const ctx: PipelineContext = {
       workspaceRoot,
-      originalPrompt: plan,
-      enhancedPrompt: plan,
+      originalPrompt: approvedPlanPrompt,
+      enhancedPrompt: approvedPlanPrompt,
       mode,
       model,
-      providerId: 'nexus',
+      providerId: effectiveProvider,
       enableEnhancement: false,
     };
 
     this._pipelineActive = true;
     try {
-      await this.orchestrator.run(ctx, 'code');
+      if (effectiveProvider === 'nexus') {
+        await this.orchestrator.run(ctx, 'code');
+      } else {
+        // Non-nexus provider: run the agent directly with the 'code' step label
+        this.eventBus.emit({
+          kind: 'step_started',
+          stepLabel: 'code',
+          stepIndex: 0,
+          totalSteps: 1,
+          provider: String(effectiveProvider),
+          mode: String(mode),
+          model,
+        });
+        const task = new AgentTask(
+          approvedPlanPrompt,
+          approvedPlanPrompt,
+          effectiveProvider,
+          mode,
+          model?.trim() || undefined,
+          workspaceRoot,
+        );
+        const cfg = vscode.workspace.getConfiguration('nexus');
+        if (cfg.get<boolean>('runGitStatusAfterTask', true)) {
+          this.setupGitStatusListener(task, workspaceRoot);
+        }
+        try {
+          await this.runAgent.execute(task);
+          this.eventBus.emit({ kind: 'step_completed', stepLabel: 'code' });
+        } catch {
+          this.eventBus.emit({ kind: 'step_error', stepLabel: 'code', error: '' });
+        }
+      }
     } finally {
       this._pipelineActive = false;
     }
@@ -148,6 +210,32 @@ export class RunTaskHandler {
 
   async stop(): Promise<void> {
     await this.runAgent.stop();
+  }
+
+  async openPlan(planPath?: string): Promise<void> {
+    const workspaceRoot = requireWorkspaceRoot(this.post);
+    if (!workspaceRoot) return;
+
+    const target = planPath ?? path.join(workspaceRoot, '.nexus', 'plan.md');
+    if (!fs.existsSync(target)) {
+      this.post({ type: 'taskError', taskId: 'open-plan', message: 'No saved plan found. Run a search+plan first.' });
+      return;
+    }
+
+    await vscode.window.showTextDocument(vscode.Uri.file(target));
+  }
+
+  async openSavedPlans(): Promise<void> {
+    const workspaceRoot = requireWorkspaceRoot(this.post);
+    if (!workspaceRoot) return;
+
+    const runsDir = path.join(workspaceRoot, '.nexus', 'runs');
+    if (!fs.existsSync(runsDir)) {
+      this.post({ type: 'taskError', taskId: 'open-saved-plans', message: 'No saved plans found yet.' });
+      return;
+    }
+
+    await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(runsDir));
   }
 
   // ─── Private pipeline helpers ──────────────────────────────────────────────
@@ -217,6 +305,7 @@ export class RunTaskHandler {
       brainstormAgents: ctx.brainstormAgents,
       debugContext: ctx.debugContext,
       planContent,
+      attachmentContext: ctx.attachmentContext,
     });
   }
 

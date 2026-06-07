@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment } from './messages';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -32,6 +32,8 @@ function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [locale, setLocale] = useState<Locale>('vi');
+  const [composerAttachments, setComposerAttachments] = useState<PromptAttachment[]>([]);
+  const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -44,8 +46,18 @@ export function App() {
 
   useEffect(() => {
     const api = getVsCodeApi();
-    const handler = (e: MessageEvent) =>
-      dispatch({ type: 'extMsg', msg: e.data as ExtMsg } satisfies AppAction);
+    const handler = (e: MessageEvent) => {
+      const msg = e.data as ExtMsg;
+      if (msg.type === 'promptAttachmentPicked') {
+        setComposerAttachments(prev => [...prev, msg.attachment]);
+        return;
+      }
+      if (msg.type === 'workspaceFiles') {
+        setWorkspaceFiles(msg.files);
+        return;
+      }
+      dispatch({ type: 'extMsg', msg } satisfies AppAction);
+    };
     window.addEventListener('message', handler);
     api.postMessage({ type: 'ready' });
     return () => window.removeEventListener('message', handler);
@@ -71,7 +83,7 @@ export function App() {
   }, [state.saveKey]);
 
   const handleRun = useCallback(
-    (prompt: string, baseBranch?: string) => {
+    (prompt: string, baseBranch?: string, attachments?: PromptAttachment[]) => {
       const timestamp = Date.now();
       dispatch({
         type: 'sendUserMessage',
@@ -89,7 +101,9 @@ export function App() {
         model: state.selectedModel,
         conversationId: state.activeConvId,
         baseBranch,
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
       });
+      setComposerAttachments([]);
     },
     [state.provider, state.mode, state.selectedModel],
   );
@@ -146,6 +160,8 @@ export function App() {
               <MessageList
                 conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}
                 isRunning={state.isRunning}
+                providerDetection={state.providerDetection}
+                availableProviders={state.availableProviders}
                 onOpenScm={handleOpenScm}
                 onCloseGit={() => {
                   dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
@@ -171,6 +187,10 @@ export function App() {
                   providerDetection={state.providerDetection}
                   reviewContext={state.reviewContext}
                   reviewContextError={state.reviewContextError}
+                  attachments={composerAttachments}
+                  onAttachmentsChange={setComposerAttachments}
+                  workspaceFiles={workspaceFiles}
+                  onRequestWorkspaceFiles={() => getVsCodeApi().postMessage({ type: 'getWorkspaceFiles' })}
                   onRun={handleRun}
                   onStop={handleStop}
                   onProviderChange={v => {

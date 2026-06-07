@@ -12,6 +12,7 @@ import { HistoryHandler } from './handlers/HistoryHandler';
 import { ProviderHandler } from './handlers/ProviderHandler';
 import { ReviewHandler } from './handlers/ReviewHandler';
 import { buildConversationContext } from '../context/conversationContext';
+import { listWorkspaceFiles } from '../context/promptAttachments';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -57,8 +58,17 @@ export class ChatController {
           msg.baseBranch,
           this.historyHandler.latestHistory,
           () => buildConversationContext(this.historyHandler.latestHistory, msg.conversationId),
+          msg.attachments,
         );
         break;
+      case 'pickPromptAttachment':
+        await this.handlePickAttachment();
+        break;
+      case 'getWorkspaceFiles': {
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (root) this.post({ type: 'workspaceFiles', files: listWorkspaceFiles(root) });
+        break;
+      }
       case 'stopTask':
         await this.runTaskHandler.stop();
         break;
@@ -84,7 +94,13 @@ export class ChatController {
         await this.reviewHandler.openAgentFile();
         break;
       case 'applyPlan':
-        await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath);
+        await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath, msg.provider);
+        break;
+      case 'openPlan':
+        await this.runTaskHandler.openPlan(msg.planPath);
+        break;
+      case 'openSavedPlans':
+        await this.runTaskHandler.openSavedPlans();
         break;
     }
   }
@@ -152,9 +168,41 @@ export class ChatController {
         });
         break;
       case 'plan_saved':
-        this.post({ type: 'planSaved', taskId: event.task.id });
+        this.post({ type: 'planSaved', taskId: event.task.id, planPath: event.planPath });
         break;
     }
+  }
+
+  private async handlePickAttachment(): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    const choice = await vscode.window.showQuickPick(['File', 'Folder'], {
+      placeHolder: 'Attach a file or folder from the workspace',
+    });
+    if (!choice) return;
+
+    const isFolder = choice === 'Folder';
+    const uris = await vscode.window.showOpenDialog({
+      canSelectFiles: !isFolder,
+      canSelectFolders: isFolder,
+      canSelectMany: false,
+      openLabel: `Attach ${choice}`,
+      defaultUri: vscode.Uri.file(workspaceRoot),
+    });
+    if (!uris || uris.length === 0) return;
+
+    const uri = uris[0];
+    if (!uri.fsPath.startsWith(workspaceRoot)) {
+      vscode.window.showWarningMessage('Nexus: selected path is outside the workspace and cannot be attached.');
+      return;
+    }
+
+    const relPath = vscode.workspace.asRelativePath(uri, false);
+    this.post({
+      type: 'promptAttachmentPicked',
+      attachment: { type: isFolder ? 'folder' : 'file', path: relPath },
+    });
   }
 
   dispose(): void {

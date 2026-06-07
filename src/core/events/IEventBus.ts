@@ -24,7 +24,7 @@ export type NexusEvent =
       phase: 'preview' | 'final';
       usage: TokenRunUsage;
     }
-  | { kind: 'plan_saved'; task: AgentTask };
+  | { kind: 'plan_saved'; task: AgentTask; planPath?: string };
 
 export type NexusEventKind = NexusEvent['kind'];
 
