@@ -1,8 +1,11 @@
 import type { AgentTask, AgentResult, IAgent } from '../../core/agent';
+import { AgentTask as AgentTaskClass } from '../../core/agent';
 import type { IEventBus } from '../../core/events/IEventBus';
 import type { IProcessRunner } from '../../core/runner/IProcessRunner';
 import { AgentRouter } from '../AgentRouter';
 import { TokenMeter } from '../../tokens/TokenMeter';
+import type { McpToolUseCase } from '../../mcp/McpToolUseCase';
+import type { ConfigService } from '../../config/ConfigService';
 
 export class RunAgentUseCase {
   private activeTask: AgentTask | null = null;
@@ -12,18 +15,70 @@ export class RunAgentUseCase {
     private readonly router: AgentRouter,
     private readonly runner: IProcessRunner,
     private readonly eventBus: IEventBus,
+    private readonly mcpToolUseCase?: McpToolUseCase,
+    private readonly configService?: ConfigService,
   ) { }
 
   async execute(task: AgentTask): Promise<AgentResult> {
     const agent = await this.router.resolve(task.agentId, task.mode);
-    return this._run(task, agent);
+    return this._runWithMcp(task, agent);
   }
 
   async executeWithAgent(task: AgentTask, agent: IAgent): Promise<AgentResult> {
-    return this._run(task, agent);
+    return this._runWithMcp(task, agent);
   }
 
-  private async _run(task: AgentTask, agent: IAgent): Promise<AgentResult> {
+  private async _runWithMcp(task: AgentTask, agent: IAgent): Promise<AgentResult> {
+    // First run
+    const collectedOutput: string[] = [];
+    const result = await this._run(task, agent, chunk => { collectedOutput.push(chunk); });
+
+    // MCP round: only if enabled and configured
+    if (!this.mcpToolUseCase || !this.configService) {
+      return result;
+    }
+
+    let config;
+    try {
+      config = await this.configService.loadConfig();
+    } catch {
+      return result;
+    }
+
+    if (!config.mcp.enabled) {
+      return result;
+    }
+
+    const fullOutput = collectedOutput.join('');
+    const mcpContext = await this.mcpToolUseCase.tryHandleToolIntent({
+      task,
+      output: fullOutput,
+      config,
+    });
+
+    if (!mcpContext) {
+      return result;
+    }
+
+    // Create follow-up task with MCP context injected
+    const followUpTask = this._createFollowUpTaskWithMcpContext(task, mcpContext);
+    return this._run(followUpTask, agent);
+  }
+
+  private _createFollowUpTaskWithMcpContext(task: AgentTask, mcpContext: string): AgentTask {
+    const followUpPrompt = `${task.prompt}\n\n${mcpContext}`;
+    const followUpEnhanced = `${task.enhancedPrompt}\n\n${mcpContext}`;
+    return new AgentTaskClass(
+      followUpPrompt,
+      followUpEnhanced,
+      task.agentId,
+      task.mode,
+      task.model,
+      task.cwd,
+    );
+  }
+
+  private async _run(task: AgentTask, agent: IAgent, onStdoutCollect?: (chunk: string) => void): Promise<AgentResult> {
     const command = agent.buildCommand(task);
     const parser = agent.outputParser;
 
@@ -42,6 +97,7 @@ export class RunAgentUseCase {
     try {
       const result = await this.runner.run(command, {
         onStdout: chunk => {
+          onStdoutCollect?.(chunk);
           if (!parser) {
             this.eventBus.emit({ kind: 'stdout', task, chunk });
             return;

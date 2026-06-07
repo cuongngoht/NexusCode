@@ -2211,3 +2211,23 @@ html, body, #root {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* MCP status chip */
+.nx-mcp-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--colorNeutralForeground3);
+  background: var(--colorNeutralBackground2);
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nx-mcp-used {
+  color: var(--colorBrandForeground2);
+  font-style: italic;
+}

@@ -93,6 +93,46 @@
           "type": "boolean",
           "default": true,
           "description": "Run git status after each task completes and show changed files."
+        },
+        "nexus.mcp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Nexus MCP tool layer."
+        },
+        "nexus.mcp.autoSelectPreset": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow Nexus to select the best MCP preset based on task intent."
+        },
+        "nexus.mcp.requireApprovalForHighRiskTools": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require approval before high-risk MCP tool calls."
+        },
+        "nexus.mcp.maxResultChars": {
+          "type": "number",
+          "default": 6000,
+          "description": "Maximum characters injected from MCP result into agent prompt."
+        },
+        "nexus.mcp.maxRoundsPerTask": {
+          "type": "number",
+          "default": 1,
+          "description": "Maximum MCP tool-use rounds per task."
+        },
+        "nexus.mcp.presets.microsoftLearn.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Microsoft Learn MCP preset for official Microsoft documentation."
+        },
+        "nexus.mcp.presets.context7.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Context7 MCP preset for up-to-date library documentation."
+        },
+        "nexus.mcp.presets.context7.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Context7 API key."
         }
       }
     }
@@ -123,6 +163,7 @@
   "dependencies": {
     "@fluentui/react-components": "^9.74.1",
     "@fluentui/react-icons": "^2.0.328",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^12.1.0",
     "gpt-tokenizer": "^3.4.0",
     "react": "^19.2.0",

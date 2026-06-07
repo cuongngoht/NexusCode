@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import type { NexusConfig } from '../config/NexusConfig';
+import { DEFAULT_CONFIG } from '../config/DefaultConfig';
 
 const PROVIDER_LABELS: Record<string, string> = {
   gemini: 'Gemini CLI',
@@ -38,7 +39,19 @@ export function getSettingsHtml(
     })
     .join('\n');
 
-  const safeJson = JSON.stringify(config).replace(/<\/script>/gi, '<\\/script>');
+  // Merge config with defaults to ensure mcp field is always present
+  const mergedConfig: NexusConfig = {
+    ...DEFAULT_CONFIG,
+    ...config,
+    mcp: { ...DEFAULT_CONFIG.mcp, ...(config.mcp ?? {}) },
+  };
+  const safeJson = JSON.stringify(mergedConfig).replace(/<\/script>/gi, '<\\/script>');
+  const mcpEnabled = mergedConfig.mcp.enabled;
+  const mcpAutoSelect = mergedConfig.mcp.autoSelectPreset;
+  const mcpMicrosoftLearn = mergedConfig.mcp.presets.microsoftLearn.enabled;
+  const mcpContext7 = mergedConfig.mcp.presets.context7.enabled;
+  const mcpMaxChars = mergedConfig.mcp.maxResultChars;
+  const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
 
   return /* html */`<!DOCTYPE html>
 <html lang="en">
@@ -81,6 +94,48 @@ export function getSettingsHtml(
     }
     .section-header h2 {
       margin: 0;
+    }
+    h3 {
+      font-size: 0.9em;
+      font-weight: 600;
+      margin: 16px 0 8px;
+      color: var(--vscode-foreground);
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .toggle-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .form-row input[type="number"] {
+      width: 80px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 0.9em;
+      font-family: var(--vscode-font-family);
+    }
+    .description {
+      font-size: 0.8em;
+      color: var(--vscode-descriptionForeground);
+      margin: 0 0 8px 24px;
+    }
+    .settings-section {
+      margin-top: 20px;
     }
     .provider-row {
       margin-bottom: 14px;
@@ -168,6 +223,42 @@ export function getSettingsHtml(
 
   <div id="providers">${rows}</div>
 
+  <section class="settings-section">
+    <hr />
+    <h2>MCP Tools</h2>
+    <label class="toggle-row">
+      <input type="checkbox" id="mcp-enabled" ${mcpEnabled ? 'checked' : ''} />
+      <span>Enable MCP</span>
+    </label>
+
+    <h3>Trusted Documentation Presets</h3>
+    <label class="toggle-row">
+      <input type="checkbox" id="mcp-preset-microsoftLearn" ${mcpMicrosoftLearn ? 'checked' : ''} />
+      <span>Microsoft Learn</span>
+    </label>
+    <p class="description">Official Microsoft documentation, Azure, .NET, VS Code, Windows.</p>
+
+    <label class="toggle-row">
+      <input type="checkbox" id="mcp-preset-context7" ${mcpContext7 ? 'checked' : ''} />
+      <span>Context7</span>
+    </label>
+    <p class="description">Up-to-date package/library documentation and code examples.</p>
+
+    <h3>Behavior</h3>
+    <label class="toggle-row">
+      <input type="checkbox" id="mcp-auto-select" ${mcpAutoSelect ? 'checked' : ''} />
+      <span>Auto-select best preset</span>
+    </label>
+    <label class="form-row">
+      <span>Max result size (chars):</span>
+      <input type="number" id="mcp-max-chars" min="1000" max="20000" step="1000" value="${mcpMaxChars}" />
+    </label>
+    <label class="form-row">
+      <span>Max MCP rounds per task:</span>
+      <input type="number" id="mcp-max-rounds" min="1" max="5" value="${mcpMaxRounds}" />
+    </label>
+  </section>
+
   <button class="save-btn" id="saveBtn">Save Settings</button>
   <div class="status" id="status"></div>
 
@@ -193,7 +284,21 @@ export function getSettingsHtml(
             providers[id] = Object.assign({}, providers[id], { enabled: cb.checked });
           }
         });
-        const config = Object.assign({}, base, { providers: providers });
+        const mcp = {
+          enabled: document.getElementById('mcp-enabled').checked,
+          autoSelectPreset: document.getElementById('mcp-auto-select').checked,
+          requireApprovalForHighRiskTools: base.mcp.requireApprovalForHighRiskTools,
+          maxResultChars: parseInt(document.getElementById('mcp-max-chars').value, 10) || base.mcp.maxResultChars,
+          maxRoundsPerTask: parseInt(document.getElementById('mcp-max-rounds').value, 10) || base.mcp.maxRoundsPerTask,
+          presets: {
+            microsoftLearn: { enabled: document.getElementById('mcp-preset-microsoftLearn').checked },
+            context7: {
+              enabled: document.getElementById('mcp-preset-context7').checked,
+              apiKey: base.mcp.presets.context7.apiKey || '',
+            },
+          },
+        };
+        const config = Object.assign({}, base, { providers: providers, mcp: mcp });
         vscode.postMessage({ type: 'settings.save', payload: config });
       });
 

@@ -180,6 +180,14 @@ function makeConversation(): Conversation {
 
 // ── App state ─────────────────────────────────────────────────────────────
 
+export interface McpPresetStatusView {
+  id: string;
+  displayName: string;
+  enabled: boolean;
+  transport: string;
+  risk: string;
+}
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -199,6 +207,9 @@ export interface AppState {
   reviewContext?: GitReviewContext;
   reviewContextError?: string;
   historyError?: string;
+  mcpEnabled: boolean;
+  mcpActivePresets: string[];
+  lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
 }
 
 export function createInitialState(): AppState {
@@ -222,6 +233,9 @@ export function createInitialState(): AppState {
     reviewContext: undefined,
     reviewContextError: undefined,
     historyError: undefined,
+    mcpEnabled: false,
+    mcpActivePresets: [],
+    lastMcpUsed: undefined,
   };
 }
 
@@ -283,7 +297,9 @@ export type ExtMsg =
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
-  | { type: 'workspaceFiles'; files: string[] };
+  | { type: 'workspaceFiles'; files: string[] }
+  | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -749,5 +765,18 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return updateActiveConv(state, conv =>
         updateLastAssistant(conv, m => ({ ...m, planSaved: true, planPath: msg.planPath })),
       );
+
+    case 'mcpStatus':
+      return {
+        ...state,
+        mcpEnabled: msg.enabled,
+        mcpActivePresets: msg.presets.filter(p => p.enabled).map(p => p.displayName),
+      };
+
+    case 'mcpUsed':
+      return {
+        ...state,
+        lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName },
+      };
   }
 }

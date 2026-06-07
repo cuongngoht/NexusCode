@@ -165,6 +165,20 @@ export function App() {
             <SetupBanner onOpenSettings={handleOpenSettings} />
           ) : (
             <div className="nx-chat-area">
+              {!state.isDetecting && (
+                <div className="nx-mcp-chip">
+                  {state.mcpEnabled
+                    ? (state.mcpActivePresets.length > 0
+                      ? `MCP: ${state.mcpActivePresets.join(' + ')}`
+                      : 'MCP: On (no presets)')
+                    : 'MCP: Off'}
+                  {state.lastMcpUsed && (
+                    <span className="nx-mcp-used">
+                      {` Used: ${state.lastMcpUsed.presetName} / ${state.lastMcpUsed.toolName}`}
+                    </span>
+                  )}
+                </div>
+              )}
               <MessageList
                 conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}
                 isRunning={state.isRunning}

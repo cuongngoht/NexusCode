@@ -31,6 +31,8 @@ export interface PromptContext {
   clarificationGate?: string;
   recommendations?: string;
   outputFormat?: string;
+  /** MCP tool intent instructions injected when MCP is enabled. */
+  mcpIntentPrompt?: string;
 }
 
 export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): string {
@@ -150,6 +152,11 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
       lines.push('# Output Format');
       lines.push(content);
     }
+  }
+
+  if (ctx.mcpIntentPrompt) {
+    lines.push('');
+    lines.push(ctx.mcpIntentPrompt);
   }
 
   return lines.join('\n');

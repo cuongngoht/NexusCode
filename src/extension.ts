@@ -31,6 +31,16 @@ import { ConfigService } from './config/ConfigService';
 import { ProviderDetector } from './core/providerDetector';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { AboutPanel } from './settings/AboutPanel';
+import { McpPresetRegistry } from './mcp/McpPresetRegistry';
+import { McpPresetSelectionPolicy } from './mcp/McpPresetSelectionPolicy';
+import { McpToolRouter } from './mcp/McpToolRouter';
+import { McpIntentParser } from './mcp/McpIntentParser';
+import { McpExecutionPolicy } from './mcp/McpExecutionPolicy';
+import { McpResultCompressor } from './mcp/McpResultCompressor';
+import { StdioMcpClientAdapter } from './mcp/adapters/StdioMcpClientAdapter';
+import { StreamableHttpMcpClientAdapter } from './mcp/adapters/StreamableHttpMcpClientAdapter';
+import { McpBroker } from './mcp/McpBroker';
+import { McpToolUseCase } from './mcp/McpToolUseCase';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -48,7 +58,28 @@ export function activate(context: vscode.ExtensionContext): void {
   const eventBus = new EventBus();
   const runner = new ProcessRunner();
   const router = new AgentRouter(registry);
-  const runAgent = new RunAgentUseCase(router, runner, eventBus);
+  const configService = new ConfigService();
+
+  const mcpPresetRegistry = new McpPresetRegistry();
+  const mcpPresetSelectionPolicy = new McpPresetSelectionPolicy();
+  const mcpToolRouter = new McpToolRouter();
+  const mcpIntentParser = new McpIntentParser();
+  const mcpExecutionPolicy = new McpExecutionPolicy();
+  const mcpResultCompressor = new McpResultCompressor();
+  const stdioMcpAdapter = new StdioMcpClientAdapter();
+  const httpMcpAdapter = new StreamableHttpMcpClientAdapter();
+  const mcpBroker = new McpBroker(stdioMcpAdapter, httpMcpAdapter);
+  const mcpToolUseCase = new McpToolUseCase(
+    mcpPresetRegistry,
+    mcpPresetSelectionPolicy,
+    mcpToolRouter,
+    mcpIntentParser,
+    mcpExecutionPolicy,
+    mcpBroker,
+    mcpResultCompressor,
+  );
+
+  const runAgent = new RunAgentUseCase(router, runner, eventBus, mcpToolUseCase, configService);
   const orchestrator = new NexusOrchestrator(registry, runAgent, eventBus);
 
   const buildProjectMap = new BuildProjectMapUseCase(
@@ -68,7 +99,6 @@ export function activate(context: vscode.ExtensionContext): void {
     new ProjectMapSummaryWriter(),
   );
 
-  const configService = new ConfigService();
   const detector = new ProviderDetector();
 
   const provider = new ChatViewProvider(

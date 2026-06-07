@@ -4,6 +4,7 @@ import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
+import type { McpPresetStatusView } from '../mcp/McpTypes';
 
 export type { PromptAttachment };
 
@@ -44,7 +45,9 @@ export type ExtensionMessage =
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
-  | { type: 'workspaceFiles'; files: string[] };
+  | { type: 'workspaceFiles'; files: string[] }
+  | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -62,4 +65,5 @@ export type WebviewMessage =
   | { type: 'openReviewAgentFile' }
   | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string; provider?: ProviderId }
   | { type: 'openPlan'; planPath?: string }
-  | { type: 'openSavedPlans' };
+  | { type: 'openSavedPlans' }
+  | { type: 'refreshMcpStatus' };
