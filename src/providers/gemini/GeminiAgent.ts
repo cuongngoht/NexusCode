@@ -22,7 +22,7 @@ export class GeminiAgent extends BaseAgent {
   protected readonly executableName = 'gemini';
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
-    const args: string[] = ['--yolo'];
+    const args: string[] = [];
     if (task.model) args.push('--model', task.model);
     args.push('--prompt', task.enhancedPrompt);
     return new AgentCommand('gemini', args, undefined, undefined, task.enhancedPrompt);
