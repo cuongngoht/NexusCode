@@ -81,6 +81,23 @@
     "inspectPromptTitle": "Prompt sent to CLI",
     "planSaved": "✓ Plan saved"
   },
+  "agentCapability": {
+    "agent": "Agent",
+    "recommendedFor": "Recommended for {{mode}}: {{provider}}",
+    "noRecommendation": "No recommendation for {{mode}}",
+    "useRecommended": "Use recommended",
+    "alsoGood": "Also good: {{providers}}",
+    "limited": "Limited: {{providers}}",
+    "viewMatrix": "View capability matrix",
+    "hideMatrix": "Hide capability matrix",
+    "currentLimited": "Current provider {{provider}} is limited for {{mode}}.",
+    "unavailable": "Unavailable",
+    "best": "Best",
+    "good": "Good",
+    "limitedFit": "Limited",
+    "unsupported": "Unsupported",
+    "unknown": "Unknown"
+  },
   "composer": {
     "placeholder": "Ask Nexus about this file…  (⌘↵ to send)",
     "promptAriaLabel": "Prompt input",

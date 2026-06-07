@@ -81,6 +81,23 @@
     "inspectPromptTitle": "Prompt gửi tới CLI",
     "planSaved": "✓ Kế hoạch đã lưu"
   },
+  "agentCapability": {
+    "agent": "Agent",
+    "recommendedFor": "Đề xuất cho {{mode}}: {{provider}}",
+    "noRecommendation": "Chưa có đề xuất cho {{mode}}",
+    "useRecommended": "Dùng đề xuất",
+    "alsoGood": "Cũng phù hợp: {{providers}}",
+    "limited": "Hạn chế: {{providers}}",
+    "viewMatrix": "Xem bảng năng lực",
+    "hideMatrix": "Ẩn bảng năng lực",
+    "currentLimited": "Provider hiện tại {{provider}} bị hạn chế cho {{mode}}.",
+    "unavailable": "Không khả dụng",
+    "best": "Tốt nhất",
+    "good": "Tốt",
+    "limitedFit": "Hạn chế",
+    "unsupported": "Không phù hợp",
+    "unknown": "Chưa rõ"
+  },
   "composer": {
     "placeholder": "Hỏi Nexus về file này…  (⌘↵ để gửi)",
     "promptAriaLabel": "Nhập câu hỏi",

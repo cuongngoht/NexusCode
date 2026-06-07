@@ -193,6 +193,8 @@ export function App() {
                   mode={state.mode}
                   availableProviders={state.availableProviders}
                   providerDetection={state.providerDetection}
+                  agentCapabilityMatrix={state.agentCapabilityMatrix}
+                  agentRecommendations={state.agentRecommendations}
                   reviewContext={state.reviewContext}
                   reviewContextError={state.reviewContextError}
                   attachments={composerAttachments}

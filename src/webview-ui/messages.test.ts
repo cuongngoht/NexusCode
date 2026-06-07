@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { reducer, createInitialState, serializeHistory, aggregateConversationTokenUsage } from './messages';
-import type { AppAction, AppState, ProviderInfo } from './messages';
+import type { AgentModeCapability, AgentRecommendation, AppAction, AppState, ProviderInfo } from './messages';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 
@@ -17,6 +17,23 @@ const claudeInfo: ProviderInfo = {
   defaultModel: 'sonnet',
   models: [{ id: 'sonnet', label: 'sonnet', source: 'seeded' }],
 };
+const capabilityMatrix: AgentModeCapability[] = [
+  {
+    agentId: 'claude',
+    mode: 'edit',
+    fit: 'best',
+    reason: 'Strong edit support.',
+  },
+];
+const recommendations: AgentRecommendation[] = [
+  {
+    mode: 'edit',
+    recommended: 'claude',
+    alternatives: [],
+    limited: [],
+    unavailable: ['codex', 'gemini', 'copilot', 'aider', 'custom'],
+  },
+];
 
 describe('reducer — extension messages', () => {
   it('taskStarted: sets isRunning, resets elapsed, adds assistant message', () => {
@@ -100,6 +117,41 @@ describe('reducer — extension messages', () => {
     });
     expect(state.availableProviders).toEqual(['claude']);
     expect(state.providerDetection[0].models[0].id).toBe('sonnet');
+  });
+
+  it('availableProviders: stores capability matrix and recommendations', () => {
+    const state = act(s(), {
+      type: 'extMsg',
+      msg: {
+        type: 'availableProviders',
+        providers: ['claude'],
+        detection: [claudeInfo],
+        needsSetup: false,
+        capabilityMatrix,
+        recommendations,
+      },
+    });
+
+    expect(state.agentCapabilityMatrix).toEqual(capabilityMatrix);
+    expect(state.agentRecommendations).toEqual(recommendations);
+  });
+
+  it('availableProviders: saved provider restore still works with capability data', () => {
+    const state = act(s(), {
+      type: 'extMsg',
+      msg: {
+        type: 'availableProviders',
+        providers: ['claude'],
+        detection: [claudeInfo],
+        needsSetup: false,
+        savedProvider: 'claude',
+        capabilityMatrix,
+        recommendations,
+      },
+    });
+
+    expect(state.provider).toBe('claude');
+    expect(state.agentRecommendations[0].recommended).toBe('claude');
   });
 });
 

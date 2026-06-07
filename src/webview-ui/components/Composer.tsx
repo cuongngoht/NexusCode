@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconSparkle, IconTool, IconGlobe, IconAgent, IconSearch } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
+import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
+import { AgentCapabilityMatrix } from './AgentCapabilityMatrix';
 
 interface Props {
   isRunning: boolean;
@@ -11,6 +12,8 @@ interface Props {
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
+  agentCapabilityMatrix: AgentModeCapability[];
+  agentRecommendations: AgentRecommendation[];
   reviewContext?: GitReviewContext;
   reviewContextError?: string;
   attachments: PromptAttachment[];
@@ -28,6 +31,7 @@ interface Props {
 export function Composer({
   isRunning, elapsed, provider, mode,
   availableProviders, providerDetection,
+  agentCapabilityMatrix, agentRecommendations,
   reviewContext, reviewContextError,
   attachments, onAttachmentsChange,
   workspaceFiles, onRequestWorkspaceFiles,
@@ -340,6 +344,15 @@ export function Composer({
           </div>
         </div>
       </div>
+
+      <AgentCapabilityMatrix
+        mode={mode}
+        provider={provider}
+        availableProviders={availableProviders}
+        matrix={agentCapabilityMatrix}
+        recommendations={agentRecommendations}
+        onProviderChange={onProviderChange}
+      />
 
       <div className="fl-selectors fl-selectors--bottom">
         <NexusDropdown

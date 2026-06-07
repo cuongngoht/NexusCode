@@ -14,6 +14,7 @@ export type { ChatHistoryState };
 
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type ProviderId = 'nexus' | 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type DirectProviderId = Exclude<ProviderId, 'nexus' | 'auto'>;
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type TaskMode =
   | 'ask'
@@ -27,6 +28,7 @@ export type TaskMode =
   | 'review';
 
 export type ProviderModelSource = 'detected' | 'seeded';
+export type AgentModeFit = 'best' | 'good' | 'limited' | 'unsupported' | 'unknown';
 
 export interface ProviderModel {
   id: string;
@@ -35,6 +37,21 @@ export interface ProviderModel {
 }
 
 export interface GitFileChange { status: string; path: string; }
+
+export interface AgentModeCapability {
+  agentId: DirectProviderId;
+  mode: TaskMode;
+  fit: AgentModeFit;
+  reason: string;
+}
+
+export interface AgentRecommendation {
+  mode: TaskMode;
+  recommended?: DirectProviderId;
+  alternatives: DirectProviderId[];
+  limited: DirectProviderId[];
+  unavailable: DirectProviderId[];
+}
 
 export interface GitReviewContext {
   baseBranch: string;
@@ -173,6 +190,8 @@ export interface AppState {
   mode: TaskMode;
   availableProviders: string[];
   providerDetection: ProviderInfo[];
+  agentCapabilityMatrix: AgentModeCapability[];
+  agentRecommendations: AgentRecommendation[];
   needsSetup: boolean;
   isDetecting: boolean;
   showHistory: boolean;
@@ -194,6 +213,8 @@ export function createInitialState(): AppState {
     mode: 'ask',
     availableProviders: [],
     providerDetection: [],
+    agentCapabilityMatrix: [],
+    agentRecommendations: [],
     needsSetup: false,
     isDetecting: true,
     showHistory: false,
@@ -236,7 +257,15 @@ export type ExtMsg =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitFileChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderInfo[]; needsSetup: boolean; savedProvider?: string }
+  | {
+      type: 'availableProviders';
+      providers: string[];
+      detection: ProviderInfo[];
+      needsSetup: boolean;
+      savedProvider?: string;
+      capabilityMatrix?: AgentModeCapability[];
+      recommendations?: AgentRecommendation[];
+    }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
   | { type: 'stepError'; stepLabel: string; error: string }
@@ -672,7 +701,16 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       const restored = msg.savedProvider && (VALID_PROVIDERS as string[]).includes(msg.savedProvider)
         ? msg.savedProvider as ProviderId
         : state.provider;
-      return { ...state, availableProviders: msg.providers, providerDetection: msg.detection, needsSetup: msg.needsSetup, isDetecting: false, provider: restored };
+      return {
+        ...state,
+        availableProviders: msg.providers,
+        providerDetection: msg.detection,
+        agentCapabilityMatrix: msg.capabilityMatrix ?? [],
+        agentRecommendations: msg.recommendations ?? [],
+        needsSetup: msg.needsSetup,
+        isDetecting: false,
+        provider: restored,
+      };
     }
 
     case 'historyLoaded': {

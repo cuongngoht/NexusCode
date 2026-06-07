@@ -3,6 +3,7 @@ import type { PromptAttachment } from '../core/types';
 import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
+import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
 
 export type { PromptAttachment };
 
@@ -17,7 +18,15 @@ export type ExtensionMessage =
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
   | { type: 'gitStatus'; changes: GitFileChange[]; message?: string }
-  | { type: 'availableProviders'; providers: string[]; detection: ProviderDetectionResult[]; needsSetup: boolean; savedProvider?: string }
+  | {
+      type: 'availableProviders';
+      providers: string[];
+      detection: ProviderDetectionResult[];
+      needsSetup: boolean;
+      savedProvider?: string;
+      capabilityMatrix?: AgentModeCapability[];
+      recommendations?: AgentRecommendation[];
+    }
   | { type: 'stepStarted'; stepLabel: string; stepIndex: number; totalSteps: number; provider: string; mode: string; model?: string }
   | { type: 'stepCompleted'; stepLabel: string }
   | { type: 'stepError'; stepLabel: string; error: string }

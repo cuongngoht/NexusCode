@@ -1709,6 +1709,137 @@ html, body, #root {
 .vscode-light .nx-setup-orb {
   background: radial-gradient(circle at 50% 38%, rgba(40, 153, 245, 0.14) 0%, rgba(240, 248, 255, 0.9) 70%);
 }
+
+/* ── Agent Capability Recommendation ─────────────────────────────────── */
+
+.nx-agent-capability {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-input-border, rgba(255,255,255,0.12));
+  border-radius: 8px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-size: 11.5px;
+}
+
+.nx-agent-capability-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nx-agent-capability-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.nx-agent-capability-recommendation {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.nx-agent-capability-muted {
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.35;
+}
+
+.nx-agent-capability-warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  line-height: 1.35;
+}
+
+.nx-agent-capability-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.nx-agent-capability-actions button {
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nx-agent-capability-actions button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.nx-agent-capability-matrix {
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+.nx-agent-capability-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.nx-agent-capability-table th,
+.nx-agent-capability-table td {
+  border-top: 1px solid var(--vscode-input-border, rgba(255,255,255,0.12));
+  padding: 5px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.nx-agent-capability-table thead th {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 600;
+}
+
+.nx-agent-capability-table tbody th {
+  font-weight: 600;
+}
+
+.nx-agent-capability-cell {
+  color: var(--vscode-descriptionForeground);
+}
+
+.nx-agent-capability-cell span:first-child {
+  display: inline-block;
+  width: 14px;
+  margin-right: 4px;
+  text-align: center;
+}
+
+.nx-agent-capability-cell--best {
+  color: var(--vscode-charts-yellow, #d7ba7d);
+}
+
+.nx-agent-capability-cell--good {
+  color: var(--vscode-testing-iconPassed, #73c991);
+}
+
+.nx-agent-capability-cell--limited {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.nx-agent-capability-cell--unsupported,
+.nx-agent-capability-cell--unknown {
+  color: var(--vscode-descriptionForeground);
+}
+
+.nx-agent-capability-provider--selected th {
+  color: var(--vscode-focusBorder, #007fd4);
+}
+
+.nx-agent-capability-provider--recommended {
+  background: color-mix(in srgb, var(--vscode-button-background, #0e639c) 12%, transparent);
+}
+
+.nx-agent-capability-provider--unavailable {
+  opacity: 0.55;
+}
 /* ── Review Branch Panel ─────────────────────────────────────────────── */
 
 .nx-review-panel {
