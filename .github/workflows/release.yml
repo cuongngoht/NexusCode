@@ -43,8 +43,9 @@ jobs:
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
-            echo "semver=${${{ github.event.inputs.version }}#v}" >> "$GITHUB_OUTPUT"
+            V="${{ github.event.inputs.version }}"
+            echo "tag=${V}" >> "$GITHUB_OUTPUT"
+            echo "semver=${V#v}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
             echo "semver=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
