@@ -31,7 +31,15 @@ function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
-  const [locale, setLocale] = useState<Locale>('vi');
+  const [locale, setLocale] = useState<Locale>(() => {
+    const saved = localStorage.getItem('nexus.locale');
+    return (saved === 'en' || saved === 'vi') ? saved : 'vi';
+  });
+
+  const handleLocaleChange = useCallback((next: Locale) => {
+    localStorage.setItem('nexus.locale', next);
+    setLocale(next);
+  }, []);
   const [composerAttachments, setComposerAttachments] = useState<PromptAttachment[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -138,7 +146,7 @@ export function App() {
             locale={locale}
             onNewConversation={() => dispatch({ type: 'newConversation' })}
             onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
-            onLocaleChange={setLocale}
+            onLocaleChange={handleLocaleChange}
             onOpenSettings={handleOpenSettings}
             onAbout={handleAbout}
           />
