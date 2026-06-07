@@ -1,7 +1,7 @@
 {
   "name": "nexus-code",
   "displayName": "Nexus Code",
-  "publisher": "nexus-dev",
+  "publisher": "NexusCode",
   "description": "A chat cockpit that routes prompts to installed CLI coding agents",
   "version": "1.0.0-beta",
   "icon": "media/extension-icon.png",
