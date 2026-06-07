@@ -4,6 +4,7 @@
   "publisher": "nexus-dev",
   "description": "A chat cockpit that routes prompts to installed CLI coding agents",
   "version": "1.0.0-beta",
+  "icon": "media/extension-icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
