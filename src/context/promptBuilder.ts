@@ -3,6 +3,14 @@ import { WorkspaceInfo } from './workspaceScanner';
 import { PackageInfo } from './packageDetector';
 import type { DebugContext } from '../debug/DebugContext';
 import { buildDebugPrompt } from '../debug/debugPrompt';
+import {
+  loadModeInstruction,
+  loadWorkflowPrompt,
+  loadGatePrompt,
+  loadOutputFormat,
+  loadRecommendationPrompt,
+  type PromptResolutionOptions,
+} from './promptLibrary';
 
 export interface PromptContext {
   workspace: WorkspaceInfo;
@@ -16,30 +24,22 @@ export interface PromptContext {
   debugContext?: DebugContext;
   planContent?: string;
   attachmentContext?: string;
+  /** Path to the VS Code extension root — used to resolve bundled media/prompts. */
+  extensionRoot?: string;
+  /** Template ref names for future Product Owner wiring — dormant until a controller selects them. */
+  workflow?: string;
+  clarificationGate?: string;
+  recommendations?: string;
+  outputFormat?: string;
 }
-
-const MODE_INSTRUCTIONS: Record<TaskMode, string> = {
-  ask: 'Answer the user directly using the provided context. Do not scan the project broadly unless needed.',
-  research: 'Research the topic and cite or summarize relevant findings. Prefer external/web knowledge when available.',
-  'scan-project': 'Inspect the project read-only. Summarize architecture, risks, missing pieces, and recommended next steps.',
-  plan: 'Produce an implementation plan only. Do not mutate files or run commands that change project state. Treat attached files and folders as the primary source of truth.',
-  brainstorm: [
-    'Run an autonomous multi-agent brainstorming session.',
-    'Use the provided markdown agent definitions as specialist personas.',
-    'Do not modify files.',
-    'Do not run destructive commands.',
-    'Have each role contribute distinct ideas.',
-    'Then synthesize, critique, rank, and recommend the strongest directions.',
-    'Return the final answer in English.',
-  ].join(' '),
-  edit: 'Implement the requested code changes while keeping the patch scoped and consistent with the existing codebase.',
-  debug: 'Investigate the failure, identify likely root causes, and apply a focused fix when enough evidence is available.',
-  test: 'Run, create, or improve tests that validate the requested behavior. Report any failures clearly.',
-  review: 'Review like a code reviewer: lead with bugs, regressions, missing tests, and concrete file references.',
-};
 
 export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): string {
   const lines: string[] = [];
+
+  const resolutionOpts: PromptResolutionOptions = {
+    workspaceRoot: ctx.workspace.root,
+    extensionRoot: ctx.extensionRoot,
+  };
 
   lines.push(`# Workspace: ${ctx.workspace.name}`);
   lines.push(`Root: ${ctx.workspace.root}`);
@@ -60,8 +60,10 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push(`Available scripts: ${ctx.packages.scripts.join(', ')}`);
   }
 
-  lines.push(`Task mode: ${ctx.mode}`);
-  lines.push(`Mode guidance: ${MODE_INSTRUCTIONS[ctx.mode]}`);
+  const modeGuidance = loadModeInstruction(ctx.mode, resolutionOpts);
+  lines.push('');
+  lines.push('# Mode Guidance');
+  lines.push(modeGuidance);
 
   if (ctx.rules) {
     lines.push('');
@@ -112,6 +114,42 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
   } else {
     lines.push('# Task');
     lines.push(userPrompt);
+  }
+
+  if (ctx.workflow) {
+    const content = loadWorkflowPrompt(ctx.workflow, resolutionOpts);
+    if (content) {
+      lines.push('');
+      lines.push('# Workflow Prompt');
+      lines.push(content);
+    }
+  }
+
+  if (ctx.clarificationGate) {
+    const content = loadGatePrompt(ctx.clarificationGate, resolutionOpts);
+    if (content) {
+      lines.push('');
+      lines.push('# Clarification Gate');
+      lines.push(content);
+    }
+  }
+
+  if (ctx.recommendations) {
+    const content = loadRecommendationPrompt(ctx.recommendations, resolutionOpts);
+    if (content) {
+      lines.push('');
+      lines.push('# Recommendations');
+      lines.push(content);
+    }
+  }
+
+  if (ctx.outputFormat) {
+    const content = loadOutputFormat(ctx.outputFormat, resolutionOpts);
+    if (content) {
+      lines.push('');
+      lines.push('# Output Format');
+      lines.push(content);
+    }
   }
 
   return lines.join('\n');

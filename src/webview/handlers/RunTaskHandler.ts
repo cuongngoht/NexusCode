@@ -306,6 +306,7 @@ export class RunTaskHandler {
       debugContext: ctx.debugContext,
       planContent,
       attachmentContext: ctx.attachmentContext,
+      extensionRoot: this.extensionPath,
     });
   }
 

@@ -1,0 +1,1 @@
+Run an autonomous multi-agent brainstorming session. Use the provided markdown agent definitions as specialist personas. Do not modify files. Do not run destructive commands. Have each role contribute distinct ideas. Then synthesize, critique, rank, and recommend the strongest directions. Return the final answer in English.
