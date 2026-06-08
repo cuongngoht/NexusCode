@@ -24,6 +24,9 @@ import { buildReviewPrompt } from '../../context/reviewPromptBuilder';
 import { requireWorkspaceRoot } from './workspaceUtils';
 import type { PromptAttachment } from '../../core/types';
 import type { ChatHistoryState } from '../../core/chat/ChatHistory';
+import type { SubagentOrchestrator, SubagentRunConfig } from '../../application/subagents/SubagentOrchestrator';
+import type { SubagentPlanConfig } from '../../application/subagents/SubagentPlanner';
+import { SubagentSummary } from '../../application/subagents/SubagentSummary';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -43,6 +46,7 @@ export class RunTaskHandler {
     private readonly post: (msg: ExtensionMessage) => void,
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly extensionPath: string,
+    private readonly subagentOrchestrator?: SubagentOrchestrator,
   ) {}
 
   hasActive(): boolean {
@@ -58,6 +62,7 @@ export class RunTaskHandler {
     latestHistory: ChatHistoryState | null,
     buildConversationContext: () => string | undefined,
     attachments?: PromptAttachment[],
+    subagentsEnabled = false,
   ): Promise<void> {
     if (!prompt.trim() && mode !== 'scan-project' && mode !== 'review') {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
@@ -111,16 +116,48 @@ export class RunTaskHandler {
           buildProjectMap: this.buildProjectMap,
           extensionPath: this.extensionPath,
         });
-        const totalSteps = preSteps.length + 1;
+
+        const subagentCfg = vscode.workspace.getConfiguration('nexus');
+        const subagentsOn = subagentsEnabled
+          && !!this.subagentOrchestrator
+          && subagentCfg.get<boolean>('subagents.enabled', false);
+
+        const planCfg: SubagentPlanConfig = {
+          mode,
+          maxRuns: subagentCfg.get<number>('subagents.maxRuns', 4),
+          includeSecurity: subagentCfg.get<boolean>('subagents.includeSecurity', false),
+          includeDocs: subagentCfg.get<boolean>('subagents.includeDocs', false),
+        };
+
+        const subagentCount = subagentsOn
+          ? this.subagentOrchestrator!.countPlanned(planCfg)
+          : 0;
+
+        const totalSteps = preSteps.length + subagentCount + 1;
 
         const ok = await this.runPreSteps(preSteps, ctx, providerId, mode, model, totalSteps);
         if (!ok) return;
+
+        if (subagentsOn && subagentCount > 0) {
+          const runCfg: SubagentRunConfig = {
+            ...planCfg,
+            maxCharsPerResult: 6000,
+          };
+          const subResults = await this.subagentOrchestrator!.run(
+            ctx,
+            e => this.eventBus.emit(e),
+            runCfg,
+            preSteps.length,
+            totalSteps,
+          );
+          ctx.subagentResults = subResults;
+        }
 
         if (enableEnhancement) {
           ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
         }
 
-        await this.executeAgent(ctx, providerId, mode, model, preSteps.length, totalSteps, workspaceRoot, cfg);
+        await this.executeAgent(ctx, providerId, mode, model, preSteps.length + subagentCount, totalSteps, workspaceRoot, cfg);
       }
     } finally {
       this._pipelineActive = false;
@@ -294,7 +331,7 @@ export class RunTaskHandler {
     }
 
     const planContent = loadPlanContent(workspaceRoot) || undefined;
-    return buildEnhancedPrompt(ctx.originalPrompt, {
+    let prompt = buildEnhancedPrompt(ctx.originalPrompt, {
       workspace,
       packages,
       rules,
@@ -308,6 +345,13 @@ export class RunTaskHandler {
       attachmentContext: ctx.attachmentContext,
       extensionRoot: this.extensionPath,
     });
+
+    if (ctx.subagentResults && ctx.subagentResults.length > 0) {
+      const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults);
+      if (block) prompt = `${prompt}\n\n${block}`;
+    }
+
+    return prompt;
   }
 
   private async executeAgent(

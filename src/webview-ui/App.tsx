@@ -110,10 +110,12 @@ export function App() {
         conversationId: state.activeConvId,
         baseBranch,
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        subagentsEnabled: state.subagentsEnabled,
       });
       setComposerAttachments([]);
+      if (state.subagentsEnabled) dispatch({ type: 'resetSubagents' });
     },
-    [state.provider, state.mode, state.selectedModel],
+    [state.provider, state.mode, state.selectedModel, state.subagentsEnabled],
   );
 
   const handleStop = useCallback(() => getVsCodeApi().postMessage({ type: 'stopTask' }), []);
@@ -224,6 +226,8 @@ export function App() {
                   onModeChange={v => dispatch({ type: 'setMode', value: v })}
                   onRefreshReviewContext={handleRefreshReviewContext}
                   onOpenReviewAgentFile={handleOpenReviewAgentFile}
+                  subagentsEnabled={state.subagentsEnabled}
+                  onToggleSubagents={() => dispatch({ type: 'toggleSubagents' })}
                 />
               )}
             </div>

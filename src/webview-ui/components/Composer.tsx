@@ -26,6 +26,8 @@ interface Props {
   onModeChange: (v: TaskMode) => void;
   onRefreshReviewContext: (baseBranch?: string) => void;
   onOpenReviewAgentFile: () => void;
+  subagentsEnabled: boolean;
+  onToggleSubagents: () => void;
 }
 
 export function Composer({
@@ -37,6 +39,7 @@ export function Composer({
   workspaceFiles, onRequestWorkspaceFiles,
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
+  subagentsEnabled, onToggleSubagents,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -316,6 +319,16 @@ export function Composer({
               onClick={openFilePicker}
             >
               <IconAdd size={16} />
+            </button>
+            <button
+              type="button"
+              className={`fl-cmp-subagents-btn${subagentsEnabled ? ' fl-cmp-subagents-btn--active' : ''}`}
+              title={t.composer.subagentsTooltip}
+              onClick={onToggleSubagents}
+              disabled={isRunning}
+            >
+              <IconAgent size={13} />
+              {t.composer.subagentsToggle}
             </button>
           </div>
 

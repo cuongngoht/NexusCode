@@ -46,3 +46,9 @@ export interface PromptAttachment {
   /** Workspace-relative path — never absolute, never contains `..` */
   path: string;
 }
+
+export interface SubagentContextEntry {
+  role: string;
+  compactOutput: string;
+  error?: string;
+}

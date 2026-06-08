@@ -42,6 +42,12 @@ import { StdioMcpClientAdapter } from './mcp/adapters/StdioMcpClientAdapter';
 import { StreamableHttpMcpClientAdapter } from './mcp/adapters/StreamableHttpMcpClientAdapter';
 import { McpBroker } from './mcp/McpBroker';
 import { McpToolUseCase } from './mcp/McpToolUseCase';
+import { SubagentRegistry } from './application/subagents/SubagentRegistry';
+import { SubagentRouter } from './application/subagents/SubagentRouter';
+import { SubagentPlanner } from './application/subagents/SubagentPlanner';
+import { SubagentExecutor } from './application/subagents/SubagentExecutor';
+import { SubagentOrchestrator } from './application/subagents/SubagentOrchestrator';
+import { DEFAULT_SUBAGENTS } from './application/subagents/DefaultSubagents';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -83,6 +89,13 @@ export function activate(context: vscode.ExtensionContext): void {
   const runAgent = new RunAgentUseCase(router, runner, eventBus, mcpToolUseCase, configService);
   const orchestrator = new NexusOrchestrator(registry, runAgent, eventBus);
 
+  const subagentRegistry = new SubagentRegistry();
+  DEFAULT_SUBAGENTS.forEach(d => subagentRegistry.register(d));
+  const subagentRouter = new SubagentRouter(registry);
+  const subagentPlanner = new SubagentPlanner(subagentRegistry);
+  const subagentExecutor = new SubagentExecutor(runner, context.extensionPath);
+  const subagentOrchestrator = new SubagentOrchestrator(subagentPlanner, subagentRouter, subagentExecutor);
+
   const buildProjectMap = new BuildProjectMapUseCase(
     new NexusFileTreeScanner(),
     new NexusMarkerDetector(),
@@ -112,6 +125,7 @@ export function activate(context: vscode.ExtensionContext): void {
     detector,
     context.globalState,
     context.workspaceState,
+    subagentOrchestrator,
   );
 
   context.subscriptions.push(

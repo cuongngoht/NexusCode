@@ -1208,6 +1208,37 @@ html, body, #root {
   background: var(--colorNeutralBackground2);
 }
 
+.fl-cmp-subagents-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--colorNeutralForeground3);
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border-radius: 6px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+  gap: 3px;
+}
+
+.fl-cmp-subagents-btn:hover {
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground1);
+}
+
+.fl-cmp-subagents-btn--active {
+  color: var(--colorBrandForeground1);
+  background: var(--colorNeutralBackground2);
+}
+
+.fl-cmp-subagents-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .fl-file-picker-backdrop {
   position: fixed;
   inset: 0;

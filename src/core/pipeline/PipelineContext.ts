@@ -1,5 +1,5 @@
 import type { TaskMode } from '../agent/AgentTask';
-import type { ProviderId, PromptAttachment } from '../types';
+import type { ProviderId, PromptAttachment, SubagentContextEntry } from '../types';
 import type { DebugContext } from '../../debug/DebugContext';
 
 export type PipelineContext = {
@@ -20,5 +20,6 @@ export type PipelineContext = {
   reviewFileContents?: string;
   promptAttachments?: PromptAttachment[];
   attachmentContext?: string;
+  subagentResults?: SubagentContextEntry[];
   enhancedPrompt: string;
 };

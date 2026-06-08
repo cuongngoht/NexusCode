@@ -111,7 +111,9 @@
     "hintToSend": "để gửi",
     "working": "Nexus đang xử lý… {{elapsed}}s",
     "stop": "Dừng",
-    "send": "Gửi"
+    "send": "Gửi",
+    "subagentsToggle": "Subagents",
+    "subagentsTooltip": "Chạy các pre-agent trước agent chính"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",
@@ -161,7 +163,16 @@
       "review-files": "Đọc file thay đổi",
       "search": "Tìm kiếm",
       "plan": "Lên kế hoạch",
-      "code": "Áp dụng thay đổi"
+      "code": "Áp dụng thay đổi",
+      "subagent-search": "Tìm kiếm",
+      "subagent-planner": "Lên kế hoạch",
+      "subagent-tester": "Phân tích kiểm thử",
+      "subagent-reviewer": "Đánh giá",
+      "subagent-security": "Kiểm tra bảo mật",
+      "subagent-debugger": "Phân tích lỗi",
+      "subagent-docs": "Tài liệu",
+      "subagent-product": "Ngữ cảnh sản phẩm",
+      "subagent-research": "Nghiên cứu"
     },
     "activities": {
       "read": "Đọc tệp",
