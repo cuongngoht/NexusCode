@@ -13,6 +13,7 @@ import { CustomAgent } from './providers/custom/CustomAgent';
 import { NexusAgent } from './providers/nexus/NexusAgent';
 import { NexusOrchestrator } from './application/nexus/NexusOrchestrator';
 import { ChatViewProvider } from './webview/ChatViewProvider';
+import { LauncherViewProvider } from './webview/LauncherViewProvider';
 import { BuildProjectMapUseCase } from './application/usecases/BuildProjectMapUseCase';
 import { SummarizeProjectMapUseCase } from './application/usecases/SummarizeProjectMapUseCase';
 import { NexusFileTreeScanner } from './context/project-map/NexusFileTreeScanner';
@@ -121,9 +122,11 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  LauncherViewProvider.register(context);
+
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.openChat', () => {
-      vscode.commands.executeCommand('workbench.view.extension.nexus');
+      void vscode.commands.executeCommand('nexus.chatView.focus');
     }),
   );
 

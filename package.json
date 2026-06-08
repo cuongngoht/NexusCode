@@ -28,10 +28,25 @@
           "title": "Nexus",
           "icon": "media/nexus.svg"
         }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "nexus-secondary",
+          "title": "Nexus",
+          "icon": "media/nexus.svg"
+        }
       ]
     },
     "views": {
       "nexus": [
+        {
+          "id": "nexus.launcherView",
+          "name": "Nexus",
+          "type": "tree",
+          "visibility": "visible"
+        }
+      ],
+      "nexus-secondary": [
         {
           "id": "nexus.chatView",
           "name": "Chat",
