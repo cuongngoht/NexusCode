@@ -6,6 +6,7 @@ export class StdioMcpClientAdapter implements IMcpClientAdapter {
     preset: McpPreset;
     toolName: string;
     arguments: Record<string, unknown>;
+    cwd?: string;
   }): Promise<string> {
     if (!input.preset.command) {
       throw new Error(`Missing command for MCP preset: ${input.preset.id}`);
@@ -23,6 +24,7 @@ export class StdioMcpClientAdapter implements IMcpClientAdapter {
       command: input.preset.command,
       args: input.preset.args ?? [],
       env,
+      cwd: input.cwd,
     });
 
     const client = new Client({ name: 'nexus-mcp-client', version: '1.0.0' });

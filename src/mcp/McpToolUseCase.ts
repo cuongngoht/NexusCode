@@ -72,7 +72,7 @@ export class McpToolUseCase {
     }
 
     try {
-      const rawText = await this.broker.call({ preset, route });
+      const rawText = await this.broker.call({ preset, route, cwd: input.task.cwd });
 
       const compressed = this.compressor.compress({
         rawText,
