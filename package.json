@@ -8,9 +8,11 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": [
-    "Other"
-  ],
+"categories": [
+  "Machine Learning",
+  "Testing",
+  "Other"
+],
   "activationEvents": [
     "onView:nexus.chatView"
   ],
@@ -26,10 +28,25 @@
           "title": "Nexus",
           "icon": "media/nexus.svg"
         }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "nexus-secondary",
+          "title": "Nexus",
+          "icon": "media/nexus.svg"
+        }
       ]
     },
     "views": {
       "nexus": [
+        {
+          "id": "nexus.launcherView",
+          "name": "Nexus",
+          "type": "tree",
+          "visibility": "visible"
+        }
+      ],
+      "nexus-secondary": [
         {
           "id": "nexus.chatView",
           "name": "Chat",
