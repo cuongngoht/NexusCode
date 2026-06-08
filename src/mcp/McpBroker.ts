@@ -5,6 +5,7 @@ export interface IMcpBroker {
   call(input: {
     preset: McpPreset;
     route: McpRoute;
+    cwd?: string;
   }): Promise<string>;
 }
 
@@ -17,6 +18,7 @@ export class McpBroker implements IMcpBroker {
   async call(input: {
     preset: McpPreset;
     route: McpRoute;
+    cwd?: string;
   }): Promise<string> {
     const adapter =
       input.preset.transport === 'stdio'
@@ -27,6 +29,7 @@ export class McpBroker implements IMcpBroker {
       preset: input.preset,
       toolName: input.route.toolName,
       arguments: input.route.arguments,
+      cwd: input.cwd,
     });
   }
 }

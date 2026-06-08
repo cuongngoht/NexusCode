@@ -210,6 +210,7 @@ export interface AppState {
   mcpEnabled: boolean;
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
+  subagentsEnabled: boolean;
 }
 
 export function createInitialState(): AppState {
@@ -236,6 +237,7 @@ export function createInitialState(): AppState {
     mcpEnabled: false,
     mcpActivePresets: [],
     lastMcpUsed: undefined,
+    subagentsEnabled: false,
   };
 }
 
@@ -310,6 +312,8 @@ export type AppAction =
   | { type: 'setModel'; value?: string }
   | { type: 'setMode'; value: TaskMode }
   | { type: 'toggleHistory' }
+  | { type: 'toggleSubagents' }
+  | { type: 'resetSubagents' }
   | { type: 'newConversation' }
   | { type: 'selectConversation'; id: string }
   | { type: 'deleteConversation'; id: string }
@@ -475,6 +479,12 @@ export function reducer(state: AppState, action: AppAction): AppState {
 
     case 'toggleHistory':
       return { ...state, showHistory: !state.showHistory };
+
+    case 'toggleSubagents':
+      return { ...state, subagentsEnabled: !state.subagentsEnabled };
+
+    case 'resetSubagents':
+      return { ...state, subagentsEnabled: false };
 
     case 'newConversation': {
       const conv = makeConversation();

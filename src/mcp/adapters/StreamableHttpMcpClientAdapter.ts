@@ -6,6 +6,7 @@ export class StreamableHttpMcpClientAdapter implements IMcpClientAdapter {
     preset: McpPreset;
     toolName: string;
     arguments: Record<string, unknown>;
+    cwd?: string;
   }): Promise<string> {
     if (!input.preset.endpoint) {
       throw new Error(`Missing endpoint for MCP preset: ${input.preset.id}`);

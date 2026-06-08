@@ -51,7 +51,7 @@ export type ExtensionMessage =
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
-  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string; attachments?: PromptAttachment[] }
+  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string; attachments?: PromptAttachment[]; subagentsEnabled?: boolean }
   | { type: 'pickPromptAttachment' }
   | { type: 'getWorkspaceFiles' }
   | { type: 'stopTask' }

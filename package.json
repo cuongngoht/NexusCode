@@ -9,9 +9,7 @@
     "vscode": "^1.85.0"
   },
 "categories": [
-  "Machine Learning",
-  "Testing",
-  "Other"
+  "Machine Learning"
 ],
   "activationEvents": [
     "onView:nexus.chatView"
@@ -150,6 +148,26 @@
           "type": "string",
           "default": "",
           "description": "Optional Context7 API key."
+        },
+        "nexus.subagents.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Nexus subagent layer (runs focused pre-agents before main agent)."
+        },
+        "nexus.subagents.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "description": "Maximum number of subagents to run per task."
+        },
+        "nexus.subagents.includeSecurity": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include the security review subagent when applicable."
+        },
+        "nexus.subagents.includeDocs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include the docs subagent when applicable."
         }
       }
     }

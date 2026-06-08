@@ -111,7 +111,9 @@
     "hintToSend": "to send",
     "working": "Nexus is working… {{elapsed}}s",
     "stop": "Stop",
-    "send": "Send"
+    "send": "Send",
+    "subagentsToggle": "Subagents",
+    "subagentsTooltip": "Run focused pre-agents before main agent"
   },
   "emptyState": {
     "title": "Start a conversation",
@@ -161,7 +163,16 @@
       "review-files": "Reading changed files",
       "search": "Searching",
       "plan": "Planning",
-      "code": "Applying changes"
+      "code": "Applying changes",
+      "subagent-search": "Searching",
+      "subagent-planner": "Planning",
+      "subagent-tester": "Test analysis",
+      "subagent-reviewer": "Reviewing",
+      "subagent-security": "Security check",
+      "subagent-debugger": "Debug analysis",
+      "subagent-docs": "Documentation",
+      "subagent-product": "Product context",
+      "subagent-research": "Researching"
     },
     "activities": {
       "read": "Reading file",

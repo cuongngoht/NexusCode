@@ -1,8 +1,48 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
+type Locale = 'vi' | 'en';
+
+const STRINGS = {
+  vi: {
+    title: 'Giới thiệu Nexus Code',
+    desc: 'Giao diện chat định tuyến prompt đến các CLI coding agent đã cài.',
+    sectionAuthor: 'Tác giả',
+    sectionSponsors: 'Nhà tài trợ',
+    sponsorBadge: 'Nhà tài trợ',
+    sponsorKhamPhaDesc: 'Đồng hành và hỗ trợ phát triển dự án',
+    sectionOss: 'Mã nguồn mở',
+    ossReact: 'Thư viện UI',
+    ossFluentUi: 'Hệ thống thiết kế của Microsoft',
+    ossVscodeApi: 'Nền tảng extension của Microsoft',
+    ossCommander: 'Framework CLI',
+    ossZod: 'Validation schema',
+    ossVite: 'Công cụ build frontend',
+  },
+  en: {
+    title: 'About Nexus Code',
+    desc: 'A chat cockpit that routes prompts to installed CLI coding agents.',
+    sectionAuthor: 'Author',
+    sectionSponsors: 'Sponsors',
+    sponsorBadge: 'Sponsor',
+    sponsorKhamPhaDesc: 'Supporting project development',
+    sectionOss: 'Open Source',
+    ossReact: 'UI component library',
+    ossFluentUi: 'Microsoft design system',
+    ossVscodeApi: 'Extension platform by Microsoft',
+    ossCommander: 'CLI framework',
+    ossZod: 'Schema validation',
+    ossVite: 'Frontend build tool',
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+function resolveLocale(): Locale {
+  return vscode.env.language.startsWith('vi') ? 'vi' : 'en';
+}
+
 export function getAboutHtml(webview: vscode.Webview): string {
   const nonce = crypto.randomBytes(16).toString('hex');
+  const s = STRINGS[resolveLocale()];
 
   const csp = [
     `default-src 'none'`,
@@ -11,12 +51,12 @@ export function getAboutHtml(webview: vscode.Webview): string {
   ].join('; ');
 
   return /* html */`<!DOCTYPE html>
-<html lang="en">
+<html lang="${resolveLocale()}">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>About Nexus Code</title>
+  <title>${s.title}</title>
   <style>
     body {
       font-family: var(--vscode-font-family);
@@ -81,6 +121,35 @@ export function getAboutHtml(webview: vscode.Webview): string {
       font-size: 0.82em;
       color: var(--vscode-textLink-foreground);
     }
+    .sponsor-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sponsor-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sponsor-name {
+      font-weight: 600;
+      font-size: 0.92em;
+    }
+    .sponsor-badge {
+      font-size: 0.75em;
+      padding: 1px 7px;
+      border-radius: 20px;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      font-weight: 500;
+    }
+    .sponsor-desc {
+      font-size: 0.82em;
+      color: var(--vscode-descriptionForeground);
+    }
     .oss-list {
       list-style: none;
       margin: 0;
@@ -117,11 +186,11 @@ export function getAboutHtml(webview: vscode.Webview): string {
     <span class="logo">NEXUS</span>
     <span class="version">v0.1.3</span>
   </div>
-  <p class="desc">A chat cockpit that routes prompts to installed CLI coding agents.</p>
+  <p class="desc">${s.desc}</p>
 
   <hr />
 
-  <h2>Author</h2>
+  <h2>${s.sectionAuthor}</h2>
   <div class="author-row">
     <span class="author-name">Ngô Hoàng Tuấn Cường</span>
     <span class="author-github">github.com/cuongngoht</span>
@@ -129,37 +198,48 @@ export function getAboutHtml(webview: vscode.Webview): string {
 
   <hr />
 
-  <h2>Open Source</h2>
+  <h2>${s.sectionSponsors}</h2>
+  <ul class="sponsor-list">
+    <li class="sponsor-item">
+      <span class="sponsor-name">Khám Phá Mới</span>
+      <span class="sponsor-badge">${s.sponsorBadge}</span>
+      <span class="sponsor-desc">${s.sponsorKhamPhaDesc}</span>
+    </li>
+  </ul>
+
+  <hr />
+
+  <h2>${s.sectionOss}</h2>
   <ul class="oss-list">
     <li class="oss-item">
       <span class="oss-name">React 19</span>
       <span class="oss-license">MIT</span>
-      <span class="oss-desc">UI component library</span>
+      <span class="oss-desc">${s.ossReact}</span>
     </li>
     <li class="oss-item">
       <span class="oss-name">Fluent UI React v9</span>
       <span class="oss-license">MIT</span>
-      <span class="oss-desc">Microsoft design system</span>
+      <span class="oss-desc">${s.ossFluentUi}</span>
     </li>
     <li class="oss-item">
       <span class="oss-name">VS Code Extension API</span>
       <span class="oss-license">MIT</span>
-      <span class="oss-desc">Extension platform by Microsoft</span>
+      <span class="oss-desc">${s.ossVscodeApi}</span>
     </li>
     <li class="oss-item">
       <span class="oss-name">Commander</span>
       <span class="oss-license">MIT</span>
-      <span class="oss-desc">CLI framework</span>
+      <span class="oss-desc">${s.ossCommander}</span>
     </li>
     <li class="oss-item">
       <span class="oss-name">Zod</span>
       <span class="oss-license">MIT</span>
-      <span class="oss-desc">Schema validation</span>
+      <span class="oss-desc">${s.ossZod}</span>
     </li>
     <li class="oss-item">
       <span class="oss-name">Vite</span>
       <span class="oss-license">MIT</span>
-      <span class="oss-desc">Frontend build tool</span>
+      <span class="oss-desc">${s.ossVite}</span>
     </li>
   </ul>
 

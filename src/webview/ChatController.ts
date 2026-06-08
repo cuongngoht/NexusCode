@@ -8,6 +8,7 @@ import { ProviderDetector } from '../core/providerDetector';
 import { ConfigService } from '../config/ConfigService';
 import type { IChatHistoryStore } from './IChatHistoryStore';
 import { RunTaskHandler } from './handlers/RunTaskHandler';
+import type { SubagentOrchestrator } from '../application/subagents/SubagentOrchestrator';
 import { HistoryHandler } from './handlers/HistoryHandler';
 import { ProviderHandler } from './handlers/ProviderHandler';
 import { ReviewHandler } from './handlers/ReviewHandler';
@@ -32,8 +33,9 @@ export class ChatController {
     globalState: vscode.Memento,
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
+    subagentOrchestrator?: SubagentOrchestrator,
   ) {
-    this.runTaskHandler = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath);
+    this.runTaskHandler = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
     this.historyHandler = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler = new ReviewHandler(post, extensionPath);
@@ -59,6 +61,7 @@ export class ChatController {
           this.historyHandler.latestHistory,
           () => buildConversationContext(this.historyHandler.latestHistory, msg.conversationId),
           msg.attachments,
+          msg.subagentsEnabled ?? false,
         );
         break;
       case 'pickPromptAttachment':
