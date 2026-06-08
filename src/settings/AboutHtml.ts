@@ -110,6 +110,35 @@ export function getAboutHtml(webview: vscode.Webview): string {
       font-size: 0.82em;
       color: var(--vscode-descriptionForeground);
     }
+    .sponsor-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sponsor-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sponsor-name {
+      font-weight: 600;
+      font-size: 0.92em;
+    }
+    .sponsor-badge {
+      font-size: 0.75em;
+      padding: 1px 7px;
+      border-radius: 20px;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      font-weight: 500;
+    }
+    .sponsor-desc {
+      font-size: 0.82em;
+      color: var(--vscode-descriptionForeground);
+    }
   </style>
 </head>
 <body>
@@ -126,6 +155,17 @@ export function getAboutHtml(webview: vscode.Webview): string {
     <span class="author-name">Ngô Hoàng Tuấn Cường</span>
     <span class="author-github">github.com/cuongngoht</span>
   </div>
+
+  <hr />
+
+  <h2>Nhà tài trợ</h2>
+  <ul class="sponsor-list">
+    <li class="sponsor-item">
+      <span class="sponsor-name">Khám Phá Mới</span>
+      <span class="sponsor-badge">Sponsor</span>
+      <span class="sponsor-desc">Đồng hành và hỗ trợ phát triển dự án</span>
+    </li>
+  </ul>
 
   <hr />
 
