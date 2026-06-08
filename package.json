@@ -9,9 +9,7 @@
     "vscode": "^1.85.0"
   },
 "categories": [
-  "Machine Learning",
-  "Testing",
-  "Other"
+  "Machine Learning"
 ],
   "activationEvents": [
     "onView:nexus.chatView"
