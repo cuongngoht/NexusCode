@@ -105,11 +105,35 @@ export class ChatController {
       case 'openSavedPlans':
         await this.runTaskHandler.openSavedPlans();
         break;
+      case 'loginProvider':
+        await this.handleLoginProvider(msg.providerId);
+        break;
     }
   }
 
   async refreshProviders(): Promise<void> {
     await this.providerHandler.refresh();
+  }
+
+  private readonly LOGIN_COMMANDS: Partial<Record<string, string>> = {
+    claude: 'claude',
+    gemini: 'gemini',
+    copilot: 'gh auth login',
+  };
+
+  private async handleLoginProvider(providerId: string): Promise<void> {
+    const command = this.LOGIN_COMMANDS[providerId];
+    if (!command) return;
+    const terminal = vscode.window.createTerminal({ name: `NexusCode: Login ${providerId}` });
+    terminal.sendText(command);
+    terminal.show();
+    const disposable = vscode.window.onDidCloseTerminal(t => {
+      if (t === terminal) {
+        disposable.dispose();
+        void this.providerHandler.refresh();
+      }
+    });
+    this.disposables.push(disposable);
   }
 
   private forwardEvent(event: NexusEvent): void {

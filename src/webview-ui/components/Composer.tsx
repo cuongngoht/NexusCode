@@ -28,6 +28,7 @@ interface Props {
   onOpenReviewAgentFile: () => void;
   subagentsEnabled: boolean;
   onToggleSubagents: () => void;
+  onLoginProvider: (id: ProviderId) => void;
 }
 
 export function Composer({
@@ -39,7 +40,7 @@ export function Composer({
   workspaceFiles, onRequestWorkspaceFiles,
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
-  subagentsEnabled, onToggleSubagents,
+  subagentsEnabled, onToggleSubagents, onLoginProvider,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -131,6 +132,13 @@ export function Composer({
   const removeAttachment = (i: number) =>
     onAttachmentsChange(attachments.filter((_, j) => j !== i));
 
+  const currentProviderInfo = providerDetection.find(d => d.id === provider);
+  const showLoginBanner = !!(
+    currentProviderInfo?.installed &&
+    currentProviderInfo.loggedIn === false &&
+    currentProviderInfo.loginCommand
+  );
+
   // Provider options
   const availableSet = new Set(availableProviders);
   const detectionDone = providerDetection.length > 0;
@@ -209,6 +217,18 @@ export function Composer({
           </div>
         </div>
       </>
+    )}
+    {showLoginBanner && (
+      <div className="nx-login-banner">
+        <span className="nx-login-banner-text">{t.provider.loginRequired}</span>
+        <button
+          type="button"
+          className="nx-login-banner-btn"
+          onClick={() => onLoginProvider(provider)}
+        >
+          {t.provider.login}
+        </button>
+      </div>
     )}
     <div className="fl-composer">
       {attachments.length > 0 && (

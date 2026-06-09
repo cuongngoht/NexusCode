@@ -12,7 +12,9 @@
     "autoDetect": "Tự động phát hiện",
     "autoDetectBadge": "Mặc định",
     "customCli": "CLI tùy chỉnh",
-    "notLoggedIn": "Chưa đăng nhập"
+    "notLoggedIn": "Chưa đăng nhập",
+    "loginRequired": "Chưa đăng nhập — nhấn để mở terminal đăng nhập",
+    "login": "Đăng nhập"
   },
   "model": {
     "auto": "Model mặc định",

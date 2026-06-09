@@ -12,6 +12,7 @@ export interface ProviderDetectionResult {
   cliLabel: string;
   installed: boolean;
   loggedIn?: boolean;
+  loginCommand?: string;
   version?: string;
   executablePath?: string;
   reason?: string;
@@ -44,6 +45,8 @@ interface ProviderSpec {
   defaultModel?: string;
   /** Optional auth/login check performed after binary detection. */
   loginCheck?: ProviderLoginCheck;
+  /** Terminal command to run when the user wants to log in. */
+  loginCommand?: string;
 }
 
 const SPECS: readonly ProviderSpec[] = [
@@ -60,6 +63,7 @@ const SPECS: readonly ProviderSpec[] = [
     loginCheck: {
       configPaths: ['.claude/auth.json', '.claude/.credentials.json', '.config/claude/auth.json'],
     },
+    loginCommand: 'claude',
   },
   {
     id: 'codex',
@@ -81,7 +85,11 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
     defaultModel: 'gemini-2.5-pro',
-    loginCheck: { envVars: ['GOOGLE_API_KEY', 'GEMINI_API_KEY'] },
+    loginCheck: {
+      envVars: ['GOOGLE_API_KEY', 'GEMINI_API_KEY'],
+      configPaths: ['.gemini/credentials.json', '.config/gemini/credentials.json'],
+    },
+    loginCommand: 'gemini',
   },
   {
     id: 'copilot',
@@ -93,6 +101,7 @@ const SPECS: readonly ProviderSpec[] = [
     seededModels: ['gpt-5.2', 'gpt-5.1', 'claude-sonnet-4.5'],
     defaultModel: 'gpt-5.2',
     loginCheck: { envVars: ['GITHUB_TOKEN', 'GH_TOKEN'] },
+    loginCommand: 'gh auth login',
   },
   {
     id: 'aider',
@@ -226,6 +235,7 @@ export class ProviderDetector {
       cliLabel: spec.cliLabel,
       installed: true,
       loggedIn: checkLogin(spec),
+      loginCommand: spec.loginCommand,
       version,
       executablePath,
       supportsModelSelection: spec.seededModels.length > 0,

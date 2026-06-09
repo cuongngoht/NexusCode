@@ -258,6 +258,7 @@ export interface ProviderInfo {
   cliLabel: string;
   installed: boolean;
   loggedIn?: boolean;
+  loginCommand?: string;
   version?: string;
   executablePath?: string;
   reason?: string;

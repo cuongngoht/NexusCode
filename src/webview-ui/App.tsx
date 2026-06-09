@@ -228,6 +228,7 @@ export function App() {
                   onOpenReviewAgentFile={handleOpenReviewAgentFile}
                   subagentsEnabled={state.subagentsEnabled}
                   onToggleSubagents={() => dispatch({ type: 'toggleSubagents' })}
+                  onLoginProvider={id => getVsCodeApi().postMessage({ type: 'loginProvider', providerId: id })}
                 />
               )}
             </div>

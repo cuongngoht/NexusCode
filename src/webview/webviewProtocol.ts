@@ -66,4 +66,5 @@ export type WebviewMessage =
   | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string; provider?: ProviderId }
   | { type: 'openPlan'; planPath?: string }
   | { type: 'openSavedPlans' }
-  | { type: 'refreshMcpStatus' };
+  | { type: 'refreshMcpStatus' }
+  | { type: 'loginProvider'; providerId: ProviderId };

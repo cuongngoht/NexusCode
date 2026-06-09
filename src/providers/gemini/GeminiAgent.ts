@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
@@ -22,7 +25,9 @@ export class GeminiAgent extends BaseAgent {
   protected readonly executableName = 'gemini';
 
   override async isLoggedIn(): Promise<boolean> {
-    return !!(process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']);
+    if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']) return true;
+    return fs.existsSync(path.join(os.homedir(), '.gemini', 'credentials.json'))
+        || fs.existsSync(path.join(os.homedir(), '.config', 'gemini', 'credentials.json'));
   }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {

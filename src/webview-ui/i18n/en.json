@@ -12,7 +12,9 @@
     "autoDetect": "Auto-detect",
     "autoDetectBadge": "Default",
     "customCli": "Custom CLI",
-    "notLoggedIn": "Not logged in"
+    "notLoggedIn": "Not logged in",
+    "loginRequired": "Not logged in — click to open login terminal",
+    "login": "Login"
   },
   "model": {
     "auto": "Default model",
