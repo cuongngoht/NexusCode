@@ -11,7 +11,12 @@ export class SubagentRouter {
       if (!agent) continue;
       try {
         const available = await agent.isAvailable();
-        if (available) return agent;
+        if (!available) continue;
+        if (typeof agent.isLoggedIn === 'function') {
+          const loggedIn = await agent.isLoggedIn();
+          if (!loggedIn) continue;
+        }
+        return agent;
       } catch {
         // isAvailable never throws per contract, but guard anyway
       }

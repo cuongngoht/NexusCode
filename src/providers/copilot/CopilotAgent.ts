@@ -23,6 +23,10 @@ export class CopilotAgent extends BaseAgent {
 
   protected readonly executableName = 'copilot';
 
+  override async isLoggedIn(): Promise<boolean> {
+    return !!(process.env['GITHUB_TOKEN'] || process.env['GH_TOKEN']);
+  }
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
       ? ['--model', task.model, '--prompt', task.enhancedPrompt]

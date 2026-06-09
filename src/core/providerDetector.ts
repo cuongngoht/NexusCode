@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { spawn, spawnSync } from 'child_process';
 import type { ProviderId, ProviderModel } from './types';
 
@@ -8,6 +11,7 @@ export interface ProviderDetectionResult {
   displayName: string;
   cliLabel: string;
   installed: boolean;
+  loggedIn?: boolean;
   version?: string;
   executablePath?: string;
   reason?: string;
@@ -17,6 +21,13 @@ export interface ProviderDetectionResult {
 }
 
 // ── Per-provider specs ─────────────────────────────────────────────────────
+
+interface ProviderLoginCheck {
+  /** At least one env var must be non-empty to consider the provider logged in. */
+  envVars?: string[];
+  /** At least one path (relative to os.homedir()) must exist. */
+  configPaths?: string[];
+}
 
 interface ProviderSpec {
   id: ProviderId;
@@ -31,6 +42,8 @@ interface ProviderSpec {
   /** Seeded fallback models used when the CLI cannot list models. */
   seededModels: readonly string[];
   defaultModel?: string;
+  /** Optional auth/login check performed after binary detection. */
+  loginCheck?: ProviderLoginCheck;
 }
 
 const SPECS: readonly ProviderSpec[] = [
@@ -44,6 +57,9 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['sonnet', 'opus', 'haiku'],
     defaultModel: 'sonnet',
+    loginCheck: {
+      configPaths: ['.claude/auth.json', '.claude/.credentials.json', '.config/claude/auth.json'],
+    },
   },
   {
     id: 'codex',
@@ -54,6 +70,7 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['gpt-5.2', 'gpt-5.1-codex-max', 'gpt-5.1-codex', 'gpt-5-codex', 'o3'],
     defaultModel: 'gpt-5.2',
+    loginCheck: { envVars: ['OPENAI_API_KEY'] },
   },
   {
     id: 'gemini',
@@ -64,6 +81,7 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
     defaultModel: 'gemini-2.5-pro',
+    loginCheck: { envVars: ['GOOGLE_API_KEY', 'GEMINI_API_KEY'] },
   },
   {
     id: 'copilot',
@@ -74,6 +92,7 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['gpt-5.2', 'gpt-5.1', 'claude-sonnet-4.5'],
     defaultModel: 'gpt-5.2',
+    loginCheck: { envVars: ['GITHUB_TOKEN', 'GH_TOKEN'] },
   },
   {
     id: 'aider',
@@ -85,10 +104,20 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['sonnet', 'opus', 'gpt-5.2', 'gemini/gemini-2.5-pro'],
     defaultModel: 'sonnet',
+    loginCheck: { envVars: ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY'] },
   },
 ];
 
 // ── Internal helpers ───────────────────────────────────────────────────────
+
+/** Checks whether a provider's auth/login requirements are satisfied. */
+function checkLogin(spec: ProviderSpec): boolean {
+  if (!spec.loginCheck) return true;
+  const { envVars, configPaths } = spec.loginCheck;
+  if (envVars?.some(v => !!process.env[v])) return true;
+  if (configPaths?.some(p => fs.existsSync(path.join(os.homedir(), p)))) return true;
+  return false;
+}
 
 /** Returns the full path to `binary` from PATH, or undefined if not found. */
 function resolveBinary(binary: string): string | undefined {
@@ -196,6 +225,7 @@ export class ProviderDetector {
       displayName: spec.displayName,
       cliLabel: spec.cliLabel,
       installed: true,
+      loggedIn: checkLogin(spec),
       version,
       executablePath,
       supportsModelSelection: spec.seededModels.length > 0,

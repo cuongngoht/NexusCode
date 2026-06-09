@@ -53,6 +53,10 @@ export abstract class BaseAgent implements IAgent {
     );
   }
 
+  async isLoggedIn(): Promise<boolean> {
+    return true;
+  }
+
   async isAvailable(): Promise<boolean> {
     try {
       const cmd = process.platform === 'win32' ? 'where' : 'which';

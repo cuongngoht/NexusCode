@@ -11,7 +11,8 @@
   "provider": {
     "autoDetect": "Auto-detect",
     "autoDetectBadge": "Default",
-    "customCli": "Custom CLI"
+    "customCli": "Custom CLI",
+    "notLoggedIn": "Not logged in"
   },
   "model": {
     "auto": "Default model",

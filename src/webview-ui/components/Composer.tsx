@@ -147,7 +147,8 @@ export function Composer({
       if (id === 'custom') return { value: 'custom', label: t.provider.customCli, icon: IconTool };
       const info = providerDetection.find(d => d.id === id);
       const label = info ? (info.version ? `${info.cliLabel} ${info.version}` : info.cliLabel) : id;
-      return { value: id, label, icon: IconSparkle };
+      const badge = (info?.installed && info?.loggedIn === false) ? `⚠ ${t.provider.notLoggedIn}` : undefined;
+      return { value: id, label, icon: IconSparkle, badge };
     });
 
   // Mode options

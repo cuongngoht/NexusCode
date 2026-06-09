@@ -22,6 +22,15 @@ export class AiderAgent extends BaseAgent {
 
   protected readonly executableName = 'aider';
 
+  override async isLoggedIn(): Promise<boolean> {
+    return !!(
+      process.env['OPENAI_API_KEY'] ||
+      process.env['ANTHROPIC_API_KEY'] ||
+      process.env['GEMINI_API_KEY'] ||
+      process.env['OPENROUTER_API_KEY']
+    );
+  }
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
       ? ['--model', task.model, '--message', task.enhancedPrompt]

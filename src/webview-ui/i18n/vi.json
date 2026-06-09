@@ -11,7 +11,8 @@
   "provider": {
     "autoDetect": "Tự động phát hiện",
     "autoDetectBadge": "Mặc định",
-    "customCli": "CLI tùy chỉnh"
+    "customCli": "CLI tùy chỉnh",
+    "notLoggedIn": "Chưa đăng nhập"
   },
   "model": {
     "auto": "Model mặc định",

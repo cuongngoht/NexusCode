@@ -21,6 +21,10 @@ export class GeminiAgent extends BaseAgent {
 
   protected readonly executableName = 'gemini';
 
+  override async isLoggedIn(): Promise<boolean> {
+    return !!(process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']);
+  }
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];
     if (task.model) args.push('--model', task.model);
