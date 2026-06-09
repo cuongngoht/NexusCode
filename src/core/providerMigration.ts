@@ -6,11 +6,11 @@ const LEGACY_PROVIDER_MAP: Record<string, ProviderId> = {
 };
 
 const VALID_PROVIDER_IDS: readonly ProviderId[] = [
-  'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'auto',
+  'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
 ];
 
 const VALID_AGENT_IDS: readonly AgentId[] = [
-  'nexus', 'claude', 'codex', 'antigravity', 'copilot', 'aider', 'custom', 'auto',
+  'nexus', 'claude', 'codex', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
 ];
 
 export function normalizeProviderId(id: string): ProviderId {

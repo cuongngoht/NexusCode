@@ -38,8 +38,8 @@ export class ClaudeAgent extends BaseAgent {
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
-      ? ['--model', task.model, task.enhancedPrompt]
-      : [task.enhancedPrompt];
+      ? ['--dangerously-skip-permissions', '--model', task.model, task.enhancedPrompt]
+      : ['--dangerously-skip-permissions', task.enhancedPrompt];
     return new AgentCommand('claude', args, undefined, undefined, task.enhancedPrompt);
   }
 

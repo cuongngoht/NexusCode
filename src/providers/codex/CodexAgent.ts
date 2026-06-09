@@ -31,8 +31,8 @@ export class CodexAgent extends BaseAgent {
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
-      ? ['--model', task.model, task.enhancedPrompt]
-      : [task.enhancedPrompt];
+      ? ['-y', '--model', task.model, task.enhancedPrompt]
+      : ['-y', task.enhancedPrompt];
     return new AgentCommand('codex', args, undefined, undefined, task.enhancedPrompt);
   }
 

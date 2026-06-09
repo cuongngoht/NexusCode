@@ -142,7 +142,7 @@ export function Composer({
   // Provider options
   const availableSet = new Set(availableProviders);
   const detectionDone = providerDetection.length > 0;
-  const all: ProviderId[] = ['nexus', 'auto', 'antigravity', 'codex', 'claude', 'copilot', 'aider', 'custom'];
+  const all: ProviderId[] = ['nexus', 'auto', 'antigravity', 'codex', 'claude', 'copilot', 'aider', 'custom', 'grok'];
   const providerOptions: DropdownOption[] = all
     .filter(id => {
       if (id === 'nexus' || id === 'auto' || id === 'custom') return true;

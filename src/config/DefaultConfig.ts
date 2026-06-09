@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG: NexusConfig = {
     claude: { enabled: false, command: 'claude' },
     copilot: { enabled: false, command: 'copilot' },
     aider: { enabled: false, command: 'aider' },
+    grok: { enabled: false, command: 'grok' },
   },
   mcp: {
     enabled: false,

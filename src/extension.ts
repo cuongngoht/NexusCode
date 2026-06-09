@@ -11,6 +11,7 @@ import { CopilotAgent } from './providers/copilot/CopilotAgent';
 import { AiderAgent } from './providers/aider/AiderAgent';
 import { CustomAgent } from './providers/custom/CustomAgent';
 import { NexusAgent } from './providers/nexus/NexusAgent';
+import { GrokAgent } from './providers/grok/GrokAgent';
 import { NexusOrchestrator } from './application/nexus/NexusOrchestrator';
 import { ChatViewProvider } from './webview/ChatViewProvider';
 import { LauncherViewProvider } from './webview/LauncherViewProvider';
@@ -60,6 +61,7 @@ export function activate(context: vscode.ExtensionContext): void {
     getCommand: () => vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? '',
     getArgs: () => vscode.workspace.getConfiguration('nexus').get<string[]>('customProvider.args') ?? ['{{prompt}}'],
   }));
+  registry.register(new GrokAgent());
   registry.register(new NexusAgent());
 
   const eventBus = new EventBus();

@@ -25,6 +25,7 @@ const DIRECT_PROVIDERS: readonly DirectProviderId[] = [
   'copilot',
   'aider',
   'custom',
+  'grok',
 ];
 
 const MATRIX_MODES: readonly TaskMode[] = [
@@ -43,6 +44,7 @@ const PROVIDER_LABELS: Record<DirectProviderId, string> = {
   copilot: 'Copilot',
   aider: 'Aider',
   custom: 'Custom',
+  grok: 'Grok',
 };
 
 const FIT_ICON: Record<AgentModeFit, string> = {

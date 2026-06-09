@@ -2,6 +2,7 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
+import { AntigravityOutputParser } from './AntigravityOutputParser';
 
 export class AntigravityAgent extends BaseAgent {
   readonly id = 'antigravity' as const;
@@ -21,11 +22,19 @@ export class AntigravityAgent extends BaseAgent {
   readonly defaultModel = 'gemini-3.5-pro';
 
   protected readonly executableName = 'agy';
+  readonly outputParser = new AntigravityOutputParser();
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];
     if (task.model) args.push('--model', task.model);
-    args.push('--prompt', task.enhancedPrompt);
+    args.push('--prompt', task.enhancedPrompt, '--dangerously-skip-permissions');
+    console.log('[AntigravityAgent] buildCommand', {
+      model: task.model,
+      mode: task.mode,
+      promptLength: task.enhancedPrompt.length,
+      promptPreview: task.enhancedPrompt.slice(0, 400),
+      args: args.map(a => a.length > 200 ? a.slice(0, 200) + '…' : a),
+    });
     return new AgentCommand('agy', args, undefined, undefined, task.enhancedPrompt);
   }
 

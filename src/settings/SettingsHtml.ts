@@ -9,6 +9,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   claude: 'Claude CLI',
   copilot: 'Copilot CLI',
   aider: 'Aider',
+  grok: 'Grok CLI',
 };
 
 export function getSettingsHtml(

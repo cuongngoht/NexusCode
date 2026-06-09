@@ -111,6 +111,18 @@ const SPECS: readonly ProviderSpec[] = [
     defaultModel: 'sonnet',
     loginCheck: { envVars: ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY'] },
   },
+  {
+    id: 'grok',
+    displayName: 'Grok',
+    cliLabel: 'Grok CLI',
+    binary: 'grok',
+    versionArgs: ['--version'],
+    versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
+    seededModels: ['grok-3', 'grok-3-mini', 'grok-2', 'grok-2-mini'],
+    defaultModel: 'grok-3',
+    loginCheck: { envVars: ['XAI_API_KEY'] },
+    loginCommand: 'grok auth',
+  },
 ];
 
 // ── Internal helpers ───────────────────────────────────────────────────────

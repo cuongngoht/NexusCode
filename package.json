@@ -80,7 +80,8 @@
             "antigravity",
             "copilot",
             "aider",
-            "custom"
+            "custom",
+            "grok"
           ],
           "description": "The default CLI provider to use when routing tasks."
         },

@@ -31,6 +31,7 @@ export interface NexusConfig {
     claude: ProviderConfig
     copilot: ProviderConfig
     aider: ProviderConfig
+    grok: ProviderConfig
   }
   mcp: McpConfig
 }

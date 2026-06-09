@@ -25,6 +25,7 @@ export const DIRECT_AGENT_IDS: readonly DirectAgentId[] = [
   'copilot',
   'aider',
   'custom',
+  'grok',
 ];
 
 const TASK_MODES: readonly TaskMode[] = [
@@ -44,46 +45,46 @@ type FitRanking = Partial<Record<AgentModeFit, readonly DirectAgentId[]>>;
 const MODE_RANKINGS: Record<TaskMode, FitRanking> = {
   ask: {
     best: ['codex', 'claude'],
-    good: ['antigravity', 'copilot'],
+    good: ['grok', 'antigravity', 'copilot'],
     limited: ['aider', 'custom'],
   },
   plan: {
     best: ['codex', 'claude'],
-    good: ['antigravity', 'copilot'],
+    good: ['grok', 'antigravity', 'copilot'],
     limited: ['aider', 'custom'],
   },
   edit: {
     best: ['claude', 'codex'],
-    good: ['aider'],
+    good: ['grok', 'aider'],
     limited: ['antigravity', 'copilot', 'custom'],
   },
   debug: {
     best: ['claude', 'codex'],
-    good: ['aider'],
+    good: ['grok', 'aider'],
     limited: ['antigravity', 'copilot', 'custom'],
   },
   test: {
-    best: ['claude', 'codex', 'aider'],
+    best: ['claude', 'codex', 'grok', 'aider'],
     limited: ['antigravity', 'copilot', 'custom'],
   },
   review: {
     best: ['codex', 'claude'],
-    good: ['antigravity', 'copilot'],
+    good: ['grok', 'antigravity', 'copilot'],
     limited: ['aider', 'custom'],
   },
   research: {
-    best: ['antigravity'],
+    best: ['antigravity', 'grok'],
     good: ['codex', 'claude'],
     limited: ['copilot', 'aider', 'custom'],
   },
   brainstorm: {
-    best: ['claude', 'codex', 'antigravity'],
+    best: ['claude', 'codex', 'antigravity', 'grok'],
     good: ['copilot'],
     limited: ['aider', 'custom'],
   },
   'scan-project': {
     best: ['antigravity', 'codex'],
-    good: ['claude'],
+    good: ['grok', 'claude'],
     limited: ['copilot', 'aider', 'custom'],
   },
 };
@@ -95,6 +96,7 @@ const DEFAULT_REASONS: Record<DirectAgentId, string> = {
   copilot: 'Can edit files but cannot run shell commands, so debug and test flows are limited.',
   aider: 'Strong direct file editing, but less suitable for ask, plan, and review than general reasoning agents.',
   custom: 'Behavior depends on the user-defined command, so Nexus treats it as an unknown fallback.',
+  grok: 'Strong ask and research support with web search capability, file editing, and shell execution.',
 };
 
 const FIT_ORDER: readonly AgentModeFit[] = ['best', 'good', 'limited'];
