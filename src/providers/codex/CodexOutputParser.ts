@@ -1,3 +1,3 @@
-import { DefaultOutputParser } from '../base/DefaultOutputParser';
+import { NLOutputParser } from '../base/NLOutputParser';
 
-export class CodexOutputParser extends DefaultOutputParser {}
+export class CodexOutputParser extends NLOutputParser {}

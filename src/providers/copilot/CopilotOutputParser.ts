@@ -1,3 +1,3 @@
-import { DefaultOutputParser } from '../base/DefaultOutputParser';
+import { NLOutputParser } from '../base/NLOutputParser';
 
-export class CopilotOutputParser extends DefaultOutputParser {}
+export class CopilotOutputParser extends NLOutputParser {}

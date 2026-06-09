@@ -10,7 +10,7 @@ import { ClaudeOutputParser } from './ClaudeOutputParser';
 export class ClaudeAgent extends BaseAgent {
   readonly id = 'claude' as const;
   readonly displayName = 'Claude';
-  readonly outputParser = new ClaudeOutputParser();
+  override get outputParser() { return new ClaudeOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ true,

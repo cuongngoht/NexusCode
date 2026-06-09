@@ -11,7 +11,7 @@ export abstract class BaseAgent implements IAgent {
   abstract readonly capabilities: AgentCapabilities;
   abstract readonly seededModels: ReadonlyArray<ProviderModel>;
   readonly defaultModel?: string;
-  readonly outputParser?: IOutputParser = undefined;
+  get outputParser(): IOutputParser | undefined { return undefined; }
 
   protected abstract readonly executableName: string;
 

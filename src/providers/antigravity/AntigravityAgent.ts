@@ -22,7 +22,7 @@ export class AntigravityAgent extends BaseAgent {
   readonly defaultModel = 'gemini-3.5-pro';
 
   protected readonly executableName = 'agy';
-  readonly outputParser = new AntigravityOutputParser();
+  override get outputParser() { return new AntigravityOutputParser(); }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];

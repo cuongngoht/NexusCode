@@ -7,7 +7,7 @@ import { CodexOutputParser } from './CodexOutputParser';
 export class CodexAgent extends BaseAgent {
   readonly id = 'codex' as const;
   readonly displayName = 'Codex';
-  readonly outputParser = new CodexOutputParser();
+  override get outputParser() { return new CodexOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ true,

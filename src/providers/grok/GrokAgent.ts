@@ -2,6 +2,7 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand } from '../../core/agent';
 import type { AgentTask, AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
+import { NLOutputParser } from '../base/NLOutputParser';
 
 export class GrokAgent extends BaseAgent {
   readonly id = 'grok' as const;
@@ -14,6 +15,7 @@ export class GrokAgent extends BaseAgent {
     { id: 'grok-2-mini', label: 'Grok 2 Mini', source: 'seeded' },
   ];
   readonly defaultModel = 'grok-3';
+  override get outputParser() { return new NLOutputParser(); }
   protected readonly executableName = 'grok';
 
   override async isLoggedIn(): Promise<boolean> {
