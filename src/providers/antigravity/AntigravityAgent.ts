@@ -1,14 +1,11 @@
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
 
-export class GeminiAgent extends BaseAgent {
-  readonly id = 'gemini' as const;
-  readonly displayName = 'Gemini';
+export class AntigravityAgent extends BaseAgent {
+  readonly id = 'antigravity' as const;
+  readonly displayName = 'Antigravity';
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ false,
@@ -16,25 +13,20 @@ export class GeminiAgent extends BaseAgent {
     /* supportsStreaming */ true,
   );
   readonly seededModels: ReadonlyArray<ProviderModel> = [
-    { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', source: 'seeded' },
+    { id: 'gemini-3.5-pro',   label: 'Gemini 3.5 Pro',   source: 'seeded' },
+    { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', source: 'seeded' },
+    { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro',   source: 'seeded' },
     { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', source: 'seeded' },
-    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', source: 'seeded' },
   ];
-  readonly defaultModel = 'gemini-2.5-pro';
+  readonly defaultModel = 'gemini-3.5-pro';
 
-  protected readonly executableName = 'gemini';
-
-  override async isLoggedIn(): Promise<boolean> {
-    if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']) return true;
-    return fs.existsSync(path.join(os.homedir(), '.gemini', 'credentials.json'))
-        || fs.existsSync(path.join(os.homedir(), '.config', 'gemini', 'credentials.json'));
-  }
+  protected readonly executableName = 'agy';
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];
     if (task.model) args.push('--model', task.model);
     args.push('--prompt', task.enhancedPrompt);
-    return new AgentCommand('gemini', args, undefined, undefined, task.enhancedPrompt);
+    return new AgentCommand('agy', args, undefined, undefined, task.enhancedPrompt);
   }
 
   parseOutput(raw: string): AgentOutput {

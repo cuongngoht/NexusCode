@@ -3,7 +3,7 @@ import { AiderAgent } from './aider/AiderAgent';
 import { ClaudeAgent } from './claude/ClaudeAgent';
 import { CodexAgent } from './codex/CodexAgent';
 import { CopilotAgent } from './copilot/CopilotAgent';
-import { GeminiAgent } from './gemini/GeminiAgent';
+import { AntigravityAgent } from './antigravity/AntigravityAgent';
 import { AgentTask } from '../core/agent';
 
 function makeTask(prompt: string, model?: string): AgentTask {
@@ -23,10 +23,16 @@ describe('provider agents', () => {
     expect(cmd.args).toEqual(['--model', 'gpt-5.2', 'fix it']);
   });
 
-  it('uses non-interactive prompt args for Gemini', () => {
-    const cmd = new GeminiAgent().buildCommand(makeTask('fix it', 'gemini-2.5-pro'));
-    expect(cmd.executable).toBe('gemini');
-    expect(cmd.args).toEqual(['--model', 'gemini-2.5-pro', '--prompt', 'fix it']);
+  it('uses non-interactive prompt args for Antigravity with model', () => {
+    const cmd = new AntigravityAgent().buildCommand(makeTask('fix it', 'gemini-3.5-pro'));
+    expect(cmd.executable).toBe('agy');
+    expect(cmd.args).toEqual(['--model', 'gemini-3.5-pro', '--prompt', 'fix it']);
+  });
+
+  it('uses non-interactive prompt args for Antigravity without model', () => {
+    const cmd = new AntigravityAgent().buildCommand(makeTask('fix it'));
+    expect(cmd.executable).toBe('agy');
+    expect(cmd.args).toEqual(['--prompt', 'fix it']);
   });
 
   it('uses non-interactive prompt args for Copilot', () => {

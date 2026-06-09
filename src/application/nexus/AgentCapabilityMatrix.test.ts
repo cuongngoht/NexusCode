@@ -17,27 +17,27 @@ describe('AgentCapabilityMatrix', () => {
     expect(askAgents).not.toContain('auto');
   });
 
-  it('edit recommends claude or codex before gemini', () => {
-    const [recommendation] = buildAgentRecommendations(['gemini', 'codex', 'claude'])
+  it('edit recommends claude or codex before antigravity', () => {
+    const [recommendation] = buildAgentRecommendations(['antigravity', 'codex', 'claude'])
       .filter(r => r.mode === 'edit');
 
     expect(recommendation.recommended).toBe('claude');
     expect(recommendation.alternatives).toContain('codex');
-    expect(recommendation.limited).toContain('gemini');
+    expect(recommendation.limited).toContain('antigravity');
   });
 
-  it('research recommends gemini when available', () => {
-    const recommendation = buildAgentRecommendations(['claude', 'gemini'])
+  it('research recommends antigravity when available', () => {
+    const recommendation = buildAgentRecommendations(['claude', 'antigravity'])
       .find(r => r.mode === 'research');
 
-    expect(recommendation?.recommended).toBe('gemini');
+    expect(recommendation?.recommended).toBe('antigravity');
   });
 
   it('does not choose unavailable best providers as primary recommendation', () => {
-    const recommendation = buildAgentRecommendations(['gemini'])
+    const recommendation = buildAgentRecommendations(['antigravity'])
       .find(r => r.mode === 'plan');
 
-    expect(recommendation?.recommended).toBe('gemini');
+    expect(recommendation?.recommended).toBe('antigravity');
     expect(recommendation?.unavailable).toContain('codex');
     expect(recommendation?.unavailable).toContain('claude');
   });

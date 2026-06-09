@@ -1,4 +1,4 @@
-export type ProviderId = 'nexus' | 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type ProviderId = 'nexus' | 'codex' | 'claude' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'auto';
 
 export type TaskMode =
   | 'ask'

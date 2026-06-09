@@ -6,7 +6,7 @@ import { RunAgentUseCase } from './application/usecases/RunAgentUseCase';
 import { ProcessRunner } from './runner/processRunner';
 import { ClaudeAgent } from './providers/claude/ClaudeAgent';
 import { CodexAgent } from './providers/codex/CodexAgent';
-import { GeminiAgent } from './providers/gemini/GeminiAgent';
+import { AntigravityAgent } from './providers/antigravity/AntigravityAgent';
 import { CopilotAgent } from './providers/copilot/CopilotAgent';
 import { AiderAgent } from './providers/aider/AiderAgent';
 import { CustomAgent } from './providers/custom/CustomAgent';
@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
   registry.register(new ClaudeAgent());
   registry.register(new CodexAgent());
-  registry.register(new GeminiAgent());
+  registry.register(new AntigravityAgent());
   registry.register(new CopilotAgent());
   registry.register(new AiderAgent());
   registry.register(new CustomAgent({
@@ -164,7 +164,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.summarizeProjectMap', async () => {
       const selected = await vscode.window.showQuickPick(
-        ['gemini', 'claude', 'codex', 'custom'],
+        ['antigravity', 'claude', 'codex', 'custom'],
         { placeHolder: 'Select AI provider for project map summary' },
       );
       if (!selected) { return; }

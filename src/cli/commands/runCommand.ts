@@ -10,7 +10,7 @@ import type { TaskMode } from '../../core/agent/AgentTask';
 import { ProcessRunner } from '../../runner/processRunner';
 import { ClaudeAgent } from '../../providers/claude/ClaudeAgent';
 import { CodexAgent } from '../../providers/codex/CodexAgent';
-import { GeminiAgent } from '../../providers/gemini/GeminiAgent';
+import { AntigravityAgent } from '../../providers/antigravity/AntigravityAgent';
 import { CopilotAgent } from '../../providers/copilot/CopilotAgent';
 import { AiderAgent } from '../../providers/aider/AiderAgent';
 import { CustomAgent } from '../../providers/custom/CustomAgent';
@@ -54,7 +54,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
   const registry = new AgentRegistry();
   registry.register(new ClaudeAgent());
   registry.register(new CodexAgent());
-  registry.register(new GeminiAgent());
+  registry.register(new AntigravityAgent());
   registry.register(new CopilotAgent());
   registry.register(new AiderAgent());
   registry.register(new CustomAgent(buildCliCustomConfig(workspaceRoot)));

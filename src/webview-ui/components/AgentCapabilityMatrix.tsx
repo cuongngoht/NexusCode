@@ -21,7 +21,7 @@ interface Props {
 const DIRECT_PROVIDERS: readonly DirectProviderId[] = [
   'claude',
   'codex',
-  'gemini',
+  'antigravity',
   'copilot',
   'aider',
   'custom',
@@ -39,7 +39,7 @@ const MATRIX_MODES: readonly TaskMode[] = [
 const PROVIDER_LABELS: Record<DirectProviderId, string> = {
   claude: 'Claude',
   codex: 'Codex',
-  gemini: 'Gemini',
+  antigravity: 'Antigravity',
   copilot: 'Copilot',
   aider: 'Aider',
   custom: 'Custom',

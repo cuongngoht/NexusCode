@@ -117,7 +117,7 @@ export class ChatController {
 
   private readonly LOGIN_COMMANDS: Partial<Record<string, string>> = {
     claude: 'claude',
-    gemini: 'gemini',
+    antigravity: 'agy',
     copilot: 'gh auth login',
   };
 

@@ -27,7 +27,7 @@ export function PlanReadyCard({
   const [selectedModel, setSelectedModel] = useState<string | undefined>(model);
 
   const availableSet = new Set(availableProviders);
-  const allProviders: ProviderId[] = ['nexus', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
+  const allProviders: ProviderId[] = ['nexus', 'antigravity', 'codex', 'claude', 'copilot', 'aider', 'custom'];
   const providerOptions: DropdownOption[] = allProviders
     .filter(id => id === 'nexus' || id === 'custom' || availableSet.has(id))
     .map(id => {

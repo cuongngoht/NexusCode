@@ -3,7 +3,7 @@ import { ParsedLine } from './parsers/genericParser';
 import { parseGeneric } from './parsers/genericParser';
 import { parseCodex } from './parsers/codexParser';
 import { parseClaude } from './parsers/claudeParser';
-import { parseGemini } from './parsers/geminiParser';
+import { parseAntigravity } from './parsers/antigravityParser';
 
 export function normalizeOutput(chunk: string, provider: ProviderId): ParsedLine[] {
   switch (provider) {
@@ -11,8 +11,8 @@ export function normalizeOutput(chunk: string, provider: ProviderId): ParsedLine
       return parseCodex(chunk);
     case 'claude':
       return parseClaude(chunk);
-    case 'gemini':
-      return parseGemini(chunk);
+    case 'antigravity':
+      return parseAntigravity(chunk);
     default:
       return parseGeneric(chunk);
   }

@@ -26,7 +26,7 @@ export interface McpConfig {
 export interface NexusConfig {
   version: 1
   providers: {
-    gemini: ProviderConfig
+    antigravity: ProviderConfig
     codex: ProviderConfig
     claude: ProviderConfig
     copilot: ProviderConfig

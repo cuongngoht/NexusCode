@@ -1,5 +1,5 @@
 import { parseGeneric, ParsedLine } from './genericParser';
 
-export function parseGemini(chunk: string): ParsedLine[] {
+export function parseAntigravity(chunk: string): ParsedLine[] {
   return parseGeneric(chunk);
 }

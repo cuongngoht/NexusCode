@@ -2,6 +2,15 @@ import * as vscode from 'vscode';
 import type { NexusConfig } from './NexusConfig';
 import { DEFAULT_CONFIG } from './DefaultConfig';
 
+function migrateConfig(raw: Record<string, unknown>): NexusConfig {
+  const providers = (raw['providers'] ?? {}) as Record<string, unknown>;
+  if ('gemini' in providers && !('antigravity' in providers)) {
+    providers['antigravity'] = providers['gemini'];
+    delete providers['gemini'];
+  }
+  return { ...structuredClone(DEFAULT_CONFIG), ...raw, providers: { ...DEFAULT_CONFIG.providers, ...providers } } as NexusConfig;
+}
+
 export class ConfigService {
   private get configUri(): vscode.Uri | undefined {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
@@ -15,8 +24,8 @@ export class ConfigService {
 
     try {
       const bytes = await vscode.workspace.fs.readFile(uri);
-      const parsed = JSON.parse(Buffer.from(bytes).toString('utf8')) as NexusConfig;
-      return parsed;
+      const raw = JSON.parse(Buffer.from(bytes).toString('utf8')) as Record<string, unknown>;
+      return migrateConfig(raw);
     } catch {
       return structuredClone(DEFAULT_CONFIG);
     }

@@ -13,7 +13,7 @@ import type {
 export type { ChatHistoryState };
 
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
-export type ProviderId = 'nexus' | 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type ProviderId = 'nexus' | 'codex' | 'claude' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'auto';
 export type DirectProviderId = Exclude<ProviderId, 'nexus' | 'auto'>;
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type TaskMode =
@@ -387,10 +387,17 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
 
 // ── Runtime deserialization guards ────────────────────────────────────────
 
-const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
+const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'antigravity', 'copilot', 'aider', 'custom', 'auto'];
 const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review'];
 
+const LEGACY_PROVIDER_LABELS: Record<string, string> = { 'Gemini': 'Antigravity' };
+function normalizeLegacyProviderLabel(label: string | undefined): string | undefined {
+  if (!label) return label;
+  return LEGACY_PROVIDER_LABELS[label] ?? label;
+}
+
 function toProviderId(v: unknown): ProviderId {
+  if (v === 'gemini') return 'antigravity';
   return VALID_PROVIDER_IDS.includes(v as ProviderId) ? (v as ProviderId) : 'auto';
 }
 
@@ -417,7 +424,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
     return {
       id: m.id,
       role: 'assistant' as const,
-      providerLabel: m.providerLabel,
+      providerLabel: normalizeLegacyProviderLabel(m.providerLabel),
       mode: m.mode,
       model: m.model,
       lines,
@@ -725,9 +732,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'availableProviders': {
-      const VALID_PROVIDERS: ProviderId[] = ['nexus', 'codex', 'claude', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
-      const restored = msg.savedProvider && (VALID_PROVIDERS as string[]).includes(msg.savedProvider)
-        ? msg.savedProvider as ProviderId
+      const VALID_PROVIDERS: ProviderId[] = ['nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'auto'];
+      const normalizedSavedProvider = msg.savedProvider === 'gemini' ? 'antigravity' : msg.savedProvider;
+      const restored = normalizedSavedProvider && (VALID_PROVIDERS as string[]).includes(normalizedSavedProvider)
+        ? normalizedSavedProvider as ProviderId
         : state.provider;
       return {
         ...state,
