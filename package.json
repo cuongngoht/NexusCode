@@ -9,7 +9,10 @@
     "vscode": "^1.85.0"
   },
 "categories": [
-  "Machine Learning"
+  "Machine Learning",
+  "AI",
+  "Other",
+  "Programming Languages"
 ],
   "activationEvents": [
     "onView:nexus.chatView"
