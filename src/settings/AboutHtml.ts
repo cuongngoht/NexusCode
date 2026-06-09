@@ -195,6 +195,10 @@ export function getAboutHtml(webview: vscode.Webview): string {
     <span class="author-name">Ngô Hoàng Tuấn Cường</span>
     <span class="author-github">github.com/cuongngoht</span>
   </div>
+  <div class="author-row">
+    <span class="author-name">Trần Hồng Đông</span>
+    <span class="author-github">github.com/dongth19</span>
+  </div>
 
   <hr />
 
