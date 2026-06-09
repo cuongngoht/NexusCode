@@ -119,6 +119,7 @@ export class ChatController {
     claude: 'claude',
     antigravity: 'agy',
     copilot: 'gh auth login',
+    grok: 'grok auth',
   };
 
   private async handleLoginProvider(providerId: string): Promise<void> {

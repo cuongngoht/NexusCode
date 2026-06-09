@@ -19,13 +19,13 @@ export class GrokAgent extends BaseAgent {
   protected readonly executableName = 'grok';
 
   override async isLoggedIn(): Promise<boolean> {
-    return !!process.env['XAI_API_KEY'];
+    return true;
   }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
-      ? ['--model', task.model, task.enhancedPrompt]
-      : [task.enhancedPrompt];
+      ? ['--model', task.model, '--single', task.enhancedPrompt]
+      : ['--single', task.enhancedPrompt];
     return new AgentCommand('grok', args, undefined, undefined, task.enhancedPrompt);
   }
 

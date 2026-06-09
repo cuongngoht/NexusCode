@@ -120,7 +120,6 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['grok-3', 'grok-3-mini', 'grok-2', 'grok-2-mini'],
     defaultModel: 'grok-3',
-    loginCheck: { envVars: ['XAI_API_KEY'] },
     loginCommand: 'grok auth',
   },
 ];
