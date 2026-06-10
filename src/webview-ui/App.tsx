@@ -219,6 +219,11 @@ export function App() {
                   {interp(LOCALES[locale].history.saveError, { message: state.historySaveError })}
                 </div>
               )}
+              {state.historyTrimmedCount != null && state.historyTrimmedCount > 0 && (
+                <div className="nx-history-trim-info" role="status">
+                  {interp(LOCALES[locale].history.trimmed, { count: state.historyTrimmedCount })}
+                </div>
+              )}
 
               <MessageList
                 conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}

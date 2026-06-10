@@ -157,7 +157,8 @@
     "deleteConversation": "Delete conversation",
     "clearAll": "Clear all",
     "confirmClear": "Confirm clear all?",
-    "saveError": "History save failed: {{message}}"
+    "saveError": "History save failed: {{message}}",
+    "trimmed": "{{count}} older conversation(s) removed (limit: 50)"
   },
   "git": {
     "changedFiles": "Changed files",

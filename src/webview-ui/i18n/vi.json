@@ -157,7 +157,8 @@
     "deleteConversation": "Xóa cuộc trò chuyện",
     "clearAll": "Xóa tất cả",
     "confirmClear": "Xác nhận xóa tất cả?",
-    "saveError": "Lưu lịch sử thất bại: {{message}}"
+    "saveError": "Lưu lịch sử thất bại: {{message}}",
+    "trimmed": "Đã xóa {{count}} cuộc trò chuyện cũ (giới hạn: 50)"
   },
   "git": {
     "changedFiles": "Tệp đã thay đổi",
