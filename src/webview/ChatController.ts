@@ -34,11 +34,12 @@ export class ChatController {
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
     subagentOrchestrator?: SubagentOrchestrator,
+    workspaceState?: vscode.Memento,
   ) {
     this.runTaskHandler = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
     this.historyHandler = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
-    this.reviewHandler = new ReviewHandler(post, extensionPath);
+    this.reviewHandler = new ReviewHandler(post, extensionPath, workspaceState);
 
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
     this.eventBus.on('*', busListener);
