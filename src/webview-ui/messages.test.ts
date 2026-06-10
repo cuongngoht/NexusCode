@@ -31,7 +31,7 @@ const recommendations: AgentRecommendation[] = [
     recommended: 'claude',
     alternatives: [],
     limited: [],
-    unavailable: ['codex', 'gemini', 'copilot', 'aider', 'custom'],
+    unavailable: ['codex', 'antigravity', 'copilot', 'aider', 'custom'],
   },
 ];
 

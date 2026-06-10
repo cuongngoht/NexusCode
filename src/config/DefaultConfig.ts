@@ -3,11 +3,12 @@ import type { NexusConfig } from './NexusConfig';
 export const DEFAULT_CONFIG: NexusConfig = {
   version: 1,
   providers: {
-    gemini: { enabled: true, command: 'gemini' },
+    antigravity: { enabled: true, command: 'agy' },
     codex: { enabled: true, command: 'codex' },
     claude: { enabled: false, command: 'claude' },
     copilot: { enabled: false, command: 'copilot' },
     aider: { enabled: false, command: 'aider' },
+    grok: { enabled: false, command: 'grok' },
   },
   mcp: {
     enabled: false,

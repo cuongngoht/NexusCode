@@ -10,7 +10,7 @@ function isInternalLog(line: string): boolean {
     /^\s+at (async )?[\w<]/.test(line) || // stack trace: "    at foo.bar"
     /^\s+at file:\/\//.test(line) ||      // stack trace: "    at file:///..."
     /^Error: exception \w/.test(line) ||  // JS Error wrapper around another error
-    /YOLO mode is enabled/i.test(line) || // Gemini CLI startup banner (also on stdout)
+    /YOLO mode is enabled/i.test(line) || // Antigravity CLI startup banner (also on stdout)
     /All tool calls will be automatically approved/i.test(line)
   );
 }
@@ -37,6 +37,10 @@ export class ProcessRunner implements IProcessRunner {
     let stdout = '';
     let stderr = '';
 
+    const label = `[ProcessRunner] ${command.executable}`;
+    const truncatedArgs = command.args.map(a => a.length > 200 ? a.slice(0, 200) + '…' : a);
+    console.log(`${label} spawn`, { args: truncatedArgs, cwd: options.cwd });
+
     return new Promise((resolve, reject) => {
       const child = spawn(command.executable, [...command.args], {
         cwd: options.cwd,
@@ -50,32 +54,39 @@ export class ProcessRunner implements IProcessRunner {
       });
 
       this.activeProcess = child;
+      console.log(`${label} pid=${child.pid}`);
 
       if (command.stdin !== undefined) {
+        const stdinPreview = command.stdin.slice(0, 300);
+        console.log(`${label} stdin (${command.stdin.length} chars):`, stdinPreview);
         child.stdin.write(command.stdin);
-        child.stdin.end();
       }
+      child.stdin.end();
 
       child.stdout.setEncoding('utf8');
       child.stderr.setEncoding('utf8');
 
       child.stdout.on('data', (chunk: string) => {
         stdout += chunk;
+        console.log(`${label} stdout chunk (${chunk.length} chars):`, chunk.slice(0, 300));
         options.onStdout?.(chunk);
       });
 
       child.stderr.on('data', (chunk: string) => {
         stderr += chunk;
+        console.log(`${label} stderr chunk:`, chunk.slice(0, 300));
         const filtered = filterNoise(chunk);
         if (filtered.trim()) options.onStderr?.(filtered);
       });
 
       child.on('error', (err: Error) => {
+        console.error(`${label} error:`, err.message);
         this.activeProcess = null;
         reject(err);
       });
 
       child.on('close', (code: number | null) => {
+        console.log(`${label} closed, exit code=${code}, elapsed=${Date.now() - startedAt}ms`);
         this.activeProcess = null;
         resolve(new AgentResult(code ?? -1, stdout, stderr, Date.now() - startedAt));
       });

@@ -25,7 +25,8 @@
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],
-      "sourceMaps": true
+      "sourceMaps": true,
+      "preLaunchTask": "compile"
     },
     {
       // Debug webview trong Extension Development Host bằng browser DevTools

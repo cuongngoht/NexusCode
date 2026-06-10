@@ -6,11 +6,12 @@ import { RunAgentUseCase } from './application/usecases/RunAgentUseCase';
 import { ProcessRunner } from './runner/processRunner';
 import { ClaudeAgent } from './providers/claude/ClaudeAgent';
 import { CodexAgent } from './providers/codex/CodexAgent';
-import { GeminiAgent } from './providers/gemini/GeminiAgent';
+import { AntigravityAgent } from './providers/antigravity/AntigravityAgent';
 import { CopilotAgent } from './providers/copilot/CopilotAgent';
 import { AiderAgent } from './providers/aider/AiderAgent';
 import { CustomAgent } from './providers/custom/CustomAgent';
 import { NexusAgent } from './providers/nexus/NexusAgent';
+import { GrokAgent } from './providers/grok/GrokAgent';
 import { NexusOrchestrator } from './application/nexus/NexusOrchestrator';
 import { ChatViewProvider } from './webview/ChatViewProvider';
 import { LauncherViewProvider } from './webview/LauncherViewProvider';
@@ -53,13 +54,14 @@ export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
   registry.register(new ClaudeAgent());
   registry.register(new CodexAgent());
-  registry.register(new GeminiAgent());
+  registry.register(new AntigravityAgent());
   registry.register(new CopilotAgent());
   registry.register(new AiderAgent());
   registry.register(new CustomAgent({
     getCommand: () => vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? '',
     getArgs: () => vscode.workspace.getConfiguration('nexus').get<string[]>('customProvider.args') ?? ['{{prompt}}'],
   }));
+  registry.register(new GrokAgent());
   registry.register(new NexusAgent());
 
   const eventBus = new EventBus();
@@ -164,7 +166,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.summarizeProjectMap', async () => {
       const selected = await vscode.window.showQuickPick(
-        ['gemini', 'claude', 'codex', 'custom'],
+        ['antigravity', 'claude', 'codex', 'custom'],
         { placeHolder: 'Select AI provider for project map summary' },
       );
       if (!selected) { return; }

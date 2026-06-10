@@ -8,9 +8,11 @@ import { AgentCapabilityMatrix } from './AgentCapabilityMatrix';
 const matrix: AgentModeCapability[] = [
   { agentId: 'claude', mode: 'edit', fit: 'best', reason: 'Strong edit support.' },
   { agentId: 'codex', mode: 'edit', fit: 'good', reason: 'Strong reasoning support.' },
-  { agentId: 'gemini', mode: 'edit', fit: 'limited', reason: 'Cannot run shell commands.' },
-  { agentId: 'gemini', mode: 'test', fit: 'limited', reason: 'Cannot run shell commands.' },
+  { agentId: 'antigravity', mode: 'edit', fit: 'limited', reason: 'Cannot run shell commands.' },
+  { agentId: 'antigravity', mode: 'test', fit: 'limited', reason: 'Cannot run shell commands.' },
   { agentId: 'claude', mode: 'test', fit: 'best', reason: 'Can run shell commands.' },
+  { agentId: 'antigravity', mode: 'research', fit: 'best', reason: 'Strong research/search support with web search capability.' },
+  { agentId: 'claude', mode: 'research', fit: 'good', reason: 'Strong reasoning support.' },
 ];
 
 const recommendations: AgentRecommendation[] = [
@@ -18,14 +20,21 @@ const recommendations: AgentRecommendation[] = [
     mode: 'edit',
     recommended: 'claude',
     alternatives: ['codex'],
-    limited: ['gemini'],
+    limited: ['antigravity'],
     unavailable: ['copilot', 'aider', 'custom'],
   },
   {
     mode: 'test',
     recommended: 'claude',
     alternatives: [],
-    limited: ['gemini'],
+    limited: ['antigravity'],
+    unavailable: ['codex', 'copilot', 'aider', 'custom'],
+  },
+  {
+    mode: 'research',
+    recommended: 'antigravity',
+    alternatives: ['claude'],
+    limited: [],
     unavailable: ['codex', 'copilot', 'aider', 'custom'],
   },
 ];
@@ -38,8 +47,8 @@ function renderComponent(
     <I18nContext.Provider value={LOCALES.en}>
       <AgentCapabilityMatrix
         mode="edit"
-        provider="gemini"
-        availableProviders={['claude', 'codex', 'gemini']}
+        provider="antigravity"
+        availableProviders={['claude', 'codex', 'antigravity']}
         matrix={matrix}
         recommendations={recommendations}
         onProviderChange={onProviderChange}
@@ -77,8 +86,15 @@ describe('AgentCapabilityMatrix component', () => {
   });
 
   it('shows a warning when the selected provider is limited', () => {
-    renderComponent({ mode: 'test', provider: 'gemini' });
+    renderComponent({ mode: 'test', provider: 'antigravity' });
 
-    expect(screen.getByText('Current provider Gemini is limited for Test Agent.')).toBeTruthy();
+    expect(screen.getByText('Current provider Antigravity is limited for Test Agent.')).toBeTruthy();
+  });
+
+  it('shows antigravity as recommended (best) for research mode', () => {
+    renderComponent({ mode: 'research', provider: 'antigravity' });
+
+    expect(screen.getByText('Recommended for Research Agent: Antigravity')).toBeTruthy();
+    expect(screen.getByText('Also good: Claude')).toBeTruthy();
   });
 });

@@ -4,21 +4,23 @@
     {
       // Build một lần: compile TypeScript + Vite webview
       "label": "compile",
-      "dependsOn": [
-        "compile:extension",
-        "compile:webview"
-      ],
-      "dependsOrder": "sequence",
+      "type": "npm",
+      "script": "compile",
+      "problemMatcher": [],
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
       }
     },
     {
       "label": "compile:extension",
       "type": "npm",
       "script": "compile:extension",
-      "problemMatcher": "$tsc",
+      "problemMatcher": [],
       "presentation": {
         "reveal": "silent"
       }

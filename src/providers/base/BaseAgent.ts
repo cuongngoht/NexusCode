@@ -11,7 +11,7 @@ export abstract class BaseAgent implements IAgent {
   abstract readonly capabilities: AgentCapabilities;
   abstract readonly seededModels: ReadonlyArray<ProviderModel>;
   readonly defaultModel?: string;
-  readonly outputParser?: IOutputParser = undefined;
+  get outputParser(): IOutputParser | undefined { return undefined; }
 
   protected abstract readonly executableName: string;
 
@@ -51,6 +51,10 @@ export abstract class BaseAgent implements IAgent {
       `ALWAYS use absolute paths when calling any file tool (read_file, write_file, etc.).\n` +
       `NEVER use relative paths. Every path must start with: ${cwd}`
     );
+  }
+
+  async isLoggedIn(): Promise<boolean> {
+    return true;
   }
 
   async isAvailable(): Promise<boolean> {

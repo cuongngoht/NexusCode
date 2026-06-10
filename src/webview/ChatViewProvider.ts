@@ -56,6 +56,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       new ChatHistoryStore(this.workspaceState),
       this.extensionUri.fsPath,
       this.subagentOrchestrator,
+      this.workspaceState,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {

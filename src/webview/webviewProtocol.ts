@@ -14,7 +14,7 @@ export type { ProviderDetectionResult };
 export type ExtensionMessage =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -23,7 +23,7 @@ export type ExtensionMessage =
       type: 'availableProviders';
       providers: string[];
       detection: ProviderDetectionResult[];
-      needsSetup: boolean;
+      needsSetup?: boolean;
       savedProvider?: string;
       capabilityMatrix?: AgentModeCapability[];
       recommendations?: AgentRecommendation[];
@@ -35,6 +35,7 @@ export type ExtensionMessage =
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
+  | { type: 'historySaveError'; message: string }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {
@@ -66,4 +67,5 @@ export type WebviewMessage =
   | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string; provider?: ProviderId }
   | { type: 'openPlan'; planPath?: string }
   | { type: 'openSavedPlans' }
-  | { type: 'refreshMcpStatus' };
+  | { type: 'refreshMcpStatus' }
+  | { type: 'loginProvider'; providerId: ProviderId };

@@ -21,10 +21,11 @@ export interface AgentRecommendation {
 export const DIRECT_AGENT_IDS: readonly DirectAgentId[] = [
   'claude',
   'codex',
-  'gemini',
+  'antigravity',
   'copilot',
   'aider',
   'custom',
+  'grok',
 ];
 
 const TASK_MODES: readonly TaskMode[] = [
@@ -44,46 +45,46 @@ type FitRanking = Partial<Record<AgentModeFit, readonly DirectAgentId[]>>;
 const MODE_RANKINGS: Record<TaskMode, FitRanking> = {
   ask: {
     best: ['codex', 'claude'],
-    good: ['gemini', 'copilot'],
+    good: ['grok', 'antigravity', 'copilot'],
     limited: ['aider', 'custom'],
   },
   plan: {
     best: ['codex', 'claude'],
-    good: ['gemini', 'copilot'],
+    good: ['grok', 'antigravity', 'copilot'],
     limited: ['aider', 'custom'],
   },
   edit: {
     best: ['claude', 'codex'],
-    good: ['aider'],
-    limited: ['gemini', 'copilot', 'custom'],
+    good: ['grok', 'aider'],
+    limited: ['antigravity', 'copilot', 'custom'],
   },
   debug: {
     best: ['claude', 'codex'],
-    good: ['aider'],
-    limited: ['gemini', 'copilot', 'custom'],
+    good: ['grok', 'aider'],
+    limited: ['antigravity', 'copilot', 'custom'],
   },
   test: {
-    best: ['claude', 'codex', 'aider'],
-    limited: ['gemini', 'copilot', 'custom'],
+    best: ['claude', 'codex', 'grok', 'aider'],
+    limited: ['antigravity', 'copilot', 'custom'],
   },
   review: {
     best: ['codex', 'claude'],
-    good: ['gemini', 'copilot'],
+    good: ['grok', 'antigravity', 'copilot'],
     limited: ['aider', 'custom'],
   },
   research: {
-    best: ['gemini'],
+    best: ['antigravity', 'grok'],
     good: ['codex', 'claude'],
     limited: ['copilot', 'aider', 'custom'],
   },
   brainstorm: {
-    best: ['claude', 'codex', 'gemini'],
+    best: ['claude', 'codex', 'antigravity', 'grok'],
     good: ['copilot'],
     limited: ['aider', 'custom'],
   },
   'scan-project': {
-    best: ['gemini', 'codex'],
-    good: ['claude'],
+    best: ['antigravity', 'codex'],
+    good: ['grok', 'claude'],
     limited: ['copilot', 'aider', 'custom'],
   },
 };
@@ -91,10 +92,11 @@ const MODE_RANKINGS: Record<TaskMode, FitRanking> = {
 const DEFAULT_REASONS: Record<DirectAgentId, string> = {
   claude: 'Strong edit, debug, and test support because it can edit files and run shell commands.',
   codex: 'Strong planning and code reasoning support with file editing and shell execution.',
-  gemini: 'Strong research/search support because it can search web, but limited for flows that need shell commands.',
+  antigravity: 'Strong research/search support with web search capability, but limited for flows that need shell commands.',
   copilot: 'Can edit files but cannot run shell commands, so debug and test flows are limited.',
   aider: 'Strong direct file editing, but less suitable for ask, plan, and review than general reasoning agents.',
   custom: 'Behavior depends on the user-defined command, so Nexus treats it as an unknown fallback.',
+  grok: 'Strong ask and research support with web search capability, file editing, and shell execution.',
 };
 
 const FIT_ORDER: readonly AgentModeFit[] = ['best', 'good', 'limited'];

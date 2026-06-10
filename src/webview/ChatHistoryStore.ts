@@ -28,7 +28,10 @@ export class ChatHistoryStore implements IChatHistoryStore {
         .map(id => this.loadV2Conv(id))
         .filter((c): c is SerializedConversation => c !== null);
       if (conversations.length > 0) {
-        return { version: 1, activeConversationId: index.activeConversationId, conversations };
+        // Ensure activeConversationId actually exists in the loaded set
+        const activeExists = conversations.some(c => c.id === index.activeConversationId);
+        const activeConversationId = activeExists ? index.activeConversationId : conversations[0].id;
+        return { version: 1, activeConversationId, conversations };
       }
     }
 
@@ -36,37 +39,42 @@ export class ChatHistoryStore implements IChatHistoryStore {
     return this.loadV1();
   }
 
-  async save(history: ChatHistoryState): Promise<void> {
+  async save(history: ChatHistoryState): Promise<{ trimmedCount: number }> {
     const trimmed = trimToLimit(history.conversations);
+    const trimmedCount = history.conversations.length - trimmed.length;
     const newIds = new Set(trimmed.map(c => c.id));
 
-    // Remove keys for conversations that were trimmed or deleted
+    // Capture old IDs before any write so GC after index update is safe
     const oldIndex = this.loadV2Index();
-    if (oldIndex) {
-      for (const id of oldIndex.conversationIds) {
-        if (!newIds.has(id)) {
-          await this.memento.update(convKey(id), undefined);
-        }
-      }
-    }
+    const oldIds: string[] = oldIndex?.conversationIds ?? [];
 
-    // Write each conversation to its own key
+    // Step 1: Write all new conversation blobs first.
+    // If we crash here, the index still points to old valid data.
     for (const conv of trimmed) {
       await this.memento.update(convKey(conv.id), conv);
     }
 
-    // Write the index
-    const v2Index: V2Index = {
+    // Step 2: Update the index (all new keys exist at this point).
+    await this.memento.update(V2_INDEX_KEY, {
       version: 2,
       activeConversationId: history.activeConversationId,
       conversationIds: trimmed.map(c => c.id),
-    };
-    await this.memento.update(V2_INDEX_KEY, v2Index);
+    } satisfies V2Index);
 
-    // Migrate: erase the old v1 blob once v2 is written
+    // Step 3: GC old keys no longer referenced by the index.
+    // write-before-delete ensures we never lose data on crash.
+    for (const id of oldIds) {
+      if (!newIds.has(id)) {
+        await this.memento.update(convKey(id), undefined);
+      }
+    }
+
+    // Step 4: Migrate: erase the old v1 blob once v2 is committed.
     if (this.memento.get(V1_KEY) !== undefined) {
       await this.memento.update(V1_KEY, undefined);
     }
+
+    return { trimmedCount };
   }
 
   async clear(): Promise<void> {
@@ -87,7 +95,9 @@ export class ChatHistoryStore implements IChatHistoryStore {
       const raw = this.memento.get<unknown>(V2_INDEX_KEY);
       if (!raw || typeof raw !== 'object') return null;
       const data = raw as Record<string, unknown>;
-      if (data['version'] !== 2 || !Array.isArray(data['conversationIds'])) return null;
+      if (data['version'] !== 2) return null;
+      if (!Array.isArray(data['conversationIds'])) return null;
+      if (typeof data['activeConversationId'] !== 'string') return null;
       return raw as V2Index;
     } catch {
       return null;
@@ -98,6 +108,12 @@ export class ChatHistoryStore implements IChatHistoryStore {
     try {
       const raw = this.memento.get<unknown>(convKey(id));
       if (!raw || typeof raw !== 'object') return null;
+      const d = raw as Record<string, unknown>;
+      if (typeof d['id'] !== 'string' || !d['id']) return null;
+      if (typeof d['title'] !== 'string') return null;
+      if (!Array.isArray(d['messages'])) return null;
+      if (typeof d['createdAt'] !== 'number') return null;
+      if (typeof d['updatedAt'] !== 'number') return null;
       return raw as SerializedConversation;
     } catch {
       return null;

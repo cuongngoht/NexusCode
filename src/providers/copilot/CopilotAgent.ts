@@ -7,7 +7,7 @@ import { CopilotOutputParser } from './CopilotOutputParser';
 export class CopilotAgent extends BaseAgent {
   readonly id = 'copilot' as const;
   readonly displayName = 'Copilot';
-  readonly outputParser = new CopilotOutputParser();
+  override get outputParser() { return new CopilotOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ false,
@@ -22,6 +22,10 @@ export class CopilotAgent extends BaseAgent {
   readonly defaultModel = 'gpt-5.2';
 
   protected readonly executableName = 'copilot';
+
+  override async isLoggedIn(): Promise<boolean> {
+    return !!(process.env['GITHUB_TOKEN'] || process.env['GH_TOKEN']);
+  }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model

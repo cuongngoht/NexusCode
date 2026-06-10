@@ -11,7 +11,22 @@
   "provider": {
     "autoDetect": "Auto-detect",
     "autoDetectBadge": "Default",
-    "customCli": "Custom CLI"
+    "customCli": "Custom CLI",
+    "notLoggedIn": "Not logged in",
+    "loginRequired": "Not logged in — click to open login terminal",
+    "login": "Login",
+    "abbrevNexus": "NX",
+    "abbrevAuto": "AU",
+    "abbrevClaude": "CL",
+    "abbrevCodex": "CX",
+    "abbrevCopilot": "CP",
+    "abbrevAider": "AI",
+    "abbrevGrok": "GK",
+    "abbrevCustom": "CU",
+    "abbrevAntigravity": "AG",
+    "statusReady": "Ready",
+    "statusNotLoggedIn": "Not logged in",
+    "statusNotInstalled": "Not installed"
   },
   "model": {
     "auto": "Default model",
@@ -96,7 +111,12 @@
     "good": "Good",
     "limitedFit": "Limited",
     "unsupported": "Unsupported",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "inlineRecommendation": "{{provider}} is better for {{mode}}",
+    "useIt": "Use it →",
+    "dismiss": "Dismiss",
+    "matrixTitle": "Agent Capability Matrix",
+    "closeMatrix": "Close matrix"
   },
   "composer": {
     "placeholder": "Ask Nexus about this file…  (⌘↵ to send)",
@@ -126,7 +146,8 @@
     "ariaLabel": "Conversation history",
     "deleteConversation": "Delete conversation",
     "clearAll": "Clear all",
-    "confirmClear": "Confirm clear all?"
+    "confirmClear": "Confirm clear all?",
+    "saveError": "History save failed: {{message}}"
   },
   "git": {
     "changedFiles": "Changed files",

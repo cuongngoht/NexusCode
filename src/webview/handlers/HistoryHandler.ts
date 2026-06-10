@@ -30,6 +30,13 @@ export class HistoryHandler {
 
   async save(history: ChatHistoryState): Promise<void> {
     this._latestHistory = history;
-    await this.store.save(history);
+    try {
+      const { trimmedCount } = await this.store.save(history);
+      if (trimmedCount > 0) {
+        this.post({ type: 'historySaveError', message: `${trimmedCount} older conversation(s) removed (limit: 50)` });
+      }
+    } catch (err) {
+      this.post({ type: 'historySaveError', message: String(err) });
+    }
   }
 }

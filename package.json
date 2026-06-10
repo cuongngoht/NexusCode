@@ -9,7 +9,10 @@
     "vscode": "^1.85.0"
   },
 "categories": [
-  "Machine Learning"
+  "Machine Learning",
+  "AI",
+  "Other",
+  "Programming Languages"
 ],
   "activationEvents": [
     "onView:nexus.chatView"
@@ -74,10 +77,11 @@
             "auto",
             "codex",
             "claude",
-            "gemini",
+            "antigravity",
             "copilot",
             "aider",
-            "custom"
+            "custom",
+            "grok"
           ],
           "description": "The default CLI provider to use when routing tasks."
         },

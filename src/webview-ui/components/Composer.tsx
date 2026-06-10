@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
-import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconSparkle, IconTool, IconGlobe, IconAgent, IconSearch } from '../NexusIcons';
+import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
+import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
-import { AgentCapabilityMatrix } from './AgentCapabilityMatrix';
+import { InlineRecommendationBanner } from './InlineRecommendationBanner';
+import { AgentChipSelector } from './AgentChipSelector';
 
 interface Props {
   isRunning: boolean;
@@ -28,6 +29,7 @@ interface Props {
   onOpenReviewAgentFile: () => void;
   subagentsEnabled: boolean;
   onToggleSubagents: () => void;
+  onLoginProvider: (id: ProviderId) => void;
 }
 
 export function Composer({
@@ -39,7 +41,7 @@ export function Composer({
   workspaceFiles, onRequestWorkspaceFiles,
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
-  subagentsEnabled, onToggleSubagents,
+  subagentsEnabled, onToggleSubagents, onLoginProvider,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -131,37 +133,13 @@ export function Composer({
   const removeAttachment = (i: number) =>
     onAttachmentsChange(attachments.filter((_, j) => j !== i));
 
-  // Provider options
-  const availableSet = new Set(availableProviders);
-  const detectionDone = providerDetection.length > 0;
-  const all: ProviderId[] = ['nexus', 'auto', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom'];
-  const providerOptions: DropdownOption[] = all
-    .filter(id => {
-      if (id === 'nexus' || id === 'auto' || id === 'custom') return true;
-      if (!detectionDone) return false;
-      return availableSet.has(id);
-    })
-    .map(id => {
-      if (id === 'nexus') return { value: 'nexus', label: 'Nexus', icon: IconSparkle, badge: t.nexus.badge };
-      if (id === 'auto') return { value: 'auto', label: t.provider.autoDetect, icon: IconSparkle, badge: t.provider.autoDetectBadge };
-      if (id === 'custom') return { value: 'custom', label: t.provider.customCli, icon: IconTool };
-      const info = providerDetection.find(d => d.id === id);
-      const label = info ? (info.version ? `${info.cliLabel} ${info.version}` : info.cliLabel) : id;
-      return { value: id, label, icon: IconSparkle };
-    });
+  const currentProviderInfo = providerDetection.find(d => d.id === provider);
+  const showLoginBanner = !!(
+    currentProviderInfo?.installed &&
+    currentProviderInfo.loggedIn === false &&
+    currentProviderInfo.loginCommand
+  );
 
-  // Mode options
-  const modeOptions: DropdownOption[] = [
-    { value: 'ask', label: t.mode.ask.label, desc: t.mode.ask.desc, icon: IconSparkle },
-    { value: 'edit', label: t.mode.edit.label, desc: t.mode.edit.desc, icon: IconTool },
-    { value: 'research', label: t.mode.research.label, desc: t.mode.research.desc, icon: IconGlobe },
-    { value: 'brainstorm', label: t.mode.brainstorm.label, desc: t.mode.brainstorm.desc, icon: IconSparkle },
-    { value: 'review', label: t.mode.review.label, desc: t.mode.review.desc, icon: IconAgent },
-    { value: 'debug', label: t.mode.debug.label, desc: t.mode.debug.desc, icon: IconSearch },
-    { value: 'plan', label: t.mode.plan.label, desc: t.mode.plan.desc, icon: IconSparkle },
-    { value: 'test', label: t.mode.test.label, desc: t.mode.test.desc, icon: IconTool },
-    { value: 'scan-project', label: t.mode['scan-project'].label, desc: t.mode['scan-project'].desc, icon: IconSearch },
-  ];
 
   const closePicker = () => { setShowFilePicker(false); setFileSearch(''); };
 
@@ -208,6 +186,18 @@ export function Composer({
           </div>
         </div>
       </>
+    )}
+    {showLoginBanner && (
+      <div className="nx-login-banner">
+        <span className="nx-login-banner-text">{t.provider.loginRequired}</span>
+        <button
+          type="button"
+          className="nx-login-banner-btn"
+          onClick={() => onLoginProvider(provider)}
+        >
+          {t.provider.login}
+        </button>
+      </div>
     )}
     <div className="fl-composer">
       {attachments.length > 0 && (
@@ -330,6 +320,39 @@ export function Composer({
               <IconAgent size={13} />
               {t.composer.subagentsToggle}
             </button>
+            <Menu positioning={{ position: 'above', align: 'start' }}>
+              <MenuTrigger disableButtonEnhancement>
+                <button
+                  type="button"
+                  className="nx-mode-pill"
+                  disabled={isRunning}
+                >
+                  <span className="nx-mode-pill-label">
+                    {(t.mode as Record<string, { label: string; desc: string }>)[mode]?.label ?? mode}
+                  </span>
+                  <span className="nx-mode-pill-chevron" aria-hidden="true">▾</span>
+                </button>
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  {(['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
+                    const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
+                    return (
+                      <MenuItem
+                        key={m}
+                        className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}`}
+                        onClick={() => onModeChange(m)}
+                      >
+                        <span className="nx-mode-menu-item-main">
+                          <span>{modeT?.label ?? m}</span>
+                          <span className="nx-mode-menu-item-desc">{modeT?.desc}</span>
+                        </span>
+                      </MenuItem>
+                    );
+                  })}
+                </MenuList>
+              </MenuPopover>
+            </Menu>
           </div>
 
           <div className="fl-cmp-bar-right">
@@ -358,32 +381,24 @@ export function Composer({
         </div>
       </div>
 
-      <AgentCapabilityMatrix
+      <InlineRecommendationBanner
         mode={mode}
         provider={provider}
+        recommendations={agentRecommendations}
+        onUseRecommended={onProviderChange}
+      />
+
+      <AgentChipSelector
+        provider={provider}
+        mode={mode}
         availableProviders={availableProviders}
+        providerDetection={providerDetection}
         matrix={agentCapabilityMatrix}
         recommendations={agentRecommendations}
+        disabled={isRunning}
         onProviderChange={onProviderChange}
       />
 
-      <div className="fl-selectors fl-selectors--bottom">
-        <NexusDropdown
-          value={provider}
-          options={providerOptions}
-          onChange={v => onProviderChange(v as ProviderId)}
-          disabled={isRunning}
-          direction="up"
-          searchable
-        />
-        <NexusDropdown
-          value={mode}
-          options={modeOptions}
-          onChange={v => onModeChange(v as TaskMode)}
-          disabled={isRunning}
-          direction="up"
-        />
-      </div>
     </div>
     </>
   );

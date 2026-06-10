@@ -30,7 +30,7 @@ const def: SubagentDefinition = {
   role: 'planner',
   displayName: 'Planner',
   promptFile: 'subagents/planner.md',
-  preferredAgentIds: ['codex', 'claude', 'gemini'],
+  preferredAgentIds: ['codex', 'claude', 'antigravity'],
   applicableModes: ['edit'],
 };
 
@@ -53,17 +53,18 @@ describe('SubagentRouter', () => {
   it('returns undefined when no preferred agent is available', async () => {
     const codex = makeAgent('codex', false);
     const claude = makeAgent('claude', false);
-    const gemini = makeAgent('gemini', false);
-    const router = new SubagentRouter(makeRegistry([codex, claude, gemini]));
+    const antigravity = makeAgent('antigravity', false);
+    const router = new SubagentRouter(makeRegistry([codex, claude, antigravity]));
     const result = await router.resolve(def);
     expect(result).toBeUndefined();
   });
 
   it('skips agents not registered in the registry', async () => {
-    const gemini = makeAgent('gemini', true);
-    const router = new SubagentRouter(makeRegistry([gemini]));
+    const antigravity = makeAgent('antigravity', true);
+    const router = new SubagentRouter(makeRegistry([antigravity]));
     const result = await router.resolve(def);
-    // codex and claude are not in registry, falls through to gemini
-    expect(result?.id).toBe('gemini');
+    // codex and claude are not in registry, falls through to antigravity
+
+    expect(result?.id).toBe('antigravity');
   });
 });

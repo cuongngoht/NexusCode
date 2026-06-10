@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
@@ -7,7 +10,7 @@ import { ClaudeOutputParser } from './ClaudeOutputParser';
 export class ClaudeAgent extends BaseAgent {
   readonly id = 'claude' as const;
   readonly displayName = 'Claude';
-  readonly outputParser = new ClaudeOutputParser();
+  override get outputParser() { return new ClaudeOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ true,
@@ -23,10 +26,20 @@ export class ClaudeAgent extends BaseAgent {
 
   protected readonly executableName = 'claude';
 
+  override async isLoggedIn(): Promise<boolean> {
+    const home = os.homedir();
+    const candidates = [
+      path.join(home, '.claude', 'auth.json'),
+      path.join(home, '.claude', '.credentials.json'),
+      path.join(home, '.config', 'claude', 'auth.json'),
+    ];
+    return candidates.some(p => fs.existsSync(p));
+  }
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
-      ? ['--model', task.model, task.enhancedPrompt]
-      : [task.enhancedPrompt];
+      ? ['--dangerously-skip-permissions', '--model', task.model, task.enhancedPrompt]
+      : ['--dangerously-skip-permissions', task.enhancedPrompt];
     return new AgentCommand('claude', args, undefined, undefined, task.enhancedPrompt);
   }
 

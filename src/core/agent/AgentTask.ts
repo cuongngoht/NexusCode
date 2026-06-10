@@ -1,6 +1,6 @@
 import type { AgentResult } from './AgentResult';
 
-export type AgentId = 'nexus' | 'claude' | 'codex' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type AgentId = 'nexus' | 'claude' | 'codex' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'grok' | 'auto';
 
 export type TaskMode =
   | 'ask'

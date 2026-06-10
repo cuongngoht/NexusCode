@@ -7,7 +7,7 @@ import { CodexOutputParser } from './CodexOutputParser';
 export class CodexAgent extends BaseAgent {
   readonly id = 'codex' as const;
   readonly displayName = 'Codex';
-  readonly outputParser = new CodexOutputParser();
+  override get outputParser() { return new CodexOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ true,
@@ -25,10 +25,14 @@ export class CodexAgent extends BaseAgent {
 
   protected readonly executableName = 'codex';
 
+  override async isLoggedIn(): Promise<boolean> {
+    return !!process.env['OPENAI_API_KEY'];
+  }
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args = task.model
-      ? ['--model', task.model, task.enhancedPrompt]
-      : [task.enhancedPrompt];
+      ? ['-y', '--model', task.model, task.enhancedPrompt]
+      : ['-y', task.enhancedPrompt];
     return new AgentCommand('codex', args, undefined, undefined, task.enhancedPrompt);
   }
 

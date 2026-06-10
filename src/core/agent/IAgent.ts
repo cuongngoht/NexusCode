@@ -13,6 +13,7 @@ export interface IAgent {
   readonly defaultModel?: string;
   readonly outputParser?: IOutputParser;
   isAvailable(): Promise<boolean>;
+  isLoggedIn?(): Promise<boolean>;
   buildCommand(task: AgentTask): AgentCommand;
   parseOutput(raw: string): AgentOutput;
 }

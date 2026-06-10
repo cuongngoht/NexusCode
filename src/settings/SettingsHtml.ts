@@ -4,11 +4,12 @@ import type { NexusConfig } from '../config/NexusConfig';
 import { DEFAULT_CONFIG } from '../config/DefaultConfig';
 
 const PROVIDER_LABELS: Record<string, string> = {
-  gemini: 'Gemini CLI',
+  antigravity: 'Antigravity CLI',
   codex: 'Codex CLI',
   claude: 'Claude CLI',
   copilot: 'Copilot CLI',
   aider: 'Aider',
+  grok: 'Grok CLI',
 };
 
 export function getSettingsHtml(

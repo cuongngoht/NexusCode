@@ -34,11 +34,12 @@ export class ChatController {
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
     subagentOrchestrator?: SubagentOrchestrator,
+    workspaceState?: vscode.Memento,
   ) {
     this.runTaskHandler = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
     this.historyHandler = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
-    this.reviewHandler = new ReviewHandler(post, extensionPath);
+    this.reviewHandler = new ReviewHandler(post, extensionPath, workspaceState);
 
     const busListener = (event: NexusEvent) => this.forwardEvent(event);
     this.eventBus.on('*', busListener);
@@ -105,11 +106,36 @@ export class ChatController {
       case 'openSavedPlans':
         await this.runTaskHandler.openSavedPlans();
         break;
+      case 'loginProvider':
+        await this.handleLoginProvider(msg.providerId);
+        break;
     }
   }
 
   async refreshProviders(): Promise<void> {
     await this.providerHandler.refresh();
+  }
+
+  private readonly LOGIN_COMMANDS: Partial<Record<string, string>> = {
+    claude: 'claude',
+    antigravity: 'agy',
+    copilot: 'gh auth login',
+    grok: 'grok auth',
+  };
+
+  private async handleLoginProvider(providerId: string): Promise<void> {
+    const command = this.LOGIN_COMMANDS[providerId];
+    if (!command) return;
+    const terminal = vscode.window.createTerminal({ name: `NexusCode: Login ${providerId}` });
+    terminal.sendText(command);
+    terminal.show();
+    const disposable = vscode.window.onDidCloseTerminal(t => {
+      if (t === terminal) {
+        disposable.dispose();
+        void this.providerHandler.refresh();
+      }
+    });
+    this.disposables.push(disposable);
   }
 
   private forwardEvent(event: NexusEvent): void {

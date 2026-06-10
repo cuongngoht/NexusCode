@@ -13,7 +13,7 @@ import type {
 export type { ChatHistoryState };
 
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
-export type ProviderId = 'nexus' | 'codex' | 'claude' | 'gemini' | 'copilot' | 'aider' | 'custom' | 'auto';
+export type ProviderId = 'nexus' | 'codex' | 'claude' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'grok' | 'auto';
 export type DirectProviderId = Exclude<ProviderId, 'nexus' | 'auto'>;
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type TaskMode =
@@ -65,8 +65,33 @@ export interface GitReviewContext {
   message?: string;
 }
 
-let _seq = 0;
-const uid = () => `${++_seq}`;
+let _seqSuffix = 0;
+const uid = (): string => `${Date.now()}-${++_seqSuffix}`;
+
+function deriveTitle(prompt: string): string {
+  // Find first non-empty, non-code-block line
+  const lines = prompt.split('\n');
+  let firstLine = '';
+  let inCode = false;
+  for (const line of lines) {
+    if (line.startsWith('```')) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    const t = line.trim();
+    if (t) { firstLine = t; break; }
+  }
+  if (!firstLine) firstLine = prompt.trim();
+
+  // Truncate at first sentence boundary if it falls within a reasonable range
+  const sentEnd = firstLine.search(/[.?!]/);
+  const base = (sentEnd > 10 && sentEnd < 60) ? firstLine.slice(0, sentEnd) : firstLine;
+  const clean = base.trim();
+
+  if (clean.length <= 52) return clean;
+  // Cut at last word boundary before 52 chars, add ellipsis
+  const cut = clean.slice(0, 52);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 15 ? cut.slice(0, lastSpace) : cut) + '…';
+}
 
 // ── Message types ─────────────────────────────────────────────────────────
 
@@ -207,6 +232,7 @@ export interface AppState {
   reviewContext?: GitReviewContext;
   reviewContextError?: string;
   historyError?: string;
+  historySaveError?: string;
   mcpEnabled: boolean;
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
@@ -234,6 +260,7 @@ export function createInitialState(): AppState {
     reviewContext: undefined,
     reviewContextError: undefined,
     historyError: undefined,
+    historySaveError: undefined,
     mcpEnabled: false,
     mcpActivePresets: [],
     lastMcpUsed: undefined,
@@ -257,6 +284,8 @@ export interface ProviderInfo {
   displayName: string;
   cliLabel: string;
   installed: boolean;
+  loggedIn?: boolean;
+  loginCommand?: string;
   version?: string;
   executablePath?: string;
   reason?: string;
@@ -268,7 +297,7 @@ export interface ProviderInfo {
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -277,7 +306,7 @@ export type ExtMsg =
       type: 'availableProviders';
       providers: string[];
       detection: ProviderInfo[];
-      needsSetup: boolean;
+      needsSetup?: boolean;
       savedProvider?: string;
       capabilityMatrix?: AgentModeCapability[];
       recommendations?: AgentRecommendation[];
@@ -289,6 +318,7 @@ export type ExtMsg =
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
+  | { type: 'historySaveError'; message: string }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {
@@ -385,10 +415,17 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
 
 // ── Runtime deserialization guards ────────────────────────────────────────
 
-const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
+const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto'];
 const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review'];
 
+const LEGACY_PROVIDER_LABELS: Record<string, string> = { 'Gemini': 'Antigravity' };
+function normalizeLegacyProviderLabel(label: string | undefined): string | undefined {
+  if (!label) return label;
+  return LEGACY_PROVIDER_LABELS[label] ?? label;
+}
+
 function toProviderId(v: unknown): ProviderId {
+  if (v === 'gemini') return 'antigravity';
   return VALID_PROVIDER_IDS.includes(v as ProviderId) ? (v as ProviderId) : 'auto';
 }
 
@@ -415,7 +452,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
     return {
       id: m.id,
       role: 'assistant' as const,
-      providerLabel: m.providerLabel,
+      providerLabel: normalizeLegacyProviderLabel(m.providerLabel) ?? m.providerLabel ?? '',
       mode: m.mode,
       model: m.model,
       lines,
@@ -456,6 +493,18 @@ function updateLastAssistant(conv: Conversation, fn: (m: AssistantMessage) => As
   return { ...conv, messages: [...msgs.slice(0, -1), fn(last as AssistantMessage)] };
 }
 
+function completeRunningActivities(conv: Conversation): Conversation {
+  return updateLastAssistant(conv, m => ({
+    ...m,
+    steps: m.steps.map(s => ({
+      ...s,
+      activities: s.activities.map(a =>
+        a.status === 'running' ? { ...a, status: 'done' as const } : a
+      ),
+    })),
+  }));
+}
+
 // ── Reducer ───────────────────────────────────────────────────────────────
 
 export function reducer(state: AppState, action: AppAction): AppState {
@@ -463,8 +512,33 @@ export function reducer(state: AppState, action: AppAction): AppState {
     case 'tick':
       return { ...state, elapsed: state.elapsed + 1 };
 
-    case 'setProvider':
-      return { ...state, provider: action.value, selectedModel: undefined };
+    case 'setProvider': {
+      const EXCLUDED_AUTO_MODES: TaskMode[] = ['scan-project'];
+      const matrix = state.agentCapabilityMatrix;
+
+      const currentFit = matrix.find(
+        r => r.agentId === action.value && r.mode === state.mode,
+      )?.fit;
+
+      let newMode: TaskMode = state.mode;
+      if (currentFit !== 'best' && currentFit !== 'good' && matrix.length > 0) {
+        const bestEntry = matrix.find(
+          r => r.agentId === action.value &&
+               r.fit === 'best' &&
+               !EXCLUDED_AUTO_MODES.includes(r.mode),
+        );
+        if (bestEntry) newMode = bestEntry.mode;
+      }
+
+      return {
+        ...state,
+        provider: action.value,
+        selectedModel: undefined,
+        mode: newMode,
+        reviewContext: newMode === 'review' ? state.reviewContext : undefined,
+        reviewContextError: newMode === 'review' ? state.reviewContextError : undefined,
+      };
+    }
 
     case 'setModel':
       return { ...state, selectedModel: action.value };
@@ -498,7 +572,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'selectConversation':
-      return { ...state, activeConvId: action.id, showHistory: false, saveKey: state.saveKey + 1 };
+      return { ...state, activeConvId: action.id, showHistory: false };
 
     case 'deleteConversation': {
       const remaining = state.conversations.filter(c => c.id !== action.id);
@@ -529,11 +603,14 @@ export function reducer(state: AppState, action: AppAction): AppState {
         model: action.model,
         timestamp: action.timestamp,
       };
-      return updateActiveConv(state, conv => ({
-        ...conv,
-        title: conv.messages.length === 0 ? action.prompt.slice(0, 50).trim() : conv.title,
-        messages: [...conv.messages, msg],
-      }));
+      return {
+        ...updateActiveConv(state, conv => ({
+          ...conv,
+          title: conv.messages.length === 0 ? deriveTitle(action.prompt) : conv.title,
+          messages: [...conv.messages, msg],
+        })),
+        saveKey: state.saveKey + 1,
+      };
     }
 
     case 'extMsg':
@@ -657,7 +734,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'taskCompleted':
       return {
         ...updateActiveConv(state, conv =>
-          updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode })),
+          completeRunningActivities(
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode })),
+          ),
         ),
         isRunning: false,
         saveKey: state.saveKey + 1,
@@ -666,7 +745,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'taskStopped':
       return {
         ...updateActiveConv(state, conv =>
-          updateLastAssistant(conv, m => ({ ...m, isStreaming: false })),
+          completeRunningActivities(
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false })),
+          ),
         ),
         isRunning: false,
         saveKey: state.saveKey + 1,
@@ -675,7 +756,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'taskError':
       return {
         ...updateActiveConv(state, conv =>
-          updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message })),
+          completeRunningActivities(
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message })),
+          ),
         ),
         isRunning: false,
         saveKey: state.saveKey + 1,
@@ -708,12 +791,17 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           const steps = m.steps.map((s, i) => {
             if (i !== m.steps.length - 1 || s.status !== 'running') return s;
             const activities = [...s.activities];
-            // Update the last matching running activity
+            let found = false;
             for (let j = activities.length - 1; j >= 0; j--) {
               if (activities[j].label === msg.label && activities[j].status === 'running') {
                 activities[j] = { ...activities[j], status: msg.status };
+                found = true;
                 break;
               }
+            }
+            // No prior running activity (e.g. agy emits done directly) — add it
+            if (!found) {
+              activities.push({ kind: msg.activityKind as Activity['kind'], status: msg.status, label: msg.label });
             }
             return { ...s, activities };
           });
@@ -723,9 +811,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'availableProviders': {
-      const VALID_PROVIDERS: ProviderId[] = ['nexus', 'codex', 'claude', 'gemini', 'copilot', 'aider', 'custom', 'auto'];
-      const restored = msg.savedProvider && (VALID_PROVIDERS as string[]).includes(msg.savedProvider)
-        ? msg.savedProvider as ProviderId
+      const VALID_PROVIDERS: ProviderId[] = ['nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto'];
+      const normalizedSavedProvider = msg.savedProvider === 'gemini' ? 'antigravity' : msg.savedProvider;
+      const restored = normalizedSavedProvider && (VALID_PROVIDERS as string[]).includes(normalizedSavedProvider)
+        ? normalizedSavedProvider as ProviderId
         : state.provider;
       return {
         ...state,
@@ -733,7 +822,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         providerDetection: msg.detection,
         agentCapabilityMatrix: msg.capabilityMatrix ?? [],
         agentRecommendations: msg.recommendations ?? [],
-        needsSetup: msg.needsSetup,
+        needsSetup: msg.needsSetup ?? false,
         isDetecting: false,
         provider: restored,
       };
@@ -752,6 +841,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'historyError':
       return { ...state, historyError: msg.message ?? 'Failed to load history' };
+
+    case 'historySaveError':
+      return { ...state, historySaveError: msg.message };
 
     case 'reviewContext':
       return { ...state, reviewContext: msg.context, reviewContextError: undefined };
@@ -789,4 +881,5 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName },
       };
   }
+  return state;
 }
