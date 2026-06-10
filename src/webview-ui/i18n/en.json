@@ -138,7 +138,9 @@
     "agentMentionNoResults": "No agents found",
     "agentsReloaded": "Agents reloaded: {{count}} found",
     "slashCommands": "Slash commands",
-    "cmdReloadAgents": "Reload agent prompt list"
+    "cmdReloadAgents": "Reload agent prompt list",
+    "modeUnsupported": "Current agent does not support this mode",
+    "modeLimited": "Current agent has limited support for this mode"
   },
   "emptyState": {
     "title": "Start a conversation",

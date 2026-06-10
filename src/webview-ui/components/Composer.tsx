@@ -167,6 +167,22 @@ export function Composer({
     );
   }, [agentPrompts, agentMention]);
 
+  const modeFitMap = useMemo(() => {
+    const map = new Map<TaskMode, string>();
+    if (provider === 'auto' || provider === 'nexus') return map;
+    for (const cap of agentCapabilityMatrix) {
+      if (cap.agentId === provider) map.set(cap.mode, cap.fit);
+    }
+    return map;
+  }, [agentCapabilityMatrix, provider]);
+
+  // Auto-fallback to 'ask' when the current mode becomes unsupported after a provider switch
+  useEffect(() => {
+    if (modeFitMap.size > 0 && modeFitMap.get(mode) === 'unsupported') {
+      onModeChange('ask');
+    }
+  }, [modeFitMap, mode, onModeChange]);
+
   const selectAgent = useCallback((id: string) => {
     if (!agentMention) return;
     const before = prompt.slice(0, agentMention.triggerIndex);
@@ -541,14 +557,22 @@ export function Composer({
                 <MenuList>
                   {(['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
                     const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
+                    const fit = modeFitMap.get(m);
+                    const isUnsupported = fit === 'unsupported';
+                    const isLimited = fit === 'limited';
                     return (
                       <MenuItem
                         key={m}
-                        className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}`}
-                        onClick={() => onModeChange(m)}
+                        className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}${isUnsupported ? ' nx-mode-menu-item--unsupported' : ''}`}
+                        onClick={() => !isUnsupported && onModeChange(m)}
+                        disabled={isUnsupported}
+                        title={isUnsupported ? t.composer.modeUnsupported : isLimited ? t.composer.modeLimited : undefined}
                       >
                         <span className="nx-mode-menu-item-main">
-                          <span>{modeT?.label ?? m}</span>
+                          <span>
+                            {modeT?.label ?? m}
+                            {isLimited && <span className="nx-mode-fit-badge nx-mode-fit-badge--limited">!</span>}
+                          </span>
                           <span className="nx-mode-menu-item-desc">{modeT?.desc}</span>
                         </span>
                       </MenuItem>

@@ -138,7 +138,9 @@
     "agentMentionNoResults": "Không tìm thấy agent",
     "agentsReloaded": "Đã tải lại agents: tìm thấy {{count}}",
     "slashCommands": "Lệnh tắt",
-    "cmdReloadAgents": "Tải lại danh sách agent prompt"
+    "cmdReloadAgents": "Tải lại danh sách agent prompt",
+    "modeUnsupported": "Agent hiện tại không hỗ trợ chế độ này",
+    "modeLimited": "Agent hiện tại hỗ trợ hạn chế chế độ này"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",
