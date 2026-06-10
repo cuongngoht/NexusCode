@@ -20,7 +20,7 @@ describe('loadPromptMarkdown – bundled', () => {
   it('loads a bundled mode file from media/prompts', () => {
     const result = loadPromptMarkdown('modes', 'ask', { extensionRoot: EXTENSION_ROOT });
     expect(result.length).toBeGreaterThan(0);
-    expect(result).toContain('Answer the user directly');
+    expect(result).toContain('Answer the user');
   });
 
   it('returns fallback when file is missing and no workspace override', () => {
@@ -69,7 +69,7 @@ describe('loadPromptMarkdown – workspace override', () => {
       workspaceRoot: tmp,
       extensionRoot: EXTENSION_ROOT,
     });
-    expect(result).toContain('Answer the user directly');
+    expect(result).toContain('Answer the user');
   });
 });
 

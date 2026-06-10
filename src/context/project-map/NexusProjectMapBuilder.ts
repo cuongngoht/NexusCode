@@ -32,7 +32,6 @@ export class NexusProjectMapBuilder {
         if (unit.frameworks.length > 0) {
           lines.push(`- Frameworks: ${unit.frameworks.join(' / ')}`);
         }
-        lines.push(`- Confidence: ${unit.confidence}`);
         if (unit.markers.length > 0) {
           lines.push('- Markers:');
           for (const m of unit.markers) {
@@ -55,21 +54,6 @@ export class NexusProjectMapBuilder {
       }
       lines.push('');
     }
-
-    lines.push('## Workspace Files', '');
-    lines.push(`Total: ${tree.files.length} files, ${tree.folders.length} folders`);
-    if (tree.skipped.folders.length > 0) {
-      lines.push(`Skipped: ${tree.skipped.folders.length} ignored folders`);
-    }
-    lines.push('');
-
-    lines.push('## Suggested Context Scopes', '');
-    for (const unit of units) {
-      lines.push(`- ${unit.name}`);
-    }
-    lines.push('- whole-workspace');
-    lines.push('- git-changes');
-    lines.push('');
 
     return lines.join('\n');
   }

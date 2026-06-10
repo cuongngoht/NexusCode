@@ -161,3 +161,25 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
 
   return lines.join('\n');
 }
+
+export function buildAgentAugmentedPrompt(params: {
+  agentMarkdownBundle: string;
+  userPrompt: string;
+  existingEnhancedPrompt?: string;
+}): string {
+  const { agentMarkdownBundle, userPrompt, existingEnhancedPrompt } = params;
+
+  if (existingEnhancedPrompt) {
+    return `${agentMarkdownBundle}\n\n---\n\n${existingEnhancedPrompt}`;
+  }
+
+  return [
+    agentMarkdownBundle,
+    '',
+    '---',
+    '',
+    '# User Task',
+    '',
+    userPrompt,
+  ].join('\n');
+}

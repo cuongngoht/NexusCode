@@ -33,7 +33,7 @@ export class HistoryHandler {
     try {
       const { trimmedCount } = await this.store.save(history);
       if (trimmedCount > 0) {
-        this.post({ type: 'historySaveError', message: `${trimmedCount} older conversation(s) removed (limit: 50)` });
+        this.post({ type: 'historyTrimmed', removedCount: trimmedCount });
       }
     } catch (err) {
       this.post({ type: 'historySaveError', message: String(err) });

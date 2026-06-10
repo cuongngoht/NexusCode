@@ -133,7 +133,17 @@
     "stop": "Dừng",
     "send": "Gửi",
     "subagentsToggle": "Subagents",
-    "subagentsTooltip": "Chạy các pre-agent trước agent chính"
+    "subagentsTooltip": "Chạy các pre-agent trước agent chính",
+    "dropHere": "Thả file vào đây",
+    "agentMentionNoResults": "Không tìm thấy agent",
+    "agentsReloaded": "Đã tải lại agents: tìm thấy {{count}}",
+    "slashCommands": "Lệnh tắt",
+    "cmdReloadAgents": "Tải lại danh sách agent prompt",
+    "cmdReloadSkills": "Tải lại danh sách skill prompt",
+    "skillMentionNoResults": "Không tìm thấy skill",
+    "skillsReloaded": "Đã tải lại skills: tìm thấy {{count}}",
+    "modeUnsupported": "Agent hiện tại không hỗ trợ chế độ này",
+    "modeLimited": "Agent hiện tại hỗ trợ hạn chế chế độ này"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",
@@ -147,13 +157,16 @@
     "deleteConversation": "Xóa cuộc trò chuyện",
     "clearAll": "Xóa tất cả",
     "confirmClear": "Xác nhận xóa tất cả?",
-    "saveError": "Lưu lịch sử thất bại: {{message}}"
+    "saveError": "Lưu lịch sử thất bại: {{message}}",
+    "trimmed": "Đã xóa {{count}} cuộc trò chuyện cũ (giới hạn: 50)"
   },
   "git": {
     "changedFiles": "Tệp đã thay đổi",
     "close": "Đóng",
     "noChanges": "Không có thay đổi.",
-    "openScm": "Mở Source Control"
+    "openScm": "Mở Source Control",
+    "attachFile": "Đính kèm file",
+    "attachAll": "Đính kèm tất cả"
   },
   "dropdown": {
     "select": "Chọn…",

@@ -172,6 +172,26 @@
           "type": "boolean",
           "default": false,
           "description": "Include the docs subagent when applicable."
+        },
+        "nexus.agents.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable project-level markdown agent prompts and @agent autocomplete."
+        },
+        "nexus.agents.autoCopyDefaults": {
+          "type": "boolean",
+          "default": true,
+          "description": "Copy bundled default agent prompts into .nexus/agents when missing."
+        },
+        "nexus.skills.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable project-level markdown skills and #skill autocomplete."
+        },
+        "nexus.skills.autoCopyDefaults": {
+          "type": "boolean",
+          "default": true,
+          "description": "Copy bundled default skill prompts into .nexus/skills when missing."
         }
       }
     }

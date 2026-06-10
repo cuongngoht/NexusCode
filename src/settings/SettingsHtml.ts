@@ -30,12 +30,16 @@ export function getSettingsHtml(
       const label = PROVIDER_LABELS[id] ?? id;
       const checked = p.enabled ? 'checked' : '';
       return /* html */`
-        <div class="provider-row">
-          <label>
-            <input type="checkbox" name="${id}" ${checked} />
-            <span class="provider-name">${escapeHtml(label)}</span>
-          </label>
+        <div class="provider-row" data-provider="${escapeHtml(String(id))}">
+          <div class="provider-main">
+            <label>
+              <input type="checkbox" name="${id}" ${checked} />
+              <span class="provider-name">${escapeHtml(label)}</span>
+            </label>
+            <div class="provider-actions" data-provider-actions="${escapeHtml(String(id))}"></div>
+          </div>
           <div class="provider-command">Command: <code>${escapeHtml(p.command)}</code></div>
+          <div class="provider-status muted" data-provider-status="${escapeHtml(String(id))}">Not scanned yet.</div>
         </div>`;
     })
     .join('\n');
@@ -141,6 +145,12 @@ export function getSettingsHtml(
     .provider-row {
       margin-bottom: 14px;
     }
+    .provider-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
     .provider-row label {
       display: flex;
       align-items: center;
@@ -160,6 +170,46 @@ export function getSettingsHtml(
       margin-left: 24px;
       font-size: 0.8em;
       color: var(--vscode-descriptionForeground);
+    }
+    .provider-status {
+      margin-top: 3px;
+      margin-left: 24px;
+      font-size: 0.8em;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .provider-status.ok {
+      color: var(--vscode-testing-iconPassed);
+    }
+    .provider-status.warn {
+      color: var(--vscode-testing-iconQueued);
+    }
+    .provider-status.err {
+      color: var(--vscode-errorForeground);
+    }
+    .provider-status.muted {
+      color: var(--vscode-descriptionForeground);
+    }
+    .provider-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .provider-action-btn {
+      padding: 3px 9px;
+      background: transparent;
+      color: var(--vscode-button-secondaryForeground);
+      border: 1px solid var(--vscode-button-secondaryBackground);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.8em;
+      font-family: var(--vscode-font-family);
+      white-space: nowrap;
+    }
+    .provider-action-btn:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
     }
     code {
       font-family: var(--vscode-editor-font-family);
@@ -267,13 +317,91 @@ export function getSettingsHtml(
     (function () {
       const vscode = acquireVsCodeApi();
       const base = ${safeJson};
+      const providerRows = document.getElementById('providers');
+
+      function setProviderStatus(id, text, className) {
+        const el = document.querySelector('[data-provider-status="' + id + '"]');
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'provider-status ' + className;
+      }
+
+      function clearProviderActions(id) {
+        const el = document.querySelector('[data-provider-actions="' + id + '"]');
+        if (el) el.textContent = '';
+        return el;
+      }
+
+      function addProviderButton(container, id, action, label) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'provider-action-btn';
+        btn.textContent = label;
+        btn.dataset.providerAction = action;
+        btn.dataset.providerId = id;
+        container.appendChild(btn);
+      }
+
+      function renderProviderInfo(info) {
+        const actions = clearProviderActions(info.id);
+        if (!actions) return;
+
+        if (!info.installed) {
+          const reason = info.reason ? ' (' + info.reason + ')' : '';
+          setProviderStatus(info.id, 'Not installed' + reason, 'err');
+          if (info.installCommand) {
+            addProviderButton(actions, info.id, 'install', 'Install CLI');
+          }
+          return;
+        }
+
+        const version = info.version ? ' ' + info.version : '';
+        const path = info.executablePath ? ' at ' + info.executablePath : '';
+        const auth = info.authStatus === 'authenticated'
+          ? 'Auth: authenticated.'
+          : info.authStatus === 'unauthenticated'
+            ? 'Auth: not logged in.'
+            : 'Auth not verified.';
+        const statusClass = info.authStatus === 'unauthenticated'
+          ? 'warn'
+          : info.authStatus === 'authenticated'
+            ? 'ok'
+            : 'muted';
+        setProviderStatus(info.id, 'Installed' + version + path + '. ' + auth, statusClass);
+        if (info.authStatus === 'unauthenticated' && info.loginCommand) {
+          addProviderButton(actions, info.id, 'login', 'Login');
+        }
+      }
 
       document.getElementById('scanBtn').addEventListener('click', function () {
         const btn = document.getElementById('scanBtn');
         btn.disabled = true;
         btn.textContent = 'Scanning…';
         document.getElementById('status').textContent = '';
+        document.querySelectorAll('#providers input[type=checkbox]').forEach(function (cb) {
+          setProviderStatus(cb.name, 'Scanning…', 'muted');
+          clearProviderActions(cb.name);
+        });
         vscode.postMessage({ type: 'settings.scan' });
+      });
+
+      providerRows.addEventListener('click', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const btn = target.closest('button[data-provider-action]');
+        if (!btn) return;
+        const action = btn.dataset.providerAction;
+        const providerId = btn.dataset.providerId;
+        if (!providerId) return;
+        if (action === 'install') {
+          vscode.postMessage({ type: 'settings.installProvider', providerId: providerId });
+          document.getElementById('status').textContent = 'Install command opened in terminal. Review it and press Enter to run.';
+          document.getElementById('status').className = 'status ok';
+        } else if (action === 'login') {
+          vscode.postMessage({ type: 'settings.loginProvider', providerId: providerId });
+          document.getElementById('status').textContent = 'Login command opened in terminal. Review it and press Enter to run.';
+          document.getElementById('status').className = 'status ok';
+        }
       });
 
       document.getElementById('saveBtn').addEventListener('click', function () {
@@ -316,7 +444,13 @@ export function getSettingsHtml(
           const checkboxes = document.querySelectorAll('#providers input[type=checkbox]');
           checkboxes.forEach(function (cb) {
             const info = detectionMap[cb.name];
-            if (info !== undefined) { cb.checked = info.installed; }
+            if (info !== undefined) {
+              cb.checked = info.installed;
+              renderProviderInfo(info);
+            } else {
+              setProviderStatus(cb.name, 'No detector configured.', 'muted');
+              clearProviderActions(cb.name);
+            }
           });
           const found = (msg.detection || []).filter(function (d) { return d.installed; }).length;
           status.textContent = 'Scan complete. ' + found + ' CLI(s) found.';

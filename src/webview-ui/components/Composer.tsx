@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
+import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 
@@ -30,6 +30,26 @@ interface Props {
   subagentsEnabled: boolean;
   onToggleSubagents: () => void;
   onLoginProvider: (id: ProviderId) => void;
+  onResolveDroppedFiles: (paths: string[]) => void;
+  agentPrompts: AgentPrompt[];
+  agentMention?: AgentMentionState;
+  onAgentMentionChange: (state: AgentMentionState | undefined) => void;
+  onReloadAgents: () => void;
+  skillPrompts: SkillPrompt[];
+  skillMention?: SkillMentionState;
+  onSkillMentionChange: (state: SkillMentionState | undefined) => void;
+  onReloadSkills: () => void;
+}
+
+interface SlashCommand {
+  id: string;
+  description: string;
+  run: () => void;
+}
+
+interface SlashMention {
+  query: string;
+  selectedIndex: number;
 }
 
 export function Composer({
@@ -42,12 +62,18 @@ export function Composer({
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
   subagentsEnabled, onToggleSubagents, onLoginProvider,
+  onResolveDroppedFiles,
+  agentPrompts, agentMention, onAgentMentionChange, onReloadAgents,
+  skillPrompts, skillMention, onSkillMentionChange, onReloadSkills,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
   const [selectedBase, setSelectedBase] = useState<string>('');
   const [fileSearch, setFileSearch] = useState('');
   const [showFilePicker, setShowFilePicker] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [slashMention, setSlashMention] = useState<SlashMention | undefined>(undefined);
+  const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
 
@@ -104,39 +130,246 @@ export function Composer({
     setFileSearch('');
   }, [attachments, onAttachmentsChange]);
 
+  const slashCommands = useMemo<SlashCommand[]>(() => [
+    {
+      id: 'reload-agents',
+      description: t.composer.cmdReloadAgents,
+      run: () => { onReloadAgents(); setPrompt(''); },
+    },
+    {
+      id: 'reload-skills',
+      description: t.composer.cmdReloadSkills,
+      run: () => { onReloadSkills(); setPrompt(''); },
+    },
+  ], [onReloadAgents, onReloadSkills, t.composer.cmdReloadAgents, t.composer.cmdReloadSkills]);
+
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
+    // Dispatch any recognized slash command that was typed and submitted manually
+    if (trimmed.startsWith('/')) {
+      const cmdId = trimmed.slice(1);
+      const cmd = slashCommands.find(c => c.id === cmdId);
+      if (cmd) {
+        cmd.run();
+        setPrompt('');
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        return;
+      }
+    }
     if ((!trimmed && mode !== 'review') || isRunning) return;
     onRun(trimmed, mode === 'review' ? selectedBase || undefined : undefined, attachments);
     setPrompt('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     textareaRef.current?.focus();
-  }, [prompt, isRunning, mode, attachments, onRun]);
+  }, [prompt, isRunning, mode, attachments, onRun, slashCommands]);
+
+  const filteredSlash = useMemo(() => {
+    if (!slashMention) return [];
+    const q = slashMention.query.toLowerCase();
+    return slashCommands.filter(c => c.id.startsWith(q));
+  }, [slashCommands, slashMention]);
+
+  const filteredAgents = useMemo(() => {
+    if (!agentMention) return [];
+    const q = agentMention.query.toLowerCase();
+    return agentPrompts.filter(a =>
+      a.id.toLowerCase().startsWith(q) || a.displayName.toLowerCase().includes(q),
+    );
+  }, [agentPrompts, agentMention]);
+
+  const filteredSkills = useMemo(() => {
+    if (!skillMention) return [];
+    const q = skillMention.query.toLowerCase();
+    return skillPrompts.filter(s =>
+      s.id.toLowerCase().startsWith(q) || s.displayName.toLowerCase().includes(q),
+    );
+  }, [skillPrompts, skillMention]);
+
+  const modeFitMap = useMemo(() => {
+    const map = new Map<TaskMode, string>();
+    if (provider === 'auto' || provider === 'nexus') return map;
+    for (const cap of agentCapabilityMatrix) {
+      if (cap.agentId === provider) map.set(cap.mode, cap.fit);
+    }
+    return map;
+  }, [agentCapabilityMatrix, provider]);
+
+  // Auto-fallback to 'ask' when the current mode becomes unsupported after a provider switch
+  useEffect(() => {
+    if (modeFitMap.size > 0 && modeFitMap.get(mode) === 'unsupported') {
+      onModeChange('ask');
+    }
+  }, [modeFitMap, mode, onModeChange]);
+
+  const selectAgent = useCallback((id: string) => {
+    if (!agentMention) return;
+    const before = prompt.slice(0, agentMention.triggerIndex);
+    const after = prompt.slice(agentMention.triggerIndex + 1 + agentMention.query.length);
+    const newPrompt = `${before}@${id} ${after}`;
+    setPrompt(newPrompt);
+    onAgentMentionChange(undefined);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [agentMention, prompt, onAgentMentionChange]);
+
+  const selectSkill = useCallback((id: string) => {
+    if (!skillMention) return;
+    const before = prompt.slice(0, skillMention.triggerIndex);
+    const after = prompt.slice(skillMention.triggerIndex + 1 + skillMention.query.length);
+    const newPrompt = `${before}#${id} ${after}`;
+    setPrompt(newPrompt);
+    onSkillMentionChange(undefined);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [skillMention, prompt, onSkillMentionChange]);
+
+  const selectSlash = useCallback((cmd: SlashCommand) => {
+    setSlashMention(undefined);
+    cmd.run();
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    textareaRef.current?.focus();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (slashMention && filteredSlash.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSlashMention({ ...slashMention, selectedIndex: Math.min(slashMention.selectedIndex + 1, filteredSlash.length - 1) });
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSlashMention({ ...slashMention, selectedIndex: Math.max(slashMention.selectedIndex - 1, 0) });
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const cmd = filteredSlash[slashMention.selectedIndex] ?? filteredSlash[0];
+          if (cmd) selectSlash(cmd);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setSlashMention(undefined);
+          return;
+        }
+      }
+      if (agentMention && filteredAgents.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          onAgentMentionChange({ ...agentMention, selectedIndex: Math.min(agentMention.selectedIndex + 1, filteredAgents.length - 1) });
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          onAgentMentionChange({ ...agentMention, selectedIndex: Math.max(agentMention.selectedIndex - 1, 0) });
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const agent = filteredAgents[agentMention.selectedIndex] ?? filteredAgents[0];
+          if (agent) selectAgent(agent.id);
+          return;
+        }
+        if (e.key === 'Escape') {
+          onAgentMentionChange(undefined);
+          return;
+        }
+      }
+      if (skillMention && filteredSkills.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          onSkillMentionChange({ ...skillMention, selectedIndex: Math.min(skillMention.selectedIndex + 1, filteredSkills.length - 1) });
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          onSkillMentionChange({ ...skillMention, selectedIndex: Math.max(skillMention.selectedIndex - 1, 0) });
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const skill = filteredSkills[skillMention.selectedIndex] ?? filteredSkills[0];
+          if (skill) selectSkill(skill.id);
+          return;
+        }
+        if (e.key === 'Escape') {
+          onSkillMentionChange(undefined);
+          return;
+        }
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRun();
       }
     },
-    [handleRun],
+    [handleRun, slashMention, filteredSlash, selectSlash, agentMention, filteredAgents, onAgentMentionChange, selectAgent, skillMention, filteredSkills, onSkillMentionChange, selectSkill],
   );
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrompt(e.target.value);
+    const val = e.target.value;
+    setPrompt(val);
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+
+    // Detect / slash command trigger (only when entire prompt starts with /)
+    const slashMatch = val.match(/^\/([a-zA-Z0-9-]*)$/);
+    if (slashMatch) {
+      setSlashMention({ query: slashMatch[1], selectedIndex: 0 });
+      if (agentMention) onAgentMentionChange(undefined);
+      return;
+    }
+    if (slashMention) setSlashMention(undefined);
+
+    // Detect @mention trigger
+    const cursorPos = ta.selectionStart ?? val.length;
+    const beforeCursor = val.slice(0, cursorPos);
+    const atMatch = beforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
+    if (atMatch && atMatch.index !== undefined) {
+      onAgentMentionChange({ triggerIndex: atMatch.index, query: atMatch[1], selectedIndex: 0 });
+      if (skillMention) onSkillMentionChange(undefined);
+    } else {
+      if (agentMention) onAgentMentionChange(undefined);
+
+      // Detect #mention trigger
+      const hashMatch = beforeCursor.match(/#([a-zA-Z0-9_-]*)$/);
+      if (hashMatch && hashMatch.index !== undefined) {
+        onSkillMentionChange({ triggerIndex: hashMatch.index, query: hashMatch[1], selectedIndex: 0 });
+      } else {
+        if (skillMention) onSkillMentionChange(undefined);
+      }
+    }
   };
 
   const removeAttachment = (i: number) =>
     onAttachmentsChange(attachments.filter((_, j) => j !== i));
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current++;
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    if (--dragCounter.current === 0) setIsDragOver(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDragOver(false);
+    const paths = extractDroppedPaths(e);
+    if (paths.length > 0) onResolveDroppedFiles(paths);
+  };
+
   const currentProviderInfo = providerDetection.find(d => d.id === provider);
   const showLoginBanner = !!(
     currentProviderInfo?.installed &&
-    currentProviderInfo.loggedIn === false &&
+    (currentProviderInfo.authStatus === 'unauthenticated' || currentProviderInfo.loggedIn === false) &&
     currentProviderInfo.loginCommand
   );
 
@@ -287,7 +520,70 @@ export function Composer({
         </div>
       )}
 
-      <div className="fl-cmp-box">
+      {slashMention && filteredSlash.length > 0 && (
+        <div className="fl-agent-mention-list" role="listbox" aria-label={t.composer.slashCommands}>
+          {filteredSlash.map((cmd, i) => (
+            <div
+              key={cmd.id}
+              className={`fl-agent-mention-item${i === slashMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+              role="option"
+              aria-selected={i === slashMention.selectedIndex}
+              onMouseDown={e => { e.preventDefault(); selectSlash(cmd); }}
+            >
+              <span className="fl-agent-mention-name">/{cmd.id}</span>
+              <span className="fl-agent-mention-display">{cmd.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {agentMention && filteredAgents.length > 0 && (
+        <div className="fl-agent-mention-list" role="listbox" aria-label="Agent prompts">
+          {filteredAgents.map((a, i) => (
+            <div
+              key={a.id}
+              className={`fl-agent-mention-item${i === agentMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+              role="option"
+              aria-selected={i === agentMention.selectedIndex}
+              onMouseDown={e => { e.preventDefault(); selectAgent(a.id); }}
+            >
+              <span className="fl-agent-mention-name">@{a.id}</span>
+              <span className="fl-agent-mention-display">{a.displayName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skillMention && filteredSkills.length > 0 && (
+        <div className="fl-agent-mention-list" role="listbox" aria-label="Skill prompts">
+          {filteredSkills.map((s, i) => (
+            <div
+              key={s.id}
+              className={`fl-agent-mention-item${i === skillMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+              role="option"
+              aria-selected={i === skillMention.selectedIndex}
+              onMouseDown={e => { e.preventDefault(); selectSkill(s.id); }}
+            >
+              <span className="fl-agent-mention-name">#{s.id}</span>
+              <span className="fl-agent-mention-display">{s.displayName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        className={`fl-cmp-box${isDragOver ? ' fl-cmp-box--drag' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDragOver && (
+          <div className="fl-cmp-drop-overlay" aria-hidden="true">
+            <IconDoc size={16} />
+            <span>{t.composer.dropHere}</span>
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           className="fl-cmp-input fl-scroll"
@@ -337,14 +633,22 @@ export function Composer({
                 <MenuList>
                   {(['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
                     const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
+                    const fit = modeFitMap.get(m);
+                    const isUnsupported = fit === 'unsupported';
+                    const isLimited = fit === 'limited';
                     return (
                       <MenuItem
                         key={m}
-                        className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}`}
-                        onClick={() => onModeChange(m)}
+                        className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}${isUnsupported ? ' nx-mode-menu-item--unsupported' : ''}`}
+                        onClick={() => !isUnsupported && onModeChange(m)}
+                        disabled={isUnsupported}
+                        title={isUnsupported ? t.composer.modeUnsupported : isLimited ? t.composer.modeLimited : undefined}
                       >
                         <span className="nx-mode-menu-item-main">
-                          <span>{modeT?.label ?? m}</span>
+                          <span>
+                            {modeT?.label ?? m}
+                            {isLimited && <span className="nx-mode-fit-badge nx-mode-fit-badge--limited">!</span>}
+                          </span>
                           <span className="nx-mode-menu-item-desc">{modeT?.desc}</span>
                         </span>
                       </MenuItem>
@@ -402,4 +706,25 @@ export function Composer({
     </div>
     </>
   );
+}
+
+function extractDroppedPaths(e: React.DragEvent): string[] {
+  const paths: string[] = [];
+  // Electron File objects expose an absolute .path property
+  for (const file of Array.from(e.dataTransfer.files)) {
+    const p = (file as unknown as { path?: string }).path;
+    if (p) paths.push(p);
+  }
+  // Fallback: text/uri-list (VS Code Explorer drag or non-Electron)
+  if (paths.length === 0) {
+    const uriList = e.dataTransfer.getData('text/uri-list');
+    for (const line of uriList.split(/\r?\n/)) {
+      const uri = line.trim();
+      if (!uri || uri.startsWith('#')) continue;
+      if (uri.startsWith('file://')) {
+        try { paths.push(decodeURIComponent(uri.replace(/^file:\/\//, ''))); } catch { /* ignore */ }
+      }
+    }
+  }
+  return paths;
 }

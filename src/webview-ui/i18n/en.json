@@ -133,7 +133,17 @@
     "stop": "Stop",
     "send": "Send",
     "subagentsToggle": "Subagents",
-    "subagentsTooltip": "Run focused pre-agents before main agent"
+    "subagentsTooltip": "Run focused pre-agents before main agent",
+    "dropHere": "Drop files here",
+    "agentMentionNoResults": "No agents found",
+    "agentsReloaded": "Agents reloaded: {{count}} found",
+    "slashCommands": "Slash commands",
+    "cmdReloadAgents": "Reload agent prompt list",
+    "cmdReloadSkills": "Reload skill prompt list",
+    "skillMentionNoResults": "No skills found",
+    "skillsReloaded": "Skills reloaded: {{count}} found",
+    "modeUnsupported": "Current agent does not support this mode",
+    "modeLimited": "Current agent has limited support for this mode"
   },
   "emptyState": {
     "title": "Start a conversation",
@@ -147,13 +157,16 @@
     "deleteConversation": "Delete conversation",
     "clearAll": "Clear all",
     "confirmClear": "Confirm clear all?",
-    "saveError": "History save failed: {{message}}"
+    "saveError": "History save failed: {{message}}",
+    "trimmed": "{{count}} older conversation(s) removed (limit: 50)"
   },
   "git": {
     "changedFiles": "Changed files",
     "close": "Close",
     "noChanges": "No changes.",
-    "openScm": "Open Source Control"
+    "openScm": "Open Source Control",
+    "attachFile": "Attach to prompt",
+    "attachAll": "Attach all changed"
   },
   "dropdown": {
     "select": "Select…",

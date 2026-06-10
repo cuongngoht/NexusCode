@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState } from './messages';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -60,8 +60,19 @@ export function App() {
         setComposerAttachments(prev => [...prev, msg.attachment]);
         return;
       }
+      if (msg.type === 'droppedFilesResolved') {
+        setComposerAttachments(prev => {
+          const existing = new Set(prev.map(a => a.path));
+          return [...prev, ...msg.attachments.filter(a => !existing.has(a.path))];
+        });
+        return;
+      }
       if (msg.type === 'workspaceFiles') {
         setWorkspaceFiles(msg.files);
+        return;
+      }
+      if (msg.type === 'agentsReloaded') {
+        dispatch({ type: 'extMsg', msg } satisfies AppAction);
         return;
       }
       dispatch({ type: 'extMsg', msg } satisfies AppAction);
@@ -123,12 +134,34 @@ export function App() {
   const handleOpenSettings = useCallback(() => getVsCodeApi().postMessage({ type: 'openSettings' }), []);
   const handleAbout = useCallback(() => getVsCodeApi().postMessage({ type: 'openAbout' }), []);
 
+  const handleOpenFile = useCallback((p: string) =>
+    getVsCodeApi().postMessage({ type: 'openWorkspaceFile', path: p }), []);
+
+  const handleAttachFiles = useCallback((paths: string[]) =>
+    getVsCodeApi().postMessage({ type: 'attachWorkspaceFiles', paths }), []);
+
   const handleRefreshReviewContext = useCallback((baseBranch?: string) => {
     getVsCodeApi().postMessage({ type: 'getReviewContext', baseBranch });
   }, []);
 
   const handleOpenReviewAgentFile = useCallback(() => {
     getVsCodeApi().postMessage({ type: 'openReviewAgentFile' });
+  }, []);
+
+  const handleReloadAgents = useCallback(() => {
+    getVsCodeApi().postMessage({ type: 'reloadAgents' });
+  }, []);
+
+  const handleAgentMentionChange = useCallback((mentionState: AgentMentionState | undefined) => {
+    dispatch({ type: 'setAgentMention', state: mentionState });
+  }, []);
+
+  const handleReloadSkills = useCallback(() => {
+    getVsCodeApi().postMessage({ type: 'reloadSkills' });
+  }, []);
+
+  const handleSkillMentionChange = useCallback((mentionState: SkillMentionState | undefined) => {
+    dispatch({ type: 'setSkillMention', state: mentionState });
   }, []);
 
   useEffect(() => {
@@ -186,6 +219,11 @@ export function App() {
                   {interp(LOCALES[locale].history.saveError, { message: state.historySaveError })}
                 </div>
               )}
+              {state.historyTrimmedCount != null && state.historyTrimmedCount > 0 && (
+                <div className="nx-history-trim-info" role="status">
+                  {interp(LOCALES[locale].history.trimmed, { count: state.historyTrimmedCount })}
+                </div>
+              )}
 
               <MessageList
                 conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}
@@ -197,6 +235,8 @@ export function App() {
                   dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
                 }}
                 onSendSuggestion={handleRun}
+                onOpenFile={handleOpenFile}
+                onAttachFiles={handleAttachFiles}
               />
 
               {!state.isDetecting && (
@@ -235,6 +275,15 @@ export function App() {
                   subagentsEnabled={state.subagentsEnabled}
                   onToggleSubagents={() => dispatch({ type: 'toggleSubagents' })}
                   onLoginProvider={id => getVsCodeApi().postMessage({ type: 'loginProvider', providerId: id })}
+                  onResolveDroppedFiles={paths => getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths })}
+                  agentPrompts={state.agentPrompts}
+                  agentMention={state.agentMention}
+                  onAgentMentionChange={handleAgentMentionChange}
+                  onReloadAgents={handleReloadAgents}
+                  skillPrompts={state.skillPrompts}
+                  skillMention={state.skillMention}
+                  onSkillMentionChange={handleSkillMentionChange}
+                  onReloadSkills={handleReloadSkills}
                 />
               )}
             </div>

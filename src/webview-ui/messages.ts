@@ -213,6 +213,34 @@ export interface McpPresetStatusView {
   risk: string;
 }
 
+// Mirror of AgentPrompt from src/context/agentPromptLibrary.ts — keep in sync
+export interface AgentPrompt {
+  id: string;
+  displayName: string;
+  fileName: string;
+  workspacePath: string;
+}
+
+export interface AgentMentionState {
+  triggerIndex: number;
+  query: string;
+  selectedIndex: number;
+}
+
+// Mirror of SkillPrompt from src/context/skillPromptLibrary.ts — keep in sync
+export interface SkillPrompt {
+  id: string;
+  displayName: string;
+  fileName: string;
+  workspacePath: string;
+}
+
+export interface SkillMentionState {
+  triggerIndex: number;
+  query: string;
+  selectedIndex: number;
+}
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -233,10 +261,15 @@ export interface AppState {
   reviewContextError?: string;
   historyError?: string;
   historySaveError?: string;
+  historyTrimmedCount?: number;
   mcpEnabled: boolean;
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
   subagentsEnabled: boolean;
+  agentPrompts: AgentPrompt[];
+  agentMention?: AgentMentionState;
+  skillPrompts: SkillPrompt[];
+  skillMention?: SkillMentionState;
 }
 
 export function createInitialState(): AppState {
@@ -261,10 +294,15 @@ export function createInitialState(): AppState {
     reviewContextError: undefined,
     historyError: undefined,
     historySaveError: undefined,
+    historyTrimmedCount: undefined,
     mcpEnabled: false,
     mcpActivePresets: [],
     lastMcpUsed: undefined,
     subagentsEnabled: false,
+    agentPrompts: [],
+    agentMention: undefined,
+    skillPrompts: [],
+    skillMention: undefined,
   };
 }
 
@@ -284,8 +322,11 @@ export interface ProviderInfo {
   displayName: string;
   cliLabel: string;
   installed: boolean;
+  authStatus?: 'authenticated' | 'unauthenticated' | 'unknown';
   loggedIn?: boolean;
   loginCommand?: string;
+  installCommand?: string;
+  installDocsUrl?: string;
   version?: string;
   executablePath?: string;
   reason?: string;
@@ -319,6 +360,7 @@ export type ExtMsg =
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
   | { type: 'historySaveError'; message: string }
+  | { type: 'historyTrimmed'; removedCount: number }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {
@@ -331,7 +373,13 @@ export type ExtMsg =
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
-  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
+  | { type: 'agentPrompts'; agents: AgentPrompt[] }
+  | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
+  | { type: 'agentPromptError'; message: string }
+  | { type: 'skillPrompts'; skills: SkillPrompt[] }
+  | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
+  | { type: 'skillPromptError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -355,7 +403,9 @@ export type AppAction =
     mode: TaskMode;
     model?: string;
     timestamp: number;
-  };
+  }
+  | { type: 'setAgentMention'; state: AgentMentionState | undefined }
+  | { type: 'setSkillMention'; state: SkillMentionState | undefined };
 
 // ── History serialization ─────────────────────────────────────────────────
 
@@ -613,6 +663,12 @@ export function reducer(state: AppState, action: AppAction): AppState {
       };
     }
 
+    case 'setAgentMention':
+      return { ...state, agentMention: action.state };
+
+    case 'setSkillMention':
+      return { ...state, skillMention: action.state };
+
     case 'extMsg':
       return applyExtMsg(state, action.msg);
   }
@@ -845,6 +901,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'historySaveError':
       return { ...state, historySaveError: msg.message };
 
+    case 'historyTrimmed':
+      return { ...state, historyTrimmedCount: msg.removedCount };
+
     case 'reviewContext':
       return { ...state, reviewContext: msg.context, reviewContextError: undefined };
 
@@ -880,6 +939,24 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         ...state,
         lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName },
       };
+
+    case 'agentPrompts':
+      return { ...state, agentPrompts: msg.agents };
+
+    case 'agentsReloaded':
+      return { ...state, agentPrompts: msg.agents };
+
+    case 'agentPromptError':
+      return state;
+
+    case 'skillPrompts':
+      return { ...state, skillPrompts: msg.skills };
+
+    case 'skillsReloaded':
+      return { ...state, skillPrompts: msg.skills };
+
+    case 'skillPromptError':
+      return state;
   }
   return state;
 }

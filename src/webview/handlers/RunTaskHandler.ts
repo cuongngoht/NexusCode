@@ -12,7 +12,12 @@ import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
+import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
 import { buildPromptAttachmentContext } from '../../context/promptAttachments';
+import { listAgentPrompts, loadAgentPromptBundle } from '../../context/agentPromptLibrary';
+import { parseAgentMentions } from '../../context/agentMentionParser';
+import { listSkillPrompts, loadSkillPromptBundle } from '../../context/skillPromptLibrary';
+import { parseSkillMentions } from '../../context/skillMentionParser';
 import { scanWorkspace } from '../../context/workspaceScanner';
 import { detectPackageInfo } from '../../context/packageDetector';
 import { loadRules } from '../../context/rulesLoader';
@@ -331,7 +336,18 @@ export class RunTaskHandler {
     }
 
     const planContent = loadPlanContent(workspaceRoot) || undefined;
-    let prompt = buildEnhancedPrompt(ctx.originalPrompt, {
+
+    // Parse @agent mentions from the original user prompt
+    const knownAgentIds = listAgentPrompts(workspaceRoot).map(a => a.id);
+    const { agentIds, cleanedPrompt: agentCleaned } = parseAgentMentions(ctx.originalPrompt, knownAgentIds);
+
+    // Parse #skill mentions from the (agent-cleaned) prompt
+    const knownSkillIds = listSkillPrompts(workspaceRoot).map(s => s.id);
+    const agentCleanedPrompt = agentIds.length > 0 ? agentCleaned : ctx.originalPrompt;
+    const { skillIds, cleanedPrompt: skillCleaned } = parseSkillMentions(agentCleanedPrompt, knownSkillIds);
+    const taskPrompt = skillIds.length > 0 ? skillCleaned : agentCleanedPrompt;
+
+    let prompt = buildEnhancedPrompt(taskPrompt, {
       workspace,
       packages,
       rules,
@@ -345,6 +361,17 @@ export class RunTaskHandler {
       attachmentContext: ctx.attachmentContext,
       extensionRoot: this.extensionPath,
     });
+
+    if (agentIds.length > 0 || skillIds.length > 0) {
+      const agentBundle = agentIds.length > 0 ? loadAgentPromptBundle(workspaceRoot, agentIds) : undefined;
+      const skillBundle = skillIds.length > 0 ? loadSkillPromptBundle(workspaceRoot, skillIds) : undefined;
+      prompt = buildAugmentedPrompt({
+        agentMarkdownBundle: agentBundle,
+        skillMarkdownBundle: skillBundle,
+        userPrompt: taskPrompt,
+        existingEnhancedPrompt: prompt,
+      });
+    }
 
     if (ctx.subagentResults && ctx.subagentResults.length > 0) {
       const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults);

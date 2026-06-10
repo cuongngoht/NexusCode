@@ -5,10 +5,16 @@ import type { ChatHistoryState } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
 import type { McpPresetStatusView } from '../mcp/McpTypes';
+import type { AgentPrompt } from '../context/agentPromptLibrary';
+import type { SkillPrompt } from '../context/skillPromptLibrary';
 
 export type { PromptAttachment };
 
 export type { ProviderDetectionResult };
+
+export type { AgentPrompt };
+
+export type { SkillPrompt };
 
 // Messages sent from the extension to the webview
 export type ExtensionMessage =
@@ -36,6 +42,7 @@ export type ExtensionMessage =
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
   | { type: 'historySaveError'; message: string }
+  | { type: 'historyTrimmed'; removedCount: number }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {
@@ -46,9 +53,16 @@ export type ExtensionMessage =
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
+  | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
-  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
+  | { type: 'agentPrompts'; agents: AgentPrompt[] }
+  | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
+  | { type: 'agentPromptError'; message: string }
+  | { type: 'skillPrompts'; skills: SkillPrompt[] }
+  | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
+  | { type: 'skillPromptError'; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -68,4 +82,11 @@ export type WebviewMessage =
   | { type: 'openPlan'; planPath?: string }
   | { type: 'openSavedPlans' }
   | { type: 'refreshMcpStatus' }
-  | { type: 'loginProvider'; providerId: ProviderId };
+  | { type: 'loginProvider'; providerId: ProviderId }
+  | { type: 'resolveDroppedFiles'; paths: string[] }
+  | { type: 'openWorkspaceFile'; path: string }
+  | { type: 'attachWorkspaceFiles'; paths: string[] }
+  | { type: 'getAgentPrompts' }
+  | { type: 'reloadAgents' }
+  | { type: 'getSkillPrompts' }
+  | { type: 'reloadSkills' };

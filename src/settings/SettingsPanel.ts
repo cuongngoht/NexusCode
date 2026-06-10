@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ConfigService } from '../config/ConfigService';
 import { ProviderDetector } from '../core/providerDetector';
+import type { ProviderId } from '../core/types';
 import { getSettingsHtml } from './SettingsHtml';
 
 export class SettingsPanel {
@@ -72,6 +73,16 @@ export class SettingsPanel {
       return;
     }
 
+    if (type === 'settings.installProvider' || type === 'settings.loginProvider') {
+      const providerId = (msg as Record<string, unknown>)['providerId'];
+      if (typeof providerId !== 'string') return;
+      await this.openProviderTerminal(
+        providerId as ProviderId,
+        type === 'settings.installProvider' ? 'install' : 'login',
+      );
+      return;
+    }
+
     if (type !== 'settings.save') return;
 
     const payload = (msg as Record<string, unknown>)['payload'];
@@ -85,6 +96,42 @@ export class SettingsPanel {
       const message = err instanceof Error ? err.message : String(err);
       await this.panel.webview.postMessage({ type: 'settings.error', message });
     }
+  }
+
+  private async openProviderTerminal(providerId: ProviderId, action: 'install' | 'login'): Promise<void> {
+    const command = action === 'install'
+      ? this.detector.getInstallCommand(providerId)
+      : this.detector.getLoginCommand(providerId);
+
+    if (!command) {
+      await this.panel.webview.postMessage({
+        type: 'settings.error',
+        message: `No ${action} command configured for ${providerId}.`,
+      });
+      return;
+    }
+
+    const terminal = vscode.window.createTerminal({
+      name: `NexusCode: ${action === 'install' ? 'Install' : 'Login'} ${providerId}`,
+    });
+    terminal.sendText(command, false);
+    terminal.show();
+    vscode.window.showInformationMessage(
+      `NexusCode opened the ${action} command in a terminal. Review it and press Enter to run.`,
+    );
+
+    const disposable = vscode.window.onDidCloseTerminal(t => {
+      if (t !== terminal) return;
+      disposable.dispose();
+      this.detector.invalidate();
+      void this.postScanResult();
+    });
+    this.disposables.push(disposable);
+  }
+
+  private async postScanResult(): Promise<void> {
+    const detection = await this.detector.detectAll();
+    await this.panel.webview.postMessage({ type: 'settings.scanResult', detection });
   }
 
   dispose(): void {

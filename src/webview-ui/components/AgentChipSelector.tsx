@@ -42,7 +42,7 @@ function getStatusDot(id: ProviderId, providerDetection: ProviderInfo[]): Status
   if (id === 'nexus' || id === 'auto' || id === 'custom') return 'ready';
   const info = providerDetection.find(d => d.id === id);
   if (!info || !info.installed) return 'unavailable';
-  if (info.loggedIn === false) return 'warning';
+  if (info.authStatus === 'unauthenticated' || info.loggedIn === false) return 'warning';
   return 'ready';
 }
 
