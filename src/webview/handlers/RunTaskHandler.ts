@@ -11,8 +11,10 @@ import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
 import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
-import { buildEnhancedPrompt } from '../../context/promptBuilder';
+import { buildEnhancedPrompt, buildAgentAugmentedPrompt } from '../../context/promptBuilder';
 import { buildPromptAttachmentContext } from '../../context/promptAttachments';
+import { listAgentPrompts, loadAgentPromptBundle } from '../../context/agentPromptLibrary';
+import { parseAgentMentions } from '../../context/agentMentionParser';
 import { scanWorkspace } from '../../context/workspaceScanner';
 import { detectPackageInfo } from '../../context/packageDetector';
 import { loadRules } from '../../context/rulesLoader';
@@ -331,7 +333,13 @@ export class RunTaskHandler {
     }
 
     const planContent = loadPlanContent(workspaceRoot) || undefined;
-    let prompt = buildEnhancedPrompt(ctx.originalPrompt, {
+
+    // Parse @agent mentions from the original user prompt
+    const knownAgentIds = listAgentPrompts(workspaceRoot).map(a => a.id);
+    const { agentIds, cleanedPrompt } = parseAgentMentions(ctx.originalPrompt, knownAgentIds);
+    const taskPrompt = agentIds.length > 0 ? cleanedPrompt : ctx.originalPrompt;
+
+    let prompt = buildEnhancedPrompt(taskPrompt, {
       workspace,
       packages,
       rules,
@@ -345,6 +353,15 @@ export class RunTaskHandler {
       attachmentContext: ctx.attachmentContext,
       extensionRoot: this.extensionPath,
     });
+
+    if (agentIds.length > 0) {
+      const bundle = loadAgentPromptBundle(workspaceRoot, agentIds);
+      prompt = buildAgentAugmentedPrompt({
+        agentMarkdownBundle: bundle,
+        userPrompt: taskPrompt,
+        existingEnhancedPrompt: prompt,
+      });
+    }
 
     if (ctx.subagentResults && ctx.subagentResults.length > 0) {
       const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults);

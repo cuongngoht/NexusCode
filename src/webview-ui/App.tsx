@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState } from './messages';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -69,6 +69,10 @@ export function App() {
       }
       if (msg.type === 'workspaceFiles') {
         setWorkspaceFiles(msg.files);
+        return;
+      }
+      if (msg.type === 'agentsReloaded') {
+        dispatch({ type: 'extMsg', msg } satisfies AppAction);
         return;
       }
       dispatch({ type: 'extMsg', msg } satisfies AppAction);
@@ -142,6 +146,14 @@ export function App() {
 
   const handleOpenReviewAgentFile = useCallback(() => {
     getVsCodeApi().postMessage({ type: 'openReviewAgentFile' });
+  }, []);
+
+  const handleReloadAgents = useCallback(() => {
+    getVsCodeApi().postMessage({ type: 'reloadAgents' });
+  }, []);
+
+  const handleAgentMentionChange = useCallback((mentionState: AgentMentionState | undefined) => {
+    dispatch({ type: 'setAgentMention', state: mentionState });
   }, []);
 
   useEffect(() => {
@@ -251,6 +263,10 @@ export function App() {
                   onToggleSubagents={() => dispatch({ type: 'toggleSubagents' })}
                   onLoginProvider={id => getVsCodeApi().postMessage({ type: 'loginProvider', providerId: id })}
                   onResolveDroppedFiles={paths => getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths })}
+                  agentPrompts={state.agentPrompts}
+                  agentMention={state.agentMention}
+                  onAgentMentionChange={handleAgentMentionChange}
+                  onReloadAgents={handleReloadAgents}
                 />
               )}
             </div>

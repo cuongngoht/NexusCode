@@ -213,6 +213,20 @@ export interface McpPresetStatusView {
   risk: string;
 }
 
+// Mirror of AgentPrompt from src/context/agentPromptLibrary.ts — keep in sync
+export interface AgentPrompt {
+  id: string;
+  displayName: string;
+  fileName: string;
+  workspacePath: string;
+}
+
+export interface AgentMentionState {
+  triggerIndex: number;
+  query: string;
+  selectedIndex: number;
+}
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -237,6 +251,8 @@ export interface AppState {
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
   subagentsEnabled: boolean;
+  agentPrompts: AgentPrompt[];
+  agentMention?: AgentMentionState;
 }
 
 export function createInitialState(): AppState {
@@ -265,6 +281,8 @@ export function createInitialState(): AppState {
     mcpActivePresets: [],
     lastMcpUsed: undefined,
     subagentsEnabled: false,
+    agentPrompts: [],
+    agentMention: undefined,
   };
 }
 
@@ -334,7 +352,10 @@ export type ExtMsg =
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
-  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
+  | { type: 'agentPrompts'; agents: AgentPrompt[] }
+  | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
+  | { type: 'agentPromptError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -358,7 +379,8 @@ export type AppAction =
     mode: TaskMode;
     model?: string;
     timestamp: number;
-  };
+  }
+  | { type: 'setAgentMention'; state: AgentMentionState | undefined };
 
 // ── History serialization ─────────────────────────────────────────────────
 
@@ -615,6 +637,9 @@ export function reducer(state: AppState, action: AppAction): AppState {
         saveKey: state.saveKey + 1,
       };
     }
+
+    case 'setAgentMention':
+      return { ...state, agentMention: action.state };
 
     case 'extMsg':
       return applyExtMsg(state, action.msg);
@@ -883,6 +908,15 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         ...state,
         lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName },
       };
+
+    case 'agentPrompts':
+      return { ...state, agentPrompts: msg.agents };
+
+    case 'agentsReloaded':
+      return { ...state, agentPrompts: msg.agents };
+
+    case 'agentPromptError':
+      return state;
   }
   return state;
 }

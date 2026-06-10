@@ -134,7 +134,9 @@
     "send": "Send",
     "subagentsToggle": "Subagents",
     "subagentsTooltip": "Run focused pre-agents before main agent",
-    "dropHere": "Drop files here"
+    "dropHere": "Drop files here",
+    "agentMentionNoResults": "No agents found",
+    "agentsReloaded": "Agents reloaded: {{count}} found"
   },
   "emptyState": {
     "title": "Start a conversation",

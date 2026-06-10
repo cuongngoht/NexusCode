@@ -1353,6 +1353,53 @@ html, body, #root {
 }
 
 /* ============================================================
+   AGENT MENTION AUTOCOMPLETE
+   ============================================================ */
+
+.fl-agent-mention-list {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: var(--colorNeutralBackground3, #1e1e1e);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-bottom: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.fl-agent-mention-item {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  cursor: pointer;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.fl-agent-mention-item:hover,
+.fl-agent-mention-item--active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fl-agent-mention-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--colorBrandForeground1);
+}
+
+.fl-agent-mention-display {
+  font-size: 11px;
+  color: var(--colorNeutralForeground3);
+}
+
+/* ============================================================
    CONVERSATION HISTORY PANEL  (Fluent v9 redesign)
    ============================================================ */
 

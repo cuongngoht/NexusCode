@@ -5,10 +5,13 @@ import type { ChatHistoryState } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
 import type { McpPresetStatusView } from '../mcp/McpTypes';
+import type { AgentPrompt } from '../context/agentPromptLibrary';
 
 export type { PromptAttachment };
 
 export type { ProviderDetectionResult };
+
+export type { AgentPrompt };
 
 // Messages sent from the extension to the webview
 export type ExtensionMessage =
@@ -49,7 +52,10 @@ export type ExtensionMessage =
   | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
-  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
+  | { type: 'agentPrompts'; agents: AgentPrompt[] }
+  | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
+  | { type: 'agentPromptError'; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -72,4 +78,6 @@ export type WebviewMessage =
   | { type: 'loginProvider'; providerId: ProviderId }
   | { type: 'resolveDroppedFiles'; paths: string[] }
   | { type: 'openWorkspaceFile'; path: string }
-  | { type: 'attachWorkspaceFiles'; paths: string[] };
+  | { type: 'attachWorkspaceFiles'; paths: string[] }
+  | { type: 'getAgentPrompts' }
+  | { type: 'reloadAgents' };

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
+import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 
@@ -31,6 +31,10 @@ interface Props {
   onToggleSubagents: () => void;
   onLoginProvider: (id: ProviderId) => void;
   onResolveDroppedFiles: (paths: string[]) => void;
+  agentPrompts: AgentPrompt[];
+  agentMention?: AgentMentionState;
+  onAgentMentionChange: (state: AgentMentionState | undefined) => void;
+  onReloadAgents: () => void;
 }
 
 export function Composer({
@@ -44,6 +48,7 @@ export function Composer({
   onRefreshReviewContext, onOpenReviewAgentFile,
   subagentsEnabled, onToggleSubagents, onLoginProvider,
   onResolveDroppedFiles,
+  agentPrompts, agentMention, onAgentMentionChange, onReloadAgents,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -110,28 +115,85 @@ export function Composer({
 
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
+    if (trimmed === '/reload-agents') {
+      onReloadAgents();
+      setPrompt('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      return;
+    }
     if ((!trimmed && mode !== 'review') || isRunning) return;
     onRun(trimmed, mode === 'review' ? selectedBase || undefined : undefined, attachments);
     setPrompt('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     textareaRef.current?.focus();
-  }, [prompt, isRunning, mode, attachments, onRun]);
+  }, [prompt, isRunning, mode, attachments, onRun, onReloadAgents]);
+
+  const filteredAgents = useMemo(() => {
+    if (!agentMention) return [];
+    const q = agentMention.query.toLowerCase();
+    return agentPrompts.filter(a =>
+      a.id.toLowerCase().startsWith(q) || a.displayName.toLowerCase().includes(q),
+    );
+  }, [agentPrompts, agentMention]);
+
+  const selectAgent = useCallback((id: string) => {
+    if (!agentMention) return;
+    const before = prompt.slice(0, agentMention.triggerIndex);
+    const after = prompt.slice(agentMention.triggerIndex + 1 + agentMention.query.length);
+    const newPrompt = `${before}@${id} ${after}`;
+    setPrompt(newPrompt);
+    onAgentMentionChange(undefined);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [agentMention, prompt, onAgentMentionChange]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (agentMention && filteredAgents.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          onAgentMentionChange({ ...agentMention, selectedIndex: Math.min(agentMention.selectedIndex + 1, filteredAgents.length - 1) });
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          onAgentMentionChange({ ...agentMention, selectedIndex: Math.max(agentMention.selectedIndex - 1, 0) });
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const agent = filteredAgents[agentMention.selectedIndex] ?? filteredAgents[0];
+          if (agent) selectAgent(agent.id);
+          return;
+        }
+        if (e.key === 'Escape') {
+          onAgentMentionChange(undefined);
+          return;
+        }
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRun();
       }
     },
-    [handleRun],
+    [handleRun, agentMention, filteredAgents, onAgentMentionChange, selectAgent],
   );
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrompt(e.target.value);
+    const val = e.target.value;
+    setPrompt(val);
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+
+    // Detect @mention trigger
+    const cursorPos = ta.selectionStart ?? val.length;
+    const beforeCursor = val.slice(0, cursorPos);
+    const atMatch = beforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
+    if (atMatch && atMatch.index !== undefined) {
+      onAgentMentionChange({ triggerIndex: atMatch.index, query: atMatch[1], selectedIndex: 0 });
+    } else {
+      if (agentMention) onAgentMentionChange(undefined);
+    }
   };
 
   const removeAttachment = (i: number) =>
@@ -321,6 +383,22 @@ export function Composer({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
+        {agentMention && filteredAgents.length > 0 && (
+          <div className="fl-agent-mention-list" role="listbox" aria-label="Agent prompts">
+            {filteredAgents.map((a, i) => (
+              <div
+                key={a.id}
+                className={`fl-agent-mention-item${i === agentMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+                role="option"
+                aria-selected={i === agentMention.selectedIndex}
+                onMouseDown={e => { e.preventDefault(); selectAgent(a.id); }}
+              >
+                <span className="fl-agent-mention-name">@{a.id}</span>
+                <span className="fl-agent-mention-display">{a.displayName}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {isDragOver && (
           <div className="fl-cmp-drop-overlay" aria-hidden="true">
             <IconDoc size={16} />

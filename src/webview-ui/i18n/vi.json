@@ -134,7 +134,9 @@
     "send": "Gửi",
     "subagentsToggle": "Subagents",
     "subagentsTooltip": "Chạy các pre-agent trước agent chính",
-    "dropHere": "Thả file vào đây"
+    "dropHere": "Thả file vào đây",
+    "agentMentionNoResults": "Không tìm thấy agent",
+    "agentsReloaded": "Đã tải lại agents: tìm thấy {{count}}"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",
