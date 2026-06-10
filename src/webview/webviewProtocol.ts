@@ -42,6 +42,7 @@ export type ExtensionMessage =
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
   | { type: 'historySaveError'; message: string }
+  | { type: 'historyTrimmed'; removedCount: number }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {

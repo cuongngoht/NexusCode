@@ -261,6 +261,7 @@ export interface AppState {
   reviewContextError?: string;
   historyError?: string;
   historySaveError?: string;
+  historyTrimmedCount?: number;
   mcpEnabled: boolean;
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
@@ -293,6 +294,7 @@ export function createInitialState(): AppState {
     reviewContextError: undefined,
     historyError: undefined,
     historySaveError: undefined,
+    historyTrimmedCount: undefined,
     mcpEnabled: false,
     mcpActivePresets: [],
     lastMcpUsed: undefined,
@@ -358,6 +360,7 @@ export type ExtMsg =
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
   | { type: 'historySaveError'; message: string }
+  | { type: 'historyTrimmed'; removedCount: number }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {
@@ -897,6 +900,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'historySaveError':
       return { ...state, historySaveError: msg.message };
+
+    case 'historyTrimmed':
+      return { ...state, historyTrimmedCount: msg.removedCount };
 
     case 'reviewContext':
       return { ...state, reviewContext: msg.context, reviewContextError: undefined };
