@@ -1018,11 +1018,32 @@ html, body, #root {
 }
 
 .fl-cmp-box {
+  position: relative;
   background: var(--colorNeutralBackground1);
   border: 1px solid var(--colorNeutralStroke2);
   border-radius: 12px;
   transition: border-color var(--durationFast), box-shadow var(--durationFast);
   overflow: hidden;
+}
+
+.fl-cmp-box--drag {
+  border-color: var(--colorBrandStroke1);
+  box-shadow: 0 0 0 1px var(--colorBrandStroke1);
+}
+
+.fl-cmp-drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--colorBrandBackground) 10%, transparent);
+  border-radius: inherit;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--colorBrandForeground1);
+  gap: 6px;
 }
 
 .fl-cmp-box:focus-within {

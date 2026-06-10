@@ -30,6 +30,7 @@ interface Props {
   subagentsEnabled: boolean;
   onToggleSubagents: () => void;
   onLoginProvider: (id: ProviderId) => void;
+  onResolveDroppedFiles: (paths: string[]) => void;
 }
 
 export function Composer({
@@ -42,12 +43,15 @@ export function Composer({
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
   subagentsEnabled, onToggleSubagents, onLoginProvider,
+  onResolveDroppedFiles,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
   const [selectedBase, setSelectedBase] = useState<string>('');
   const [fileSearch, setFileSearch] = useState('');
   const [showFilePicker, setShowFilePicker] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
 
@@ -132,6 +136,29 @@ export function Composer({
 
   const removeAttachment = (i: number) =>
     onAttachmentsChange(attachments.filter((_, j) => j !== i));
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current++;
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    if (--dragCounter.current === 0) setIsDragOver(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDragOver(false);
+    const paths = extractDroppedPaths(e);
+    if (paths.length > 0) onResolveDroppedFiles(paths);
+  };
 
   const currentProviderInfo = providerDetection.find(d => d.id === provider);
   const showLoginBanner = !!(
@@ -287,7 +314,19 @@ export function Composer({
         </div>
       )}
 
-      <div className="fl-cmp-box">
+      <div
+        className={`fl-cmp-box${isDragOver ? ' fl-cmp-box--drag' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDragOver && (
+          <div className="fl-cmp-drop-overlay" aria-hidden="true">
+            <IconDoc size={16} />
+            <span>{t.composer.dropHere}</span>
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           className="fl-cmp-input fl-scroll"
@@ -402,4 +441,25 @@ export function Composer({
     </div>
     </>
   );
+}
+
+function extractDroppedPaths(e: React.DragEvent): string[] {
+  const paths: string[] = [];
+  // Electron File objects expose an absolute .path property
+  for (const file of Array.from(e.dataTransfer.files)) {
+    const p = (file as unknown as { path?: string }).path;
+    if (p) paths.push(p);
+  }
+  // Fallback: text/uri-list (VS Code Explorer drag or non-Electron)
+  if (paths.length === 0) {
+    const uriList = e.dataTransfer.getData('text/uri-list');
+    for (const line of uriList.split(/\r?\n/)) {
+      const uri = line.trim();
+      if (!uri || uri.startsWith('#')) continue;
+      if (uri.startsWith('file://')) {
+        try { paths.push(decodeURIComponent(uri.replace(/^file:\/\//, ''))); } catch { /* ignore */ }
+      }
+    }
+  }
+  return paths;
 }

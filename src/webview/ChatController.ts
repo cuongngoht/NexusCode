@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ExtensionMessage, WebviewMessage } from './webviewProtocol';
 import type { IEventBus, NexusEvent } from '../core/events/IEventBus';
@@ -109,6 +111,9 @@ export class ChatController {
         break;
       case 'loginProvider':
         await this.handleLoginProvider(msg.providerId);
+        break;
+      case 'resolveDroppedFiles':
+        await this.handleResolveDroppedFiles(msg.paths);
         break;
     }
   }
@@ -230,8 +235,40 @@ export class ChatController {
     });
   }
 
+  private async handleResolveDroppedFiles(rawPaths: string[]): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    const SECRET_PATTERNS = /^(\.env.*|.*\.(pem|key|p12|pfx|jks)|id_rsa|id_ed25519|id_ecdsa|.*_rsa|.*_ed25519)$/i;
+
+    const attachments: import('../core/types').PromptAttachment[] = [];
+    for (const rawPath of rawPaths) {
+      const absPath = normalizeDroppedPath(rawPath);
+      const rel = path.relative(workspaceRoot, absPath);
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      if (SECRET_PATTERNS.test(path.basename(absPath))) continue;
+      const stat = fs.statSync(absPath, { throwIfNoEntry: false });
+      if (!stat) continue;
+      attachments.push({ type: stat.isDirectory() ? 'folder' : 'file', path: rel });
+    }
+
+    this.post({ type: 'droppedFilesResolved', attachments });
+  }
+
   dispose(): void {
     for (const d of this.disposables) d.dispose();
     this.disposables.length = 0;
   }
+}
+
+function normalizeDroppedPath(raw: string): string {
+  let p = raw.trim();
+  // Strip file:// or file:/// prefix
+  if (p.startsWith('file:///')) {
+    p = p.slice(process.platform === 'win32' ? 8 : 7);
+  } else if (p.startsWith('file://')) {
+    p = p.slice(7);
+  }
+  try { p = decodeURIComponent(p); } catch { /* ignore */ }
+  return path.normalize(p);
 }

@@ -46,6 +46,7 @@ export type ExtensionMessage =
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
+  | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
   | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string };
@@ -68,4 +69,5 @@ export type WebviewMessage =
   | { type: 'openPlan'; planPath?: string }
   | { type: 'openSavedPlans' }
   | { type: 'refreshMcpStatus' }
-  | { type: 'loginProvider'; providerId: ProviderId };
+  | { type: 'loginProvider'; providerId: ProviderId }
+  | { type: 'resolveDroppedFiles'; paths: string[] };

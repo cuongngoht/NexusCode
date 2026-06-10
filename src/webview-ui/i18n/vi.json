@@ -133,7 +133,8 @@
     "stop": "Dừng",
     "send": "Gửi",
     "subagentsToggle": "Subagents",
-    "subagentsTooltip": "Chạy các pre-agent trước agent chính"
+    "subagentsTooltip": "Chạy các pre-agent trước agent chính",
+    "dropHere": "Thả file vào đây"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",
