@@ -37,6 +37,17 @@ interface Props {
   onReloadAgents: () => void;
 }
 
+interface SlashCommand {
+  id: string;
+  description: string;
+  run: () => void;
+}
+
+interface SlashMention {
+  query: string;
+  selectedIndex: number;
+}
+
 export function Composer({
   isRunning, elapsed, provider, mode,
   availableProviders, providerDetection,
@@ -56,6 +67,7 @@ export function Composer({
   const [fileSearch, setFileSearch] = useState('');
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [slashMention, setSlashMention] = useState<SlashMention | undefined>(undefined);
   const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
@@ -113,20 +125,39 @@ export function Composer({
     setFileSearch('');
   }, [attachments, onAttachmentsChange]);
 
+  const slashCommands = useMemo<SlashCommand[]>(() => [
+    {
+      id: 'reload-agents',
+      description: t.composer.cmdReloadAgents,
+      run: () => { onReloadAgents(); setPrompt(''); },
+    },
+  ], [onReloadAgents, t.composer.cmdReloadAgents]);
+
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
-    if (trimmed === '/reload-agents') {
-      onReloadAgents();
-      setPrompt('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      return;
+    // Dispatch any recognized slash command that was typed and submitted manually
+    if (trimmed.startsWith('/')) {
+      const cmdId = trimmed.slice(1);
+      const cmd = slashCommands.find(c => c.id === cmdId);
+      if (cmd) {
+        cmd.run();
+        setPrompt('');
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        return;
+      }
     }
     if ((!trimmed && mode !== 'review') || isRunning) return;
     onRun(trimmed, mode === 'review' ? selectedBase || undefined : undefined, attachments);
     setPrompt('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     textareaRef.current?.focus();
-  }, [prompt, isRunning, mode, attachments, onRun, onReloadAgents]);
+  }, [prompt, isRunning, mode, attachments, onRun, slashCommands]);
+
+  const filteredSlash = useMemo(() => {
+    if (!slashMention) return [];
+    const q = slashMention.query.toLowerCase();
+    return slashCommands.filter(c => c.id.startsWith(q));
+  }, [slashCommands, slashMention]);
 
   const filteredAgents = useMemo(() => {
     if (!agentMention) return [];
@@ -146,8 +177,37 @@ export function Composer({
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [agentMention, prompt, onAgentMentionChange]);
 
+  const selectSlash = useCallback((cmd: SlashCommand) => {
+    setSlashMention(undefined);
+    cmd.run();
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    textareaRef.current?.focus();
+  }, []);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (slashMention && filteredSlash.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSlashMention({ ...slashMention, selectedIndex: Math.min(slashMention.selectedIndex + 1, filteredSlash.length - 1) });
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSlashMention({ ...slashMention, selectedIndex: Math.max(slashMention.selectedIndex - 1, 0) });
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const cmd = filteredSlash[slashMention.selectedIndex] ?? filteredSlash[0];
+          if (cmd) selectSlash(cmd);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setSlashMention(undefined);
+          return;
+        }
+      }
       if (agentMention && filteredAgents.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -175,7 +235,7 @@ export function Composer({
         handleRun();
       }
     },
-    [handleRun, agentMention, filteredAgents, onAgentMentionChange, selectAgent],
+    [handleRun, slashMention, filteredSlash, selectSlash, agentMention, filteredAgents, onAgentMentionChange, selectAgent],
   );
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -184,6 +244,15 @@ export function Composer({
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+
+    // Detect / slash command trigger (only when entire prompt starts with /)
+    const slashMatch = val.match(/^\/([a-zA-Z0-9-]*)$/);
+    if (slashMatch) {
+      setSlashMention({ query: slashMatch[1], selectedIndex: 0 });
+      if (agentMention) onAgentMentionChange(undefined);
+      return;
+    }
+    if (slashMention) setSlashMention(undefined);
 
     // Detect @mention trigger
     const cursorPos = ta.selectionStart ?? val.length;
@@ -376,6 +445,40 @@ export function Composer({
         </div>
       )}
 
+      {slashMention && filteredSlash.length > 0 && (
+        <div className="fl-agent-mention-list" role="listbox" aria-label={t.composer.slashCommands}>
+          {filteredSlash.map((cmd, i) => (
+            <div
+              key={cmd.id}
+              className={`fl-agent-mention-item${i === slashMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+              role="option"
+              aria-selected={i === slashMention.selectedIndex}
+              onMouseDown={e => { e.preventDefault(); selectSlash(cmd); }}
+            >
+              <span className="fl-agent-mention-name">/{cmd.id}</span>
+              <span className="fl-agent-mention-display">{cmd.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {agentMention && filteredAgents.length > 0 && (
+        <div className="fl-agent-mention-list" role="listbox" aria-label="Agent prompts">
+          {filteredAgents.map((a, i) => (
+            <div
+              key={a.id}
+              className={`fl-agent-mention-item${i === agentMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+              role="option"
+              aria-selected={i === agentMention.selectedIndex}
+              onMouseDown={e => { e.preventDefault(); selectAgent(a.id); }}
+            >
+              <span className="fl-agent-mention-name">@{a.id}</span>
+              <span className="fl-agent-mention-display">{a.displayName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div
         className={`fl-cmp-box${isDragOver ? ' fl-cmp-box--drag' : ''}`}
         onDragEnter={handleDragEnter}
@@ -383,22 +486,6 @@ export function Composer({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {agentMention && filteredAgents.length > 0 && (
-          <div className="fl-agent-mention-list" role="listbox" aria-label="Agent prompts">
-            {filteredAgents.map((a, i) => (
-              <div
-                key={a.id}
-                className={`fl-agent-mention-item${i === agentMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
-                role="option"
-                aria-selected={i === agentMention.selectedIndex}
-                onMouseDown={e => { e.preventDefault(); selectAgent(a.id); }}
-              >
-                <span className="fl-agent-mention-name">@{a.id}</span>
-                <span className="fl-agent-mention-display">{a.displayName}</span>
-              </div>
-            ))}
-          </div>
-        )}
         {isDragOver && (
           <div className="fl-cmp-drop-overlay" aria-hidden="true">
             <IconDoc size={16} />

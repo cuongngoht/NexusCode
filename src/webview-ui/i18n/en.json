@@ -136,7 +136,9 @@
     "subagentsTooltip": "Run focused pre-agents before main agent",
     "dropHere": "Drop files here",
     "agentMentionNoResults": "No agents found",
-    "agentsReloaded": "Agents reloaded: {{count}} found"
+    "agentsReloaded": "Agents reloaded: {{count}} found",
+    "slashCommands": "Slash commands",
+    "cmdReloadAgents": "Reload agent prompt list"
   },
   "emptyState": {
     "title": "Start a conversation",

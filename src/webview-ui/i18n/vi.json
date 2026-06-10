@@ -136,7 +136,9 @@
     "subagentsTooltip": "Chạy các pre-agent trước agent chính",
     "dropHere": "Thả file vào đây",
     "agentMentionNoResults": "Không tìm thấy agent",
-    "agentsReloaded": "Đã tải lại agents: tìm thấy {{count}}"
+    "agentsReloaded": "Đã tải lại agents: tìm thấy {{count}}",
+    "slashCommands": "Lệnh tắt",
+    "cmdReloadAgents": "Tải lại danh sách agent prompt"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",

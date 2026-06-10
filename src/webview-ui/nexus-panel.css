@@ -1357,16 +1357,11 @@ html, body, #root {
    ============================================================ */
 
 .fl-agent-mention-list {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
   background: var(--colorNeutralBackground3, #1e1e1e);
   border: 1px solid var(--colorNeutralStroke2);
   border-radius: 6px;
   max-height: 200px;
   overflow-y: auto;
-  z-index: 100;
   margin-bottom: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
