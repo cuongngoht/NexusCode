@@ -1,6 +1,11 @@
-import { useRef } from 'react';
+import { useState } from 'react';
+import { Tooltip, Popover, PopoverTrigger, PopoverSurface } from '@fluentui/react-components';
 import { useT } from '../i18n';
-import type { AgentModeCapability, AgentModeFit, AgentRecommendation, DirectProviderId, ProviderId, ProviderInfo, TaskMode } from '../messages';
+import type {
+  AgentModeCapability, AgentModeFit, AgentRecommendation,
+  DirectProviderId, ProviderId, ProviderInfo, TaskMode,
+} from '../messages';
+import { AgentCapabilityMatrix } from './AgentCapabilityMatrix';
 
 interface Props {
   provider: ProviderId;
@@ -11,39 +16,18 @@ interface Props {
   recommendations: AgentRecommendation[];
   disabled?: boolean;
   onProviderChange: (id: ProviderId) => void;
-  onOpenMatrix: (anchor: HTMLButtonElement) => void;
 }
 
 type StatusDot = 'ready' | 'warning' | 'unavailable';
 
-const ABBREV: Record<ProviderId, string> = {
-  nexus: 'NX',
-  auto: 'AU',
-  antigravity: 'AG',
-  codex: 'CX',
-  claude: 'CL',
-  copilot: 'CP',
-  aider: 'AI',
-  custom: 'CU',
-  grok: 'GK',
-};
-
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  nexus: 'Nexus',
-  auto: 'Auto',
-  antigravity: 'Antigravity',
-  codex: 'Codex',
-  claude: 'Claude',
-  copilot: 'Copilot',
-  aider: 'Aider',
-  custom: 'Custom',
-  grok: 'Grok',
+  nexus: 'Nexus', auto: 'Auto', antigravity: 'Antigravity',
+  codex: 'Codex', claude: 'Claude', copilot: 'Copilot',
+  aider: 'Aider', custom: 'Custom', grok: 'Grok',
 };
 
 const FIT_ICON: Partial<Record<AgentModeFit, string>> = {
-  best: '★',
-  good: '✓',
-  limited: '⚠',
+  best: '★', good: '✓', limited: '⚠',
 };
 
 const DIRECT_PROVIDERS: readonly DirectProviderId[] = [
@@ -63,23 +47,16 @@ function getStatusDot(id: ProviderId, providerDetection: ProviderInfo[]): Status
 }
 
 function getFit(id: ProviderId, mode: TaskMode, matrix: AgentModeCapability[]): AgentModeFit | undefined {
-  const isDirect = (DIRECT_PROVIDERS as readonly string[]).includes(id);
-  if (!isDirect) return undefined;
-  return matrix.find(m => m.agentId === id && m.mode === mode)?.fit;
-}
-
-function getStatusLabel(dot: StatusDot, t: ReturnType<typeof useT>): string {
-  if (dot === 'ready') return t.provider.statusReady;
-  if (dot === 'warning') return t.provider.statusNotLoggedIn;
-  return t.provider.statusNotInstalled;
+  if (!(DIRECT_PROVIDERS as readonly string[]).includes(id)) return undefined;
+  return matrix.find(m => m.agentId === (id as DirectProviderId) && m.mode === mode)?.fit;
 }
 
 export function AgentChipSelector({
   provider, mode, availableProviders, providerDetection, matrix,
-  disabled, onProviderChange, onOpenMatrix,
+  recommendations, disabled, onProviderChange,
 }: Props) {
   const t = useT();
-  const matrixBtnRef = useRef<HTMLButtonElement>(null);
+  const [matrixOpen, setMatrixOpen] = useState(false);
 
   const availableSet = new Set(availableProviders);
   const detectionDone = providerDetection.length > 0;
@@ -97,37 +74,73 @@ export function AgentChipSelector({
         const fit = getFit(id, mode, matrix);
         const fitIcon = fit ? FIT_ICON[fit] : undefined;
         const label = PROVIDER_LABELS[id] ?? id;
-        const statusLabel = getStatusLabel(dot, t);
         const info = providerDetection.find(d => d.id === id);
-        const versionSuffix = info?.version ? ` ${info.version}` : '';
-        const fitDesc = fit ? ` — ${fitIcon} ${t.agentCapability[fit === 'limited' ? 'limitedFit' : fit] ?? fit}` : '';
-        const tooltip = `${label}${versionSuffix}${fitDesc} · ${statusLabel}`;
+        const version = info?.version ? ` ${info.version}` : '';
+        const fitLabel = fit
+          ? ` — ${fitIcon} ${t.agentCapability[fit === 'limited' ? 'limitedFit' : fit] ?? fit}`
+          : '';
+        const statusLabel = dot === 'ready'
+          ? t.provider.statusReady
+          : dot === 'warning'
+            ? t.provider.statusNotLoggedIn
+            : t.provider.statusNotInstalled;
+        const tooltipContent = `${label}${version}${fitLabel} · ${statusLabel}`;
 
         return (
-          <button
-            key={id}
-            type="button"
-            className="nx-agent-chip"
-            data-selected={provider === id ? '' : undefined}
-            disabled={disabled}
-            title={tooltip}
-            onClick={() => onProviderChange(id)}
-          >
-            {label}
-            {fitIcon && <span className="nx-agent-chip-fit" aria-hidden="true">{fitIcon}</span>}
-            <span className={`nx-agent-chip-dot nx-agent-chip-dot--${dot}`} aria-hidden="true" />
-          </button>
+          <Tooltip key={id} content={tooltipContent} relationship="description" withArrow>
+            <button
+              type="button"
+              className="nx-agent-chip"
+              data-selected={provider === id ? '' : undefined}
+              disabled={disabled}
+              onClick={() => onProviderChange(id)}
+            >
+              {label}
+              {fitIcon && <span className="nx-agent-chip-fit" aria-hidden="true">{fitIcon}</span>}
+              <span className={`nx-agent-chip-dot nx-agent-chip-dot--${dot}`} aria-hidden="true" />
+            </button>
+          </Tooltip>
         );
       })}
-      <button
-        ref={matrixBtnRef}
-        type="button"
-        className="nx-agent-matrix-btn"
-        title={t.agentCapability.matrixTitle}
-        onClick={() => matrixBtnRef.current && onOpenMatrix(matrixBtnRef.current)}
+
+      <Popover
+        open={matrixOpen}
+        onOpenChange={(_, d) => setMatrixOpen(d.open)}
+        positioning={{ position: 'above', align: 'end' }}
+        trapFocus
       >
-        ?
-      </button>
+        <PopoverTrigger disableButtonEnhancement>
+          <button
+            type="button"
+            className="nx-agent-matrix-btn"
+            aria-label={t.agentCapability.matrixTitle}
+          >
+            ?
+          </button>
+        </PopoverTrigger>
+        <PopoverSurface className="nx-agent-matrix-popover-surface">
+          <div className="nx-agent-matrix-popover-header">
+            <span className="nx-agent-matrix-popover-title">{t.agentCapability.matrixTitle}</span>
+            <button
+              type="button"
+              className="nx-agent-matrix-popover-close"
+              onClick={() => setMatrixOpen(false)}
+              aria-label={t.agentCapability.closeMatrix}
+            >
+              ×
+            </button>
+          </div>
+          <AgentCapabilityMatrix
+            mode={mode}
+            provider={provider}
+            availableProviders={availableProviders}
+            matrix={matrix}
+            recommendations={recommendations}
+            onProviderChange={(id) => { onProviderChange(id); setMatrixOpen(false); }}
+            compact
+          />
+        </PopoverSurface>
+      </Popover>
     </div>
   );
 }

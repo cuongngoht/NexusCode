@@ -2672,3 +2672,28 @@ html, body, #root {
 .nx-agent-matrix-popover-close:hover {
   color: var(--colorNeutralForeground1);
 }
+
+/* Fluent PopoverSurface content wrapper for matrix */
+.nx-agent-matrix-popover-surface {
+  padding: 10px;
+  min-width: 360px;
+  max-width: min(92vw, 560px);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Override Fluent MenuItem padding/style for mode menu */
+.nx-mode-menu-item .nx-mode-menu-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.nx-mode-menu-item .nx-mode-menu-item-desc {
+  font-size: 11px;
+  color: var(--colorNeutralForeground4);
+}
+
+.nx-mode-menu-item--active {
+  background: rgba(255, 255, 255, 0.08);
+}

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
-import { AgentMatrixPopover } from './AgentMatrixPopover';
 
 interface Props {
   isRunning: boolean;
@@ -48,28 +48,8 @@ export function Composer({
   const [selectedBase, setSelectedBase] = useState<string>('');
   const [fileSearch, setFileSearch] = useState('');
   const [showFilePicker, setShowFilePicker] = useState(false);
-  const [matrixOpen, setMatrixOpen] = useState(false);
-  const [matrixAnchor, setMatrixAnchor] = useState<HTMLButtonElement | null>(null);
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const modeAnchorRef = useRef<HTMLButtonElement>(null);
-  const modeMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
-
-  // Close mode menu on outside click
-  useEffect(() => {
-    if (!modeMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node) &&
-        modeAnchorRef.current && !modeAnchorRef.current.contains(e.target as Node)
-      ) setModeMenuOpen(false);
-    };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') setModeMenuOpen(false); };
-    document.addEventListener('mousedown', handler);
-    document.addEventListener('keydown', keyHandler);
-    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
-  }, [modeMenuOpen]);
 
   // Sync selectedBase when reviewContext first loads or the server returns a different base branch
   useEffect(() => {
@@ -340,19 +320,39 @@ export function Composer({
               <IconAgent size={13} />
               {t.composer.subagentsToggle}
             </button>
-            <button
-              ref={modeAnchorRef}
-              type="button"
-              className="nx-mode-pill"
-              disabled={isRunning}
-              onClick={() => setModeMenuOpen(v => !v)}
-              title={(t.mode as Record<string, { label: string; desc: string }>)[mode]?.desc}
-            >
-              <span className="nx-mode-pill-label">
-                {(t.mode as Record<string, { label: string; desc: string }>)[mode]?.label ?? mode}
-              </span>
-              <span className="nx-mode-pill-chevron" aria-hidden="true">▾</span>
-            </button>
+            <Menu positioning={{ position: 'above', align: 'start' }}>
+              <MenuTrigger disableButtonEnhancement>
+                <button
+                  type="button"
+                  className="nx-mode-pill"
+                  disabled={isRunning}
+                >
+                  <span className="nx-mode-pill-label">
+                    {(t.mode as Record<string, { label: string; desc: string }>)[mode]?.label ?? mode}
+                  </span>
+                  <span className="nx-mode-pill-chevron" aria-hidden="true">▾</span>
+                </button>
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  {(['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
+                    const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
+                    return (
+                      <MenuItem
+                        key={m}
+                        className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}`}
+                        onClick={() => onModeChange(m)}
+                      >
+                        <span className="nx-mode-menu-item-main">
+                          <span>{modeT?.label ?? m}</span>
+                          <span className="nx-mode-menu-item-desc">{modeT?.desc}</span>
+                        </span>
+                      </MenuItem>
+                    );
+                  })}
+                </MenuList>
+              </MenuPopover>
+            </Menu>
           </div>
 
           <div className="fl-cmp-bar-right">
@@ -397,57 +397,9 @@ export function Composer({
         recommendations={agentRecommendations}
         disabled={isRunning}
         onProviderChange={onProviderChange}
-        onOpenMatrix={(anchor) => { setMatrixAnchor(anchor); setMatrixOpen(true); }}
       />
 
     </div>
-
-    <AgentMatrixPopover
-      open={matrixOpen}
-      mode={mode}
-      provider={provider}
-      matrix={agentCapabilityMatrix}
-      recommendations={agentRecommendations}
-      availableProviders={availableProviders}
-      anchor={matrixAnchor}
-      onClose={() => setMatrixOpen(false)}
-      onProviderChange={onProviderChange}
-    />
-
-    {modeMenuOpen && (() => {
-      const rect = modeAnchorRef.current?.getBoundingClientRect();
-      const top = rect ? rect.top - 4 : 0;
-      const left = rect ? rect.left : 0;
-      const ALL_MODES: TaskMode[] = ['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'];
-      return (
-        <div
-          ref={modeMenuRef}
-          className="nx-mode-menu"
-          style={{ bottom: rect ? window.innerHeight - rect.top + 4 : undefined, left }}
-          role="listbox"
-        >
-          {ALL_MODES.map(m => {
-            const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
-            return (
-              <button
-                key={m}
-                type="button"
-                className="nx-mode-menu-item"
-                data-active={mode === m ? '' : undefined}
-                role="option"
-                aria-selected={mode === m}
-                onClick={() => { onModeChange(m); setModeMenuOpen(false); }}
-              >
-                <span className="nx-mode-menu-item-main">
-                  <span>{modeT?.label ?? m}</span>
-                  <span className="nx-mode-menu-item-desc">{modeT?.desc}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      );
-    })()}
     </>
   );
 }
