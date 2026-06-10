@@ -6,13 +6,18 @@ import type { ProviderId, ProviderModel } from './types';
 
 // ── Result type ────────────────────────────────────────────────────────────
 
+export type ProviderAuthStatus = 'authenticated' | 'unauthenticated' | 'unknown';
+
 export interface ProviderDetectionResult {
   id: ProviderId;
   displayName: string;
   cliLabel: string;
   installed: boolean;
+  authStatus: ProviderAuthStatus;
   loggedIn?: boolean;
   loginCommand?: string;
+  installCommand?: string;
+  installDocsUrl?: string;
   version?: string;
   executablePath?: string;
   reason?: string;
@@ -24,10 +29,24 @@ export interface ProviderDetectionResult {
 // ── Per-provider specs ─────────────────────────────────────────────────────
 
 interface ProviderLoginCheck {
+  /** Optional non-mutating command that reports whether auth is valid. */
+  statusCommand?: {
+    binary: string;
+    args: string[];
+    timeoutMs?: number;
+    authenticatedPattern?: RegExp;
+    unauthenticatedPattern?: RegExp;
+  };
   /** At least one env var must be non-empty to consider the provider logged in. */
   envVars?: string[];
   /** At least one path (relative to os.homedir()) must exist. */
   configPaths?: string[];
+}
+
+interface ProviderInstallCommands {
+  darwin?: string;
+  linux?: string;
+  win32?: string;
 }
 
 interface ProviderSpec {
@@ -47,6 +66,10 @@ interface ProviderSpec {
   loginCheck?: ProviderLoginCheck;
   /** Terminal command to run when the user wants to log in. */
   loginCommand?: string;
+  /** Terminal command to paste when the CLI is missing. */
+  installCommands?: ProviderInstallCommands;
+  /** Official installation documentation URL. */
+  installDocsUrl?: string;
 }
 
 const SPECS: readonly ProviderSpec[] = [
@@ -61,9 +84,23 @@ const SPECS: readonly ProviderSpec[] = [
     seededModels: ['sonnet', 'opus', 'haiku'],
     defaultModel: 'sonnet',
     loginCheck: {
+      statusCommand: {
+        binary: 'claude',
+        args: ['auth', 'status'],
+        timeoutMs: 6_000,
+        authenticatedPattern: /"loggedIn":\s*true/,
+        unauthenticatedPattern: /"loggedIn":\s*false/,
+      },
+      envVars: ['ANTHROPIC_API_KEY'],
       configPaths: ['.claude/auth.json', '.claude/.credentials.json', '.config/claude/auth.json'],
     },
     loginCommand: 'claude',
+    installCommands: {
+      darwin: 'curl -fsSL https://claude.ai/install.sh | bash',
+      linux: 'curl -fsSL https://claude.ai/install.sh | bash',
+      win32: 'irm https://claude.ai/install.ps1 | iex',
+    },
+    installDocsUrl: 'https://code.claude.com/docs/en/quickstart',
   },
   {
     id: 'codex',
@@ -74,7 +111,17 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['gpt-5.2', 'gpt-5.1-codex-max', 'gpt-5.1-codex', 'gpt-5-codex', 'o3'],
     defaultModel: 'gpt-5.2',
-    loginCheck: { envVars: ['OPENAI_API_KEY'] },
+    loginCheck: {
+      envVars: ['OPENAI_API_KEY'],
+      configPaths: ['.codex/auth.json'],
+    },
+    loginCommand: 'codex',
+    installCommands: {
+      darwin: 'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
+      linux: 'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
+      win32: 'powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"',
+    },
+    installDocsUrl: 'https://developers.openai.com/codex/cli',
   },
   {
     id: 'antigravity',
@@ -86,6 +133,12 @@ const SPECS: readonly ProviderSpec[] = [
     seededModels: ['gemini-3.5-pro', 'gemini-3.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'],
     defaultModel: 'gemini-3.5-pro',
     loginCommand: 'agy',
+    installCommands: {
+      darwin: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+      linux: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+      win32: 'irm https://antigravity.google/cli/install.ps1 | iex',
+    },
+    installDocsUrl: 'https://github.com/google-antigravity/antigravity-cli',
   },
   {
     id: 'copilot',
@@ -96,8 +149,17 @@ const SPECS: readonly ProviderSpec[] = [
     versionPattern: /(\d+\.\d+(?:\.\d+)*)/,
     seededModels: ['gpt-5.2', 'gpt-5.1', 'claude-sonnet-4.5'],
     defaultModel: 'gpt-5.2',
-    loginCheck: { envVars: ['GITHUB_TOKEN', 'GH_TOKEN'] },
+    loginCheck: {
+      statusCommand: { binary: 'gh', args: ['auth', 'status'], timeoutMs: 6_000 },
+      envVars: ['GITHUB_TOKEN', 'GH_TOKEN'],
+    },
     loginCommand: 'gh auth login',
+    installCommands: {
+      darwin: 'npm install -g @github/copilot',
+      linux: 'npm install -g @github/copilot',
+      win32: 'npm install -g @github/copilot',
+    },
+    installDocsUrl: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli',
   },
   {
     id: 'aider',
@@ -110,6 +172,12 @@ const SPECS: readonly ProviderSpec[] = [
     seededModels: ['sonnet', 'opus', 'gpt-5.2', 'gemini/gemini-2.5-pro'],
     defaultModel: 'sonnet',
     loginCheck: { envVars: ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY'] },
+    installCommands: {
+      darwin: 'curl -LsSf https://aider.chat/install.sh | sh',
+      linux: 'curl -LsSf https://aider.chat/install.sh | sh',
+      win32: 'powershell -ExecutionPolicy ByPass -c "irm https://aider.chat/install.ps1 | iex"',
+    },
+    installDocsUrl: 'https://aider.chat/docs/install.html',
   },
   {
     id: 'grok',
@@ -121,18 +189,38 @@ const SPECS: readonly ProviderSpec[] = [
     seededModels: ['grok-3', 'grok-3-mini', 'grok-2', 'grok-2-mini'],
     defaultModel: 'grok-3',
     loginCommand: 'grok auth',
+    installCommands: {
+      darwin: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+      linux: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+    },
+    installDocsUrl: 'https://x.ai/cli',
   },
 ];
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
 /** Checks whether a provider's auth/login requirements are satisfied. */
-function checkLogin(spec: ProviderSpec): boolean {
-  if (!spec.loginCheck) return true;
+async function checkAuthStatus(spec: ProviderSpec): Promise<ProviderAuthStatus> {
+  if (!spec.loginCheck) return 'unknown';
   const { envVars, configPaths } = spec.loginCheck;
-  if (envVars?.some(v => !!process.env[v])) return true;
-  if (configPaths?.some(p => fs.existsSync(path.join(os.homedir(), p)))) return true;
-  return false;
+  const hasEnvOrConfig =
+    !!envVars?.some(v => !!process.env[v]) ||
+    !!configPaths?.some(p => fs.existsSync(path.join(os.homedir(), p)));
+
+  if (hasEnvOrConfig) return 'authenticated';
+
+  if (spec.loginCheck.statusCommand) {
+    const result = await runStatusCommand(spec.loginCheck.statusCommand);
+    if (result === 'authenticated' || result === 'unauthenticated') {
+      return result;
+    }
+  }
+
+  if ((envVars?.length ?? 0) > 0 || (configPaths?.length ?? 0) > 0) {
+    return 'unauthenticated';
+  }
+
+  return 'unknown';
 }
 
 /** Returns the full path to `binary` from PATH, or undefined if not found. */
@@ -160,12 +248,61 @@ function runForVersion(binary: string, args: string[], pattern: RegExp): Promise
   });
 }
 
+function runStatusCommand(command: NonNullable<ProviderLoginCheck['statusCommand']>): Promise<ProviderAuthStatus> {
+  return new Promise(resolve => {
+    let settled = false;
+    let out = '';
+    const finish = (status: ProviderAuthStatus) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(status);
+    };
+
+    const proc = spawn(command.binary, command.args, { shell: false });
+    const timer = setTimeout(() => {
+      proc.kill();
+      finish('unknown');
+    }, command.timeoutMs ?? 6_000);
+
+    proc.stdout.on('data', (chunk: Buffer) => { out += chunk.toString(); });
+    proc.stderr.on('data', (chunk: Buffer) => { out += chunk.toString(); });
+    proc.on('error', () => finish('unknown'));
+    proc.on('close', code => {
+      if (command.unauthenticatedPattern?.test(out)) {
+        finish('unauthenticated');
+        return;
+      }
+      if (command.authenticatedPattern?.test(out)) {
+        finish('authenticated');
+        return;
+      }
+      finish(code === 0 ? 'authenticated' : 'unauthenticated');
+    });
+  });
+}
+
 function seededModels(spec: ProviderSpec): ProviderModel[] {
   return spec.seededModels.map(model => ({
     id: model,
     label: model,
     source: 'seeded',
   }));
+}
+
+function getInstallCommand(spec: ProviderSpec): string | undefined {
+  const commands = spec.installCommands;
+  if (!commands) return undefined;
+  if (process.platform === 'darwin') return commands.darwin ?? commands.linux ?? commands.win32;
+  if (process.platform === 'linux') return commands.linux ?? commands.darwin ?? commands.win32;
+  if (process.platform === 'win32') return commands.win32 ?? commands.darwin ?? commands.linux;
+  return commands.linux ?? commands.darwin ?? commands.win32;
+}
+
+function loggedInFromAuthStatus(authStatus: ProviderAuthStatus): boolean | undefined {
+  if (authStatus === 'authenticated') return true;
+  if (authStatus === 'unauthenticated') return false;
+  return undefined;
 }
 
 // ── Detector ───────────────────────────────────────────────────────────────
@@ -206,6 +343,15 @@ export class ProviderDetector {
     return result;
   }
 
+  getInstallCommand(id: ProviderId): string | undefined {
+    const spec = SPECS.find(s => s.id === id);
+    return spec ? getInstallCommand(spec) : undefined;
+  }
+
+  getLoginCommand(id: ProviderId): string | undefined {
+    return SPECS.find(s => s.id === id)?.loginCommand;
+  }
+
   /** Clears the cache, forcing a fresh detectAll() next call. */
   invalidate(): void {
     this.cache.clear();
@@ -220,6 +366,7 @@ export class ProviderDetector {
 
   private async detectSpec(spec: ProviderSpec): Promise<ProviderDetectionResult> {
     const executablePath = resolveBinary(spec.binary);
+    const installCommand = getInstallCommand(spec);
 
     if (!executablePath) {
       return {
@@ -227,6 +374,11 @@ export class ProviderDetector {
         displayName: spec.displayName,
         cliLabel: spec.cliLabel,
         installed: false,
+        authStatus: 'unknown',
+        loggedIn: undefined,
+        loginCommand: spec.loginCommand,
+        installCommand,
+        installDocsUrl: spec.installDocsUrl,
         reason: `'${spec.binary}' not found in PATH`,
         supportsModelSelection: spec.seededModels.length > 0,
         defaultModel: spec.defaultModel,
@@ -235,14 +387,18 @@ export class ProviderDetector {
     }
 
     const version = await runForVersion(spec.binary, spec.versionArgs, spec.versionPattern);
+    const authStatus = await checkAuthStatus(spec);
 
     return {
       id: spec.id,
       displayName: spec.displayName,
       cliLabel: spec.cliLabel,
       installed: true,
-      loggedIn: checkLogin(spec),
+      authStatus,
+      loggedIn: loggedInFromAuthStatus(authStatus),
       loginCommand: spec.loginCommand,
+      installCommand,
+      installDocsUrl: spec.installDocsUrl,
       version,
       executablePath,
       supportsModelSelection: spec.seededModels.length > 0,

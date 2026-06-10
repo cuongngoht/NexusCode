@@ -136,7 +136,7 @@ export function Composer({
   const currentProviderInfo = providerDetection.find(d => d.id === provider);
   const showLoginBanner = !!(
     currentProviderInfo?.installed &&
-    currentProviderInfo.loggedIn === false &&
+    (currentProviderInfo.authStatus === 'unauthenticated' || currentProviderInfo.loggedIn === false) &&
     currentProviderInfo.loginCommand
   );
 

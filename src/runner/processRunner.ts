@@ -45,6 +45,11 @@ export class ProcessRunner implements IProcessRunner {
       const child = spawn(command.executable, [...command.args], {
         cwd: options.cwd,
         shell: false,
+        stdio: [
+          command.stdin === undefined ? 'ignore' : 'pipe',
+          'pipe',
+          'pipe',
+        ],
         env: {
           ...process.env,
           ...(command.env ?? {}),
@@ -55,24 +60,31 @@ export class ProcessRunner implements IProcessRunner {
 
       this.activeProcess = child;
       console.log(`${label} pid=${child.pid}`);
+      const childStdout = child.stdout;
+      const childStderr = child.stderr;
+      if (!childStdout || !childStderr) {
+        this.activeProcess = null;
+        reject(new Error('Failed to open stdout/stderr pipes for child process.'));
+        return;
+      }
 
       if (command.stdin !== undefined) {
         const stdinPreview = command.stdin.slice(0, 300);
         console.log(`${label} stdin (${command.stdin.length} chars):`, stdinPreview);
-        child.stdin.write(command.stdin);
+        child.stdin?.write(command.stdin);
+        child.stdin?.end();
       }
-      child.stdin.end();
 
-      child.stdout.setEncoding('utf8');
-      child.stderr.setEncoding('utf8');
+      childStdout.setEncoding('utf8');
+      childStderr.setEncoding('utf8');
 
-      child.stdout.on('data', (chunk: string) => {
+      childStdout.on('data', (chunk: string) => {
         stdout += chunk;
         console.log(`${label} stdout chunk (${chunk.length} chars):`, chunk.slice(0, 300));
         options.onStdout?.(chunk);
       });
 
-      child.stderr.on('data', (chunk: string) => {
+      childStderr.on('data', (chunk: string) => {
         stderr += chunk;
         console.log(`${label} stderr chunk:`, chunk.slice(0, 300));
         const filtered = filterNoise(chunk);

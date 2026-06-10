@@ -6,6 +6,7 @@ import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
 import { ProviderDetector } from '../core/providerDetector';
 import { ConfigService } from '../config/ConfigService';
+import type { ProviderId } from '../core/types';
 import type { IChatHistoryStore } from './IChatHistoryStore';
 import { RunTaskHandler } from './handlers/RunTaskHandler';
 import type { SubagentOrchestrator } from '../application/subagents/SubagentOrchestrator';
@@ -29,7 +30,7 @@ export class ChatController {
     private readonly post: (msg: ExtensionMessage) => void,
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
-    detector: ProviderDetector,
+    private readonly detector: ProviderDetector,
     globalState: vscode.Memento,
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
@@ -116,22 +117,17 @@ export class ChatController {
     await this.providerHandler.refresh();
   }
 
-  private readonly LOGIN_COMMANDS: Partial<Record<string, string>> = {
-    claude: 'claude',
-    antigravity: 'agy',
-    copilot: 'gh auth login',
-    grok: 'grok auth',
-  };
-
   private async handleLoginProvider(providerId: string): Promise<void> {
-    const command = this.LOGIN_COMMANDS[providerId];
+    const command = this.detector.getLoginCommand(providerId as ProviderId);
     if (!command) return;
     const terminal = vscode.window.createTerminal({ name: `NexusCode: Login ${providerId}` });
-    terminal.sendText(command);
+    terminal.sendText(command, false);
     terminal.show();
+    vscode.window.showInformationMessage('NexusCode opened the login command in a terminal. Review it and press Enter to run.');
     const disposable = vscode.window.onDidCloseTerminal(t => {
       if (t === terminal) {
         disposable.dispose();
+        this.detector.invalidate();
         void this.providerHandler.refresh();
       }
     });

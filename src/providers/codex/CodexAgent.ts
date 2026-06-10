@@ -7,6 +7,8 @@ import { CodexOutputParser } from './CodexOutputParser';
 export class CodexAgent extends BaseAgent {
   readonly id = 'codex' as const;
   readonly displayName = 'Codex';
+  // Parser only suppresses startup noise (banner, header, echoed prompt).
+  // Codex streams plain text — no structured activity events are emitted.
   override get outputParser() { return new CodexOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
@@ -30,9 +32,17 @@ export class CodexAgent extends BaseAgent {
   }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
-    const args = task.model
-      ? ['-y', '--model', task.model, task.enhancedPrompt]
-      : ['-y', task.enhancedPrompt];
+    const args = [
+      '--ask-for-approval',
+      'never',
+      '--sandbox',
+      'workspace-write',
+      'exec',
+    ];
+    if (task.model) {
+      args.push('--model', task.model);
+    }
+    args.push(task.enhancedPrompt);
     return new AgentCommand('codex', args, undefined, undefined, task.enhancedPrompt);
   }
 

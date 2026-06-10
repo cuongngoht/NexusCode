@@ -284,8 +284,11 @@ export interface ProviderInfo {
   displayName: string;
   cliLabel: string;
   installed: boolean;
+  authStatus?: 'authenticated' | 'unauthenticated' | 'unknown';
   loggedIn?: boolean;
   loginCommand?: string;
+  installCommand?: string;
+  installDocsUrl?: string;
   version?: string;
   executablePath?: string;
   reason?: string;

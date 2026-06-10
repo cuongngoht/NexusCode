@@ -21,7 +21,16 @@ describe('provider agents', () => {
   it('passes selected model to Codex', () => {
     const cmd = new CodexAgent().buildCommand(makeTask('fix it', 'gpt-5.2'));
     expect(cmd.executable).toBe('codex');
-    expect(cmd.args).toEqual(['-y', '--model', 'gpt-5.2', 'fix it']);
+    expect(cmd.args).toEqual([
+      '--ask-for-approval',
+      'never',
+      '--sandbox',
+      'workspace-write',
+      'exec',
+      '--model',
+      'gpt-5.2',
+      'fix it',
+    ]);
   });
 
   it('uses non-interactive prompt args for Antigravity with model', () => {
@@ -51,7 +60,7 @@ describe('provider agents', () => {
   it('passes selected model to Grok', () => {
     const cmd = new GrokAgent().buildCommand(makeTask('fix it', 'grok-3'));
     expect(cmd.executable).toBe('grok');
-    expect(cmd.args).toEqual(['--model', 'grok-3', 'fix it']);
+    expect(cmd.args).toEqual(['--model', 'grok-3', '--single', 'fix it']);
   });
 
   it('omits --model when no model is selected for Claude', () => {
@@ -60,9 +69,22 @@ describe('provider agents', () => {
     expect(cmd.args).toEqual(['--dangerously-skip-permissions', 'fix it']);
   });
 
+  it('omits --model when no model is selected for Codex', () => {
+    const cmd = new CodexAgent().buildCommand(makeTask('fix it'));
+    expect(cmd.executable).toBe('codex');
+    expect(cmd.args).toEqual([
+      '--ask-for-approval',
+      'never',
+      '--sandbox',
+      'workspace-write',
+      'exec',
+      'fix it',
+    ]);
+  });
+
   it('omits --model when no model is selected for Grok', () => {
     const cmd = new GrokAgent().buildCommand(makeTask('fix it'));
     expect(cmd.executable).toBe('grok');
-    expect(cmd.args).toEqual(['fix it']);
+    expect(cmd.args).toEqual(['--single', 'fix it']);
   });
 });
