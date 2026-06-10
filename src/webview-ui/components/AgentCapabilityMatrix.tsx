@@ -16,6 +16,7 @@ interface Props {
   matrix: AgentModeCapability[];
   recommendations: AgentRecommendation[];
   onProviderChange: (provider: ProviderId) => void;
+  compact?: boolean;
 }
 
 const DIRECT_PROVIDERS: readonly DirectProviderId[] = [
@@ -62,6 +63,7 @@ export function AgentCapabilityMatrix({
   matrix,
   recommendations,
   onProviderChange,
+  compact = false,
 }: Props) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
@@ -99,65 +101,67 @@ export function AgentCapabilityMatrix({
 
   return (
     <div className="nx-agent-capability">
-      <div className="nx-agent-capability-summary">
-        <div className="nx-agent-capability-copy">
-          {recommendedLabel ? (
-            <div className="nx-agent-capability-recommendation">
-              {interp(t.agentCapability.recommendedFor, {
-                mode: modeLabel,
-                provider: recommendedLabel,
-              })}
-            </div>
-          ) : (
-            <div className="nx-agent-capability-warning">
-              {interp(t.agentCapability.noRecommendation, { mode: modeLabel })}
-            </div>
-          )}
-          {recommendation?.alternatives.length ? (
-            <div className="nx-agent-capability-muted">
-              {interp(t.agentCapability.alsoGood, {
-                providers: recommendation.alternatives.map(labelForProvider).join(', '),
-              })}
-            </div>
-          ) : null}
-          {recommendation?.limited.length ? (
-            <div className="nx-agent-capability-muted">
-              {interp(t.agentCapability.limited, {
-                providers: recommendation.limited.map(labelForProvider).join(', '),
-              })}
-            </div>
-          ) : null}
-          {recommendation?.unavailable.length ? (
-            <div className="nx-agent-capability-muted">
-              {t.agentCapability.unavailable}: {recommendation.unavailable.map(labelForProvider).join(', ')}
-            </div>
-          ) : null}
-          {showCurrentWarning && (
-            <div className="nx-agent-capability-warning" title={currentCapability.reason}>
-              {interp(t.agentCapability.currentLimited, {
-                provider: labelForProvider(provider),
-                mode: modeLabel,
-              })}
-            </div>
-          )}
-        </div>
+      {!compact && (
+        <div className="nx-agent-capability-summary">
+          <div className="nx-agent-capability-copy">
+            {recommendedLabel ? (
+              <div className="nx-agent-capability-recommendation">
+                {interp(t.agentCapability.recommendedFor, {
+                  mode: modeLabel,
+                  provider: recommendedLabel,
+                })}
+              </div>
+            ) : (
+              <div className="nx-agent-capability-warning">
+                {interp(t.agentCapability.noRecommendation, { mode: modeLabel })}
+              </div>
+            )}
+            {recommendation?.alternatives.length ? (
+              <div className="nx-agent-capability-muted">
+                {interp(t.agentCapability.alsoGood, {
+                  providers: recommendation.alternatives.map(labelForProvider).join(', '),
+                })}
+              </div>
+            ) : null}
+            {recommendation?.limited.length ? (
+              <div className="nx-agent-capability-muted">
+                {interp(t.agentCapability.limited, {
+                  providers: recommendation.limited.map(labelForProvider).join(', '),
+                })}
+              </div>
+            ) : null}
+            {recommendation?.unavailable.length ? (
+              <div className="nx-agent-capability-muted">
+                {t.agentCapability.unavailable}: {recommendation.unavailable.map(labelForProvider).join(', ')}
+              </div>
+            ) : null}
+            {showCurrentWarning && (
+              <div className="nx-agent-capability-warning" title={currentCapability.reason}>
+                {interp(t.agentCapability.currentLimited, {
+                  provider: labelForProvider(provider),
+                  mode: modeLabel,
+                })}
+              </div>
+            )}
+          </div>
 
-        <div className="nx-agent-capability-actions">
-          {recommendation?.recommended && provider !== recommendation.recommended && (
-            <button
-              type="button"
-              onClick={() => onProviderChange(recommendation.recommended as ProviderId)}
-            >
-              {t.agentCapability.useRecommended}
+          <div className="nx-agent-capability-actions">
+            {recommendation?.recommended && provider !== recommendation.recommended && (
+              <button
+                type="button"
+                onClick={() => onProviderChange(recommendation.recommended as ProviderId)}
+              >
+                {t.agentCapability.useRecommended}
+              </button>
+            )}
+            <button type="button" onClick={() => setExpanded(v => !v)}>
+              {expanded ? t.agentCapability.hideMatrix : t.agentCapability.viewMatrix}
             </button>
-          )}
-          <button type="button" onClick={() => setExpanded(v => !v)}>
-            {expanded ? t.agentCapability.hideMatrix : t.agentCapability.viewMatrix}
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {expanded && (
+      {(compact || expanded) && (
         <div className="nx-agent-capability-matrix">
           <table className="nx-agent-capability-table">
             <thead>

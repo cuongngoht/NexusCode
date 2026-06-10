@@ -14,7 +14,19 @@
     "customCli": "CLI tùy chỉnh",
     "notLoggedIn": "Chưa đăng nhập",
     "loginRequired": "Chưa đăng nhập — nhấn để mở terminal đăng nhập",
-    "login": "Đăng nhập"
+    "login": "Đăng nhập",
+    "abbrevNexus": "NX",
+    "abbrevAuto": "AU",
+    "abbrevClaude": "CL",
+    "abbrevCodex": "CX",
+    "abbrevCopilot": "CP",
+    "abbrevAider": "AI",
+    "abbrevGrok": "GK",
+    "abbrevCustom": "CU",
+    "abbrevAntigravity": "AG",
+    "statusReady": "Sẵn sàng",
+    "statusNotLoggedIn": "Chưa đăng nhập",
+    "statusNotInstalled": "Chưa cài đặt"
   },
   "model": {
     "auto": "Model mặc định",
@@ -99,7 +111,12 @@
     "good": "Tốt",
     "limitedFit": "Hạn chế",
     "unsupported": "Không phù hợp",
-    "unknown": "Chưa rõ"
+    "unknown": "Chưa rõ",
+    "inlineRecommendation": "{{provider}} phù hợp hơn cho {{mode}}",
+    "useIt": "Dùng ngay →",
+    "dismiss": "Bỏ qua",
+    "matrixTitle": "Bảng năng lực agent",
+    "closeMatrix": "Đóng bảng"
   },
   "composer": {
     "placeholder": "Hỏi Nexus về file này…  (⌘↵ để gửi)",

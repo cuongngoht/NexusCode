@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { NexusDropdown, type DropdownOption } from '../NexusDropdown';
-import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconSparkle, IconTool, IconGlobe, IconAgent, IconSearch } from '../NexusIcons';
+import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment } from '../messages';
-import { AgentCapabilityMatrix } from './AgentCapabilityMatrix';
+import { InlineRecommendationBanner } from './InlineRecommendationBanner';
+import { AgentChipSelector } from './AgentChipSelector';
+import { AgentMatrixPopover } from './AgentMatrixPopover';
 
 interface Props {
   isRunning: boolean;
@@ -47,8 +48,28 @@ export function Composer({
   const [selectedBase, setSelectedBase] = useState<string>('');
   const [fileSearch, setFileSearch] = useState('');
   const [showFilePicker, setShowFilePicker] = useState(false);
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const [matrixAnchor, setMatrixAnchor] = useState<HTMLButtonElement | null>(null);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const modeAnchorRef = useRef<HTMLButtonElement>(null);
+  const modeMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
+
+  // Close mode menu on outside click
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node) &&
+        modeAnchorRef.current && !modeAnchorRef.current.contains(e.target as Node)
+      ) setModeMenuOpen(false);
+    };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') setModeMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
+  }, [modeMenuOpen]);
 
   // Sync selectedBase when reviewContext first loads or the server returns a different base branch
   useEffect(() => {
@@ -139,38 +160,6 @@ export function Composer({
     currentProviderInfo.loginCommand
   );
 
-  // Provider options
-  const availableSet = new Set(availableProviders);
-  const detectionDone = providerDetection.length > 0;
-  const all: ProviderId[] = ['nexus', 'auto', 'antigravity', 'codex', 'claude', 'copilot', 'aider', 'custom', 'grok'];
-  const providerOptions: DropdownOption[] = all
-    .filter(id => {
-      if (id === 'nexus' || id === 'auto' || id === 'custom') return true;
-      if (!detectionDone) return false;
-      return availableSet.has(id);
-    })
-    .map(id => {
-      if (id === 'nexus') return { value: 'nexus', label: 'Nexus', icon: IconSparkle, badge: t.nexus.badge };
-      if (id === 'auto') return { value: 'auto', label: t.provider.autoDetect, icon: IconSparkle, badge: t.provider.autoDetectBadge };
-      if (id === 'custom') return { value: 'custom', label: t.provider.customCli, icon: IconTool };
-      const info = providerDetection.find(d => d.id === id);
-      const label = info ? (info.version ? `${info.cliLabel} ${info.version}` : info.cliLabel) : id;
-      const badge = (info?.installed && info?.loggedIn === false) ? `⚠ ${t.provider.notLoggedIn}` : undefined;
-      return { value: id, label, icon: IconSparkle, badge };
-    });
-
-  // Mode options
-  const modeOptions: DropdownOption[] = [
-    { value: 'ask', label: t.mode.ask.label, desc: t.mode.ask.desc, icon: IconSparkle },
-    { value: 'edit', label: t.mode.edit.label, desc: t.mode.edit.desc, icon: IconTool },
-    { value: 'research', label: t.mode.research.label, desc: t.mode.research.desc, icon: IconGlobe },
-    { value: 'brainstorm', label: t.mode.brainstorm.label, desc: t.mode.brainstorm.desc, icon: IconSparkle },
-    { value: 'review', label: t.mode.review.label, desc: t.mode.review.desc, icon: IconAgent },
-    { value: 'debug', label: t.mode.debug.label, desc: t.mode.debug.desc, icon: IconSearch },
-    { value: 'plan', label: t.mode.plan.label, desc: t.mode.plan.desc, icon: IconSparkle },
-    { value: 'test', label: t.mode.test.label, desc: t.mode.test.desc, icon: IconTool },
-    { value: 'scan-project', label: t.mode['scan-project'].label, desc: t.mode['scan-project'].desc, icon: IconSearch },
-  ];
 
   const closePicker = () => { setShowFilePicker(false); setFileSearch(''); };
 
@@ -351,6 +340,19 @@ export function Composer({
               <IconAgent size={13} />
               {t.composer.subagentsToggle}
             </button>
+            <button
+              ref={modeAnchorRef}
+              type="button"
+              className="nx-mode-pill"
+              disabled={isRunning}
+              onClick={() => setModeMenuOpen(v => !v)}
+              title={(t.mode as Record<string, { label: string; desc: string }>)[mode]?.desc}
+            >
+              <span className="nx-mode-pill-label">
+                {(t.mode as Record<string, { label: string; desc: string }>)[mode]?.label ?? mode}
+              </span>
+              <span className="nx-mode-pill-chevron" aria-hidden="true">▾</span>
+            </button>
           </div>
 
           <div className="fl-cmp-bar-right">
@@ -379,33 +381,73 @@ export function Composer({
         </div>
       </div>
 
-      <AgentCapabilityMatrix
+      <InlineRecommendationBanner
         mode={mode}
         provider={provider}
-        availableProviders={availableProviders}
-        matrix={agentCapabilityMatrix}
         recommendations={agentRecommendations}
-        onProviderChange={onProviderChange}
+        onUseRecommended={onProviderChange}
       />
 
-      <div className="fl-selectors fl-selectors--bottom">
-        <NexusDropdown
-          value={provider}
-          options={providerOptions}
-          onChange={v => onProviderChange(v as ProviderId)}
-          disabled={isRunning}
-          direction="up"
-          searchable
-        />
-        <NexusDropdown
-          value={mode}
-          options={modeOptions}
-          onChange={v => onModeChange(v as TaskMode)}
-          disabled={isRunning}
-          direction="up"
-        />
-      </div>
+      <AgentChipSelector
+        provider={provider}
+        mode={mode}
+        availableProviders={availableProviders}
+        providerDetection={providerDetection}
+        matrix={agentCapabilityMatrix}
+        recommendations={agentRecommendations}
+        disabled={isRunning}
+        onProviderChange={onProviderChange}
+        onOpenMatrix={(anchor) => { setMatrixAnchor(anchor); setMatrixOpen(true); }}
+      />
+
     </div>
+
+    <AgentMatrixPopover
+      open={matrixOpen}
+      mode={mode}
+      provider={provider}
+      matrix={agentCapabilityMatrix}
+      recommendations={agentRecommendations}
+      availableProviders={availableProviders}
+      anchor={matrixAnchor}
+      onClose={() => setMatrixOpen(false)}
+      onProviderChange={onProviderChange}
+    />
+
+    {modeMenuOpen && (() => {
+      const rect = modeAnchorRef.current?.getBoundingClientRect();
+      const top = rect ? rect.top - 4 : 0;
+      const left = rect ? rect.left : 0;
+      const ALL_MODES: TaskMode[] = ['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'];
+      return (
+        <div
+          ref={modeMenuRef}
+          className="nx-mode-menu"
+          style={{ bottom: rect ? window.innerHeight - rect.top + 4 : undefined, left }}
+          role="listbox"
+        >
+          {ALL_MODES.map(m => {
+            const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
+            return (
+              <button
+                key={m}
+                type="button"
+                className="nx-mode-menu-item"
+                data-active={mode === m ? '' : undefined}
+                role="option"
+                aria-selected={mode === m}
+                onClick={() => { onModeChange(m); setModeMenuOpen(false); }}
+              >
+                <span className="nx-mode-menu-item-main">
+                  <span>{modeT?.label ?? m}</span>
+                  <span className="nx-mode-menu-item-desc">{modeT?.desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      );
+    })()}
     </>
   );
 }
