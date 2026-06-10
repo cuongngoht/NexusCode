@@ -35,6 +35,7 @@ export type ExtensionMessage =
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
+  | { type: 'historySaveError'; message: string }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {

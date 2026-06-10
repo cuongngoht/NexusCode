@@ -146,7 +146,8 @@
     "ariaLabel": "Conversation history",
     "deleteConversation": "Delete conversation",
     "clearAll": "Clear all",
-    "confirmClear": "Confirm clear all?"
+    "confirmClear": "Confirm clear all?",
+    "saveError": "History save failed: {{message}}"
   },
   "git": {
     "changedFiles": "Changed files",

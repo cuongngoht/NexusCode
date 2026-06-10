@@ -8,7 +8,7 @@ import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
 import { ConversationHistory } from './components/ConversationHistory';
 import { Composer } from './components/Composer';
-import { I18nContext, LOCALES, type Locale, useT } from './i18n';
+import { I18nContext, LOCALES, interp, type Locale, useT } from './i18n';
 
 function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
   const t = useT();
@@ -81,12 +81,12 @@ export function App() {
     return () => clearInterval(timerRef.current);
   }, [state.isRunning]);
 
-  // Autosave history whenever saveKey increments (task done, new/delete/clear conversation)
+  // Autosave history whenever saveKey increments (task done, new/delete/clear conversation, user message)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (state.saveKey > 0 && state.saveKey !== saveKeyRef.current) {
       saveKeyRef.current = state.saveKey;
-      getVsCodeApi().postMessage({ type: 'saveHistory', history: serializeHistory(stateRef.current) });
+      getVsCodeApi().postMessage({ type: 'saveHistory', history: serializeHistory(state) });
     }
   }, [state.saveKey]);
 
@@ -181,6 +181,12 @@ export function App() {
                   )}
                 </div>
               )}
+              {state.historySaveError && (
+                <div className="nx-history-save-error" role="alert">
+                  {interp(LOCALES[locale].history.saveError, { message: state.historySaveError })}
+                </div>
+              )}
+
               <MessageList
                 conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}
                 isRunning={state.isRunning}

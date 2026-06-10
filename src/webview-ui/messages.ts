@@ -65,8 +65,33 @@ export interface GitReviewContext {
   message?: string;
 }
 
-let _seq = 0;
-const uid = () => `${++_seq}`;
+let _seqSuffix = 0;
+const uid = (): string => `${Date.now()}-${++_seqSuffix}`;
+
+function deriveTitle(prompt: string): string {
+  // Find first non-empty, non-code-block line
+  const lines = prompt.split('\n');
+  let firstLine = '';
+  let inCode = false;
+  for (const line of lines) {
+    if (line.startsWith('```')) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    const t = line.trim();
+    if (t) { firstLine = t; break; }
+  }
+  if (!firstLine) firstLine = prompt.trim();
+
+  // Truncate at first sentence boundary if it falls within a reasonable range
+  const sentEnd = firstLine.search(/[.?!]/);
+  const base = (sentEnd > 10 && sentEnd < 60) ? firstLine.slice(0, sentEnd) : firstLine;
+  const clean = base.trim();
+
+  if (clean.length <= 52) return clean;
+  // Cut at last word boundary before 52 chars, add ellipsis
+  const cut = clean.slice(0, 52);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 15 ? cut.slice(0, lastSpace) : cut) + '…';
+}
 
 // ── Message types ─────────────────────────────────────────────────────────
 
@@ -207,6 +232,7 @@ export interface AppState {
   reviewContext?: GitReviewContext;
   reviewContextError?: string;
   historyError?: string;
+  historySaveError?: string;
   mcpEnabled: boolean;
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
@@ -234,6 +260,7 @@ export function createInitialState(): AppState {
     reviewContext: undefined,
     reviewContextError: undefined,
     historyError: undefined,
+    historySaveError: undefined,
     mcpEnabled: false,
     mcpActivePresets: [],
     lastMcpUsed: undefined,
@@ -291,6 +318,7 @@ export type ExtMsg =
   | { type: 'activityDone'; activityKind: string; label: string; status: 'done' | 'error' }
   | { type: 'historyLoaded'; history: ChatHistoryState }
   | { type: 'historyError'; message: string }
+  | { type: 'historySaveError'; message: string }
   | { type: 'reviewContext'; context: GitReviewContext }
   | { type: 'reviewContextError'; message: string }
   | {
@@ -544,7 +572,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'selectConversation':
-      return { ...state, activeConvId: action.id, showHistory: false, saveKey: state.saveKey + 1 };
+      return { ...state, activeConvId: action.id, showHistory: false };
 
     case 'deleteConversation': {
       const remaining = state.conversations.filter(c => c.id !== action.id);
@@ -575,11 +603,14 @@ export function reducer(state: AppState, action: AppAction): AppState {
         model: action.model,
         timestamp: action.timestamp,
       };
-      return updateActiveConv(state, conv => ({
-        ...conv,
-        title: conv.messages.length === 0 ? action.prompt.slice(0, 50).trim() : conv.title,
-        messages: [...conv.messages, msg],
-      }));
+      return {
+        ...updateActiveConv(state, conv => ({
+          ...conv,
+          title: conv.messages.length === 0 ? deriveTitle(action.prompt) : conv.title,
+          messages: [...conv.messages, msg],
+        })),
+        saveKey: state.saveKey + 1,
+      };
     }
 
     case 'extMsg':
@@ -810,6 +841,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'historyError':
       return { ...state, historyError: msg.message ?? 'Failed to load history' };
+
+    case 'historySaveError':
+      return { ...state, historySaveError: msg.message };
 
     case 'reviewContext':
       return { ...state, reviewContext: msg.context, reviewContextError: undefined };

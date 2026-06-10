@@ -146,7 +146,8 @@
     "ariaLabel": "Lịch sử trò chuyện",
     "deleteConversation": "Xóa cuộc trò chuyện",
     "clearAll": "Xóa tất cả",
-    "confirmClear": "Xác nhận xóa tất cả?"
+    "confirmClear": "Xác nhận xóa tất cả?",
+    "saveError": "Lưu lịch sử thất bại: {{message}}"
   },
   "git": {
     "changedFiles": "Tệp đã thay đổi",
