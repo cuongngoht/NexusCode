@@ -154,7 +154,9 @@
     "changedFiles": "Changed files",
     "close": "Close",
     "noChanges": "No changes.",
-    "openScm": "Open Source Control"
+    "openScm": "Open Source Control",
+    "attachFile": "Attach to prompt",
+    "attachAll": "Attach all changed"
   },
   "dropdown": {
     "select": "Select…",

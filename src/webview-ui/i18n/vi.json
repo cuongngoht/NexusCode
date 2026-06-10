@@ -154,7 +154,9 @@
     "changedFiles": "Tệp đã thay đổi",
     "close": "Đóng",
     "noChanges": "Không có thay đổi.",
-    "openScm": "Mở Source Control"
+    "openScm": "Mở Source Control",
+    "attachFile": "Đính kèm file",
+    "attachAll": "Đính kèm tất cả"
   },
   "dropdown": {
     "select": "Chọn…",

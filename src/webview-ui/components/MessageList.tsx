@@ -14,6 +14,8 @@ interface Props {
   onOpenScm: () => void;
   onCloseGit: () => void;
   onSendSuggestion: (text: string) => void;
+  onOpenFile: (path: string) => void;
+  onAttachFiles: (paths: string[]) => void;
 }
 
 function EmptyState({ onSend }: { onSend: (text: string) => void }) {
@@ -45,7 +47,7 @@ function EmptyState({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-export function MessageList({ conversation, isRunning, providerDetection, availableProviders, onOpenScm, onCloseGit, onSendSuggestion }: Props) {
+export function MessageList({ conversation, isRunning, providerDetection, availableProviders, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles }: Props) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { messages, gitChanges, gitMessage } = conversation;
@@ -75,6 +77,9 @@ export function MessageList({ conversation, isRunning, providerDetection, availa
               message={gitMessage}
               onOpenScm={onOpenScm}
               onClose={onCloseGit}
+              onOpenFile={onOpenFile}
+              onAttachFile={p => onAttachFiles([p])}
+              onAttachAll={() => onAttachFiles(gitChanges.map(c => c.path))}
             />
           )}
 

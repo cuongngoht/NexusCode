@@ -130,6 +130,12 @@ export function App() {
   const handleOpenSettings = useCallback(() => getVsCodeApi().postMessage({ type: 'openSettings' }), []);
   const handleAbout = useCallback(() => getVsCodeApi().postMessage({ type: 'openAbout' }), []);
 
+  const handleOpenFile = useCallback((p: string) =>
+    getVsCodeApi().postMessage({ type: 'openWorkspaceFile', path: p }), []);
+
+  const handleAttachFiles = useCallback((paths: string[]) =>
+    getVsCodeApi().postMessage({ type: 'attachWorkspaceFiles', paths }), []);
+
   const handleRefreshReviewContext = useCallback((baseBranch?: string) => {
     getVsCodeApi().postMessage({ type: 'getReviewContext', baseBranch });
   }, []);
@@ -204,6 +210,8 @@ export function App() {
                   dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });
                 }}
                 onSendSuggestion={handleRun}
+                onOpenFile={handleOpenFile}
+                onAttachFiles={handleAttachFiles}
               />
 
               {!state.isDetecting && (

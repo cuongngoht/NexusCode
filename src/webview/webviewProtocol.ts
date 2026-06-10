@@ -70,4 +70,6 @@ export type WebviewMessage =
   | { type: 'openSavedPlans' }
   | { type: 'refreshMcpStatus' }
   | { type: 'loginProvider'; providerId: ProviderId }
-  | { type: 'resolveDroppedFiles'; paths: string[] };
+  | { type: 'resolveDroppedFiles'; paths: string[] }
+  | { type: 'openWorkspaceFile'; path: string }
+  | { type: 'attachWorkspaceFiles'; paths: string[] };

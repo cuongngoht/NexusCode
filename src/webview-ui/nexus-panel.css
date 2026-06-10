@@ -1523,11 +1523,31 @@ html, body, #root {
 }
 
 .nx-git-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 4px;
+}
+
+.nx-git-file-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  min-width: 0;
+  text-align: left;
+  color: var(--colorNeutralForeground1);
   font-family: var(--fontFamilyMono);
   font-size: 11.5px;
+}
+
+.nx-git-file-btn:hover {
+  background: var(--colorNeutralBackground2);
 }
 
 .nx-git-status {
@@ -1536,11 +1556,86 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.nx-git-path {
-  color: var(--colorNeutralForeground2);
+.nx-git-name {
+  flex-shrink: 0;
+}
+
+.nx-git-dir {
+  font-size: 10.5px;
+  color: var(--colorNeutralForeground4);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nx-git-attach-btn {
+  opacity: 0;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: var(--colorNeutralForeground3);
+  display: flex;
+  align-items: center;
+  transition: opacity var(--durationFaster);
+}
+
+.nx-git-item:hover .nx-git-attach-btn {
+  opacity: 1;
+}
+
+.nx-git-attach-btn:hover {
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground1);
+}
+
+.nx-git-count {
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--colorNeutralBackground3);
+  border-radius: 8px;
+  padding: 1px 6px;
+  color: var(--colorNeutralForeground2);
+}
+
+.nx-git-close-btn {
+  margin-left: auto;
+}
+
+.nx-git-empty {
+  font-size: 12px;
+  color: var(--colorNeutralForeground4);
+  font-style: italic;
+  margin: 0 0 8px;
+}
+
+.nx-git-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.nx-git-attach-all-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-family: var(--fontFamilyBase);
+  padding: 3px 8px;
+  border-radius: var(--borderRadiusMedium);
+  border: 1px solid var(--colorNeutralStroke2);
+  background: none;
+  cursor: pointer;
+  color: var(--colorBrandForeground1);
+  transition: background var(--durationFast);
+}
+
+.nx-git-attach-all-btn:hover {
+  background: var(--colorNeutralBackground2);
 }
 
 .nx-git-scm-btn {
@@ -1551,7 +1646,7 @@ html, body, #root {
   color: var(--colorNeutralForeground2);
   font-size: 12px;
   font-family: var(--fontFamilyBase);
-  padding: 5px 10px;
+  padding: 3px 8px;
   border-radius: var(--borderRadiusMedium);
   display: inline-flex;
   align-items: center;
