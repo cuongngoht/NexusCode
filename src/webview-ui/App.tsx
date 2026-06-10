@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState } from './messages';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -156,6 +156,14 @@ export function App() {
     dispatch({ type: 'setAgentMention', state: mentionState });
   }, []);
 
+  const handleReloadSkills = useCallback(() => {
+    getVsCodeApi().postMessage({ type: 'reloadSkills' });
+  }, []);
+
+  const handleSkillMentionChange = useCallback((mentionState: SkillMentionState | undefined) => {
+    dispatch({ type: 'setSkillMention', state: mentionState });
+  }, []);
+
   useEffect(() => {
     if (state.mode === 'review' && !state.isDetecting) {
       getVsCodeApi().postMessage({ type: 'getReviewContext' });
@@ -267,6 +275,10 @@ export function App() {
                   agentMention={state.agentMention}
                   onAgentMentionChange={handleAgentMentionChange}
                   onReloadAgents={handleReloadAgents}
+                  skillPrompts={state.skillPrompts}
+                  skillMention={state.skillMention}
+                  onSkillMentionChange={handleSkillMentionChange}
+                  onReloadSkills={handleReloadSkills}
                 />
               )}
             </div>

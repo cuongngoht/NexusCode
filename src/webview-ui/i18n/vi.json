@@ -139,6 +139,9 @@
     "agentsReloaded": "Đã tải lại agents: tìm thấy {{count}}",
     "slashCommands": "Lệnh tắt",
     "cmdReloadAgents": "Tải lại danh sách agent prompt",
+    "cmdReloadSkills": "Tải lại danh sách skill prompt",
+    "skillMentionNoResults": "Không tìm thấy skill",
+    "skillsReloaded": "Đã tải lại skills: tìm thấy {{count}}",
     "modeUnsupported": "Agent hiện tại không hỗ trợ chế độ này",
     "modeLimited": "Agent hiện tại hỗ trợ hạn chế chế độ này"
   },

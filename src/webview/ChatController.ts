@@ -17,6 +17,7 @@ import { LoginHandler } from './handlers/LoginHandler';
 import { NavigationHandler } from './handlers/NavigationHandler';
 import { EventForwarder } from './handlers/EventForwarder';
 import { AgentPromptHandler } from './handlers/AgentPromptHandler';
+import { SkillPromptHandler } from './handlers/SkillPromptHandler';
 import { buildConversationContext } from '../context/conversationContext';
 
 export class ChatController {
@@ -29,6 +30,7 @@ export class ChatController {
   private readonly loginHandler: LoginHandler;
   private readonly navigationHandler: NavigationHandler;
   private readonly agentPromptHandler: AgentPromptHandler;
+  private readonly skillPromptHandler: SkillPromptHandler;
 
   constructor(
     runAgent: RunAgentUseCase,
@@ -52,6 +54,7 @@ export class ChatController {
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
     this.navigationHandler    = new NavigationHandler();
     this.agentPromptHandler   = new AgentPromptHandler(extensionPath, post);
+    this.skillPromptHandler   = new SkillPromptHandler(extensionPath, post);
 
     const forwarder = new EventForwarder(post);
     const busListener = (e: Parameters<typeof forwarder.forward>[0]) => forwarder.forward(e);
@@ -68,6 +71,7 @@ export class ChatController {
         await this.historyHandler.load();
         await this.providerHandler.sendAvailable();
         await this.agentPromptHandler.sendAgentPrompts();
+        await this.skillPromptHandler.sendSkillPrompts();
         break;
       case 'runTask':
         await this.runTaskHandler.run(
@@ -96,6 +100,8 @@ export class ChatController {
       case 'openAbout':              await this.navigationHandler.openAbout(); break;
       case 'getAgentPrompts':        await this.agentPromptHandler.sendAgentPrompts(); break;
       case 'reloadAgents':           await this.agentPromptHandler.reload(); break;
+      case 'getSkillPrompts':        await this.skillPromptHandler.sendSkillPrompts(); break;
+      case 'reloadSkills':           await this.skillPromptHandler.reload(); break;
     }
   }
 

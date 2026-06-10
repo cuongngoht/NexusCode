@@ -227,6 +227,20 @@ export interface AgentMentionState {
   selectedIndex: number;
 }
 
+// Mirror of SkillPrompt from src/context/skillPromptLibrary.ts — keep in sync
+export interface SkillPrompt {
+  id: string;
+  displayName: string;
+  fileName: string;
+  workspacePath: string;
+}
+
+export interface SkillMentionState {
+  triggerIndex: number;
+  query: string;
+  selectedIndex: number;
+}
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -253,6 +267,8 @@ export interface AppState {
   subagentsEnabled: boolean;
   agentPrompts: AgentPrompt[];
   agentMention?: AgentMentionState;
+  skillPrompts: SkillPrompt[];
+  skillMention?: SkillMentionState;
 }
 
 export function createInitialState(): AppState {
@@ -283,6 +299,8 @@ export function createInitialState(): AppState {
     subagentsEnabled: false,
     agentPrompts: [],
     agentMention: undefined,
+    skillPrompts: [],
+    skillMention: undefined,
   };
 }
 
@@ -355,7 +373,10 @@ export type ExtMsg =
   | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
   | { type: 'agentPrompts'; agents: AgentPrompt[] }
   | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
-  | { type: 'agentPromptError'; message: string };
+  | { type: 'agentPromptError'; message: string }
+  | { type: 'skillPrompts'; skills: SkillPrompt[] }
+  | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
+  | { type: 'skillPromptError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -380,7 +401,8 @@ export type AppAction =
     model?: string;
     timestamp: number;
   }
-  | { type: 'setAgentMention'; state: AgentMentionState | undefined };
+  | { type: 'setAgentMention'; state: AgentMentionState | undefined }
+  | { type: 'setSkillMention'; state: SkillMentionState | undefined };
 
 // ── History serialization ─────────────────────────────────────────────────
 
@@ -640,6 +662,9 @@ export function reducer(state: AppState, action: AppAction): AppState {
 
     case 'setAgentMention':
       return { ...state, agentMention: action.state };
+
+    case 'setSkillMention':
+      return { ...state, skillMention: action.state };
 
     case 'extMsg':
       return applyExtMsg(state, action.msg);
@@ -916,6 +941,15 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return { ...state, agentPrompts: msg.agents };
 
     case 'agentPromptError':
+      return state;
+
+    case 'skillPrompts':
+      return { ...state, skillPrompts: msg.skills };
+
+    case 'skillsReloaded':
+      return { ...state, skillPrompts: msg.skills };
+
+    case 'skillPromptError':
       return state;
   }
   return state;

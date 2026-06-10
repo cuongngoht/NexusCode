@@ -182,6 +182,16 @@
           "type": "boolean",
           "default": true,
           "description": "Copy bundled default agent prompts into .nexus/agents when missing."
+        },
+        "nexus.skills.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable project-level markdown skills and #skill autocomplete."
+        },
+        "nexus.skills.autoCopyDefaults": {
+          "type": "boolean",
+          "default": true,
+          "description": "Copy bundled default skill prompts into .nexus/skills when missing."
         }
       }
     }

@@ -6,12 +6,15 @@ import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
 import type { McpPresetStatusView } from '../mcp/McpTypes';
 import type { AgentPrompt } from '../context/agentPromptLibrary';
+import type { SkillPrompt } from '../context/skillPromptLibrary';
 
 export type { PromptAttachment };
 
 export type { ProviderDetectionResult };
 
 export type { AgentPrompt };
+
+export type { SkillPrompt };
 
 // Messages sent from the extension to the webview
 export type ExtensionMessage =
@@ -55,7 +58,10 @@ export type ExtensionMessage =
   | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
   | { type: 'agentPrompts'; agents: AgentPrompt[] }
   | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
-  | { type: 'agentPromptError'; message: string };
+  | { type: 'agentPromptError'; message: string }
+  | { type: 'skillPrompts'; skills: SkillPrompt[] }
+  | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
+  | { type: 'skillPromptError'; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -80,4 +86,6 @@ export type WebviewMessage =
   | { type: 'openWorkspaceFile'; path: string }
   | { type: 'attachWorkspaceFiles'; paths: string[] }
   | { type: 'getAgentPrompts' }
-  | { type: 'reloadAgents' };
+  | { type: 'reloadAgents' }
+  | { type: 'getSkillPrompts' }
+  | { type: 'reloadSkills' };

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState } from '../messages';
+import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 
@@ -35,6 +35,10 @@ interface Props {
   agentMention?: AgentMentionState;
   onAgentMentionChange: (state: AgentMentionState | undefined) => void;
   onReloadAgents: () => void;
+  skillPrompts: SkillPrompt[];
+  skillMention?: SkillMentionState;
+  onSkillMentionChange: (state: SkillMentionState | undefined) => void;
+  onReloadSkills: () => void;
 }
 
 interface SlashCommand {
@@ -60,6 +64,7 @@ export function Composer({
   subagentsEnabled, onToggleSubagents, onLoginProvider,
   onResolveDroppedFiles,
   agentPrompts, agentMention, onAgentMentionChange, onReloadAgents,
+  skillPrompts, skillMention, onSkillMentionChange, onReloadSkills,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -131,7 +136,12 @@ export function Composer({
       description: t.composer.cmdReloadAgents,
       run: () => { onReloadAgents(); setPrompt(''); },
     },
-  ], [onReloadAgents, t.composer.cmdReloadAgents]);
+    {
+      id: 'reload-skills',
+      description: t.composer.cmdReloadSkills,
+      run: () => { onReloadSkills(); setPrompt(''); },
+    },
+  ], [onReloadAgents, onReloadSkills, t.composer.cmdReloadAgents, t.composer.cmdReloadSkills]);
 
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
@@ -167,6 +177,14 @@ export function Composer({
     );
   }, [agentPrompts, agentMention]);
 
+  const filteredSkills = useMemo(() => {
+    if (!skillMention) return [];
+    const q = skillMention.query.toLowerCase();
+    return skillPrompts.filter(s =>
+      s.id.toLowerCase().startsWith(q) || s.displayName.toLowerCase().includes(q),
+    );
+  }, [skillPrompts, skillMention]);
+
   const modeFitMap = useMemo(() => {
     const map = new Map<TaskMode, string>();
     if (provider === 'auto' || provider === 'nexus') return map;
@@ -192,6 +210,16 @@ export function Composer({
     onAgentMentionChange(undefined);
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [agentMention, prompt, onAgentMentionChange]);
+
+  const selectSkill = useCallback((id: string) => {
+    if (!skillMention) return;
+    const before = prompt.slice(0, skillMention.triggerIndex);
+    const after = prompt.slice(skillMention.triggerIndex + 1 + skillMention.query.length);
+    const newPrompt = `${before}#${id} ${after}`;
+    setPrompt(newPrompt);
+    onSkillMentionChange(undefined);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [skillMention, prompt, onSkillMentionChange]);
 
   const selectSlash = useCallback((cmd: SlashCommand) => {
     setSlashMention(undefined);
@@ -246,12 +274,34 @@ export function Composer({
           return;
         }
       }
+      if (skillMention && filteredSkills.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          onSkillMentionChange({ ...skillMention, selectedIndex: Math.min(skillMention.selectedIndex + 1, filteredSkills.length - 1) });
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          onSkillMentionChange({ ...skillMention, selectedIndex: Math.max(skillMention.selectedIndex - 1, 0) });
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const skill = filteredSkills[skillMention.selectedIndex] ?? filteredSkills[0];
+          if (skill) selectSkill(skill.id);
+          return;
+        }
+        if (e.key === 'Escape') {
+          onSkillMentionChange(undefined);
+          return;
+        }
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRun();
       }
     },
-    [handleRun, slashMention, filteredSlash, selectSlash, agentMention, filteredAgents, onAgentMentionChange, selectAgent],
+    [handleRun, slashMention, filteredSlash, selectSlash, agentMention, filteredAgents, onAgentMentionChange, selectAgent, skillMention, filteredSkills, onSkillMentionChange, selectSkill],
   );
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -276,8 +326,17 @@ export function Composer({
     const atMatch = beforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
     if (atMatch && atMatch.index !== undefined) {
       onAgentMentionChange({ triggerIndex: atMatch.index, query: atMatch[1], selectedIndex: 0 });
+      if (skillMention) onSkillMentionChange(undefined);
     } else {
       if (agentMention) onAgentMentionChange(undefined);
+
+      // Detect #mention trigger
+      const hashMatch = beforeCursor.match(/#([a-zA-Z0-9_-]*)$/);
+      if (hashMatch && hashMatch.index !== undefined) {
+        onSkillMentionChange({ triggerIndex: hashMatch.index, query: hashMatch[1], selectedIndex: 0 });
+      } else {
+        if (skillMention) onSkillMentionChange(undefined);
+      }
     }
   };
 
@@ -490,6 +549,23 @@ export function Composer({
             >
               <span className="fl-agent-mention-name">@{a.id}</span>
               <span className="fl-agent-mention-display">{a.displayName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skillMention && filteredSkills.length > 0 && (
+        <div className="fl-agent-mention-list" role="listbox" aria-label="Skill prompts">
+          {filteredSkills.map((s, i) => (
+            <div
+              key={s.id}
+              className={`fl-agent-mention-item${i === skillMention.selectedIndex ? ' fl-agent-mention-item--active' : ''}`}
+              role="option"
+              aria-selected={i === skillMention.selectedIndex}
+              onMouseDown={e => { e.preventDefault(); selectSkill(s.id); }}
+            >
+              <span className="fl-agent-mention-name">#{s.id}</span>
+              <span className="fl-agent-mention-display">{s.displayName}</span>
             </div>
           ))}
         </div>
