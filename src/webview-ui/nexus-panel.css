@@ -2469,13 +2469,23 @@ html, body, #root {
   align-items: center;
   gap: 4px;
   overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--colorNeutralStroke2) transparent;
+  padding: 0 2px 3px;
   flex-shrink: 0;
 }
 
 .nx-agent-selector-row::-webkit-scrollbar {
-  display: none;
+  height: 3px;
+}
+
+.nx-agent-selector-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nx-agent-selector-row::-webkit-scrollbar-thumb {
+  background: var(--colorNeutralStroke2);
+  border-radius: 2px;
 }
 
 .nx-agent-chip {
