@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, emptyTokenUsage, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, buildConversationContextForPrompt, serializeConversationMessagesForCompact, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState } from './messages';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -103,6 +103,10 @@ export function App() {
 
   const handleRun = useCallback(
     (prompt: string, baseBranch?: string, attachments?: PromptAttachment[]) => {
+      // Snapshot state BEFORE dispatch to capture all completed messages from prior turns.
+      // This avoids the race condition where runTask arrives at the extension before the
+      // autosave useEffect fires (useEffect runs after browser paint, runTask is sync).
+      const currentState = stateRef.current;
       const timestamp = Date.now();
       dispatch({
         type: 'sendUserMessage',
@@ -118,15 +122,16 @@ export function App() {
         provider: state.provider,
         mode: state.mode,
         model: state.selectedModel,
-        conversationId: state.activeConvId,
+        conversationId: currentState.activeConvId,
         baseBranch,
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
         subagentsEnabled: state.subagentsEnabled,
+        conversationContext: buildConversationContextForPrompt(currentState, currentState.activeConvId),
       });
       setComposerAttachments([]);
       if (state.subagentsEnabled) dispatch({ type: 'resetSubagents' });
     },
-    [state.provider, state.mode, state.selectedModel, state.subagentsEnabled],
+    [state.provider, state.mode, state.selectedModel, state.subagentsEnabled, state.activeConvId],
   );
 
   const handleStop = useCallback(() => getVsCodeApi().postMessage({ type: 'stopTask' }), []);
@@ -159,6 +164,35 @@ export function App() {
   const handleReloadSkills = useCallback(() => {
     getVsCodeApi().postMessage({ type: 'reloadSkills' });
   }, []);
+
+  const handleResearchCommand = useCallback(
+    (action: 'done' | 'current' | 'next' | 'list' | 'reload') => {
+      getVsCodeApi().postMessage({ type: 'researchCommand', action });
+    },
+    [],
+  );
+
+  const handleCompactCommand = useCallback(
+    (action: 'compact' | 'show' | 'clear') => {
+      const currentState = stateRef.current;
+      if (action === 'compact') {
+        const messages = serializeConversationMessagesForCompact(currentState, currentState.activeConvId);
+        if (messages.length === 0) return;
+        getVsCodeApi().postMessage({
+          type: 'compactConversation',
+          conversationId: currentState.activeConvId,
+          messages,
+          provider: currentState.provider,
+          model: currentState.selectedModel,
+        });
+      } else if (action === 'show') {
+        dispatch({ type: 'toggleCompactInfo' });
+      } else if (action === 'clear') {
+        dispatch({ type: 'clearConvCompactSummary' });
+      }
+    },
+    [],
+  );
 
   const handleSkillMentionChange = useCallback((mentionState: SkillMentionState | undefined) => {
     dispatch({ type: 'setSkillMention', state: mentionState });
@@ -224,6 +258,31 @@ export function App() {
                   {interp(LOCALES[locale].history.trimmed, { count: state.historyTrimmedCount })}
                 </div>
               )}
+              {state.isCompacting && (
+                <div className="nx-history-trim-info" role="status">
+                  {LOCALES[locale].compact.compacting}
+                </div>
+              )}
+              {state.compactError && (
+                <div className="nx-history-save-error" role="alert">
+                  {interp(LOCALES[locale].compact.error, { message: state.compactError })}
+                </div>
+              )}
+              {state.showCompactInfo && activeConv?.compactSummary && (
+                <div className="nx-compact-info" role="status">
+                  <div className="nx-compact-info-header">
+                    <span>{LOCALES[locale].compact.summaryTitle}</span>
+                    <button
+                      type="button"
+                      className="nx-compact-info-close"
+                      onClick={() => dispatch({ type: 'toggleCompactInfo' })}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <pre className="nx-compact-info-content">{activeConv.compactSummary.content}</pre>
+                </div>
+              )}
 
               <MessageList
                 conversation={state.isDetecting ? { id: '', title: '', messages: [], gitChanges: [], tokenUsage: emptyTokenUsage() } : activeConv}
@@ -284,6 +343,8 @@ export function App() {
                   skillMention={state.skillMention}
                   onSkillMentionChange={handleSkillMentionChange}
                   onReloadSkills={handleReloadSkills}
+                  onResearchCommand={handleResearchCommand}
+                  onCompactCommand={handleCompactCommand}
                 />
               )}
             </div>

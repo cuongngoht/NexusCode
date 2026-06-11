@@ -451,3 +451,132 @@ describe('token usage — reducer and aggregation', () => {
     expect(usage.totalTokens).toBe(0);
   });
 });
+
+// ── Test A: selectConversation increments saveKey ─────────────────────────
+describe('Test A — selectConversation persists active conversation', () => {
+  it('increments saveKey so autosave fires', () => {
+    let state = act(s(), { type: 'newConversation' });
+    const oldId = state.conversations[1].id;
+    const beforeKey = state.saveKey;
+    state = act(state, { type: 'selectConversation', id: oldId });
+    expect(state.saveKey).toBe(beforeKey + 1);
+  });
+});
+
+// ── Test B: serializeHistory preserves updatedAt ──────────────────────────
+describe('Test B — serializeHistory does not reset updatedAt', () => {
+  it('preserves existing updatedAt of an unchanged conversation', () => {
+    const FIXED_TIME = 1_700_000_000_000;
+    let state = act(s(), {
+      type: 'extMsg',
+      msg: {
+        type: 'historyLoaded',
+        history: {
+          version: 1,
+          activeConversationId: 'c1',
+          conversations: [
+            {
+              id: 'c1',
+              title: 'T',
+              createdAt: FIXED_TIME,
+              updatedAt: FIXED_TIME,
+              messages: [],
+            },
+          ],
+        },
+      },
+    });
+    const history = serializeHistory(state);
+    expect(history.conversations[0].updatedAt).toBe(FIXED_TIME);
+  });
+
+  it('preserves updatedAt set by touchConversation when task completes', () => {
+    const T1 = 1_000_000;
+    let state = act(s(), { type: 'sendUserMessage', prompt: 'hi', provider: 'claude', mode: 'ask', timestamp: T1 });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '1', exitCode: 0 } });
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    // updatedAt should have been set (≥ T1)
+    expect(conv.updatedAt).toBeGreaterThanOrEqual(T1);
+    // serializing again should not change updatedAt
+    const history = serializeHistory(state);
+    expect(history.conversations[0].updatedAt).toBe(conv.updatedAt);
+  });
+});
+
+// ── Test C: sendUserMessage only touches active conversation ──────────────
+describe('Test C — sendUserMessage only modifies active conversation', () => {
+  it('does not mutate the other conversation', () => {
+    let state = act(s(), { type: 'newConversation' });
+    const backgroundId = state.conversations[1].id;
+    const backgroundBefore = state.conversations[1];
+    state = act(state, { type: 'sendUserMessage', prompt: 'hello', provider: 'claude', mode: 'ask', timestamp: 100 });
+    const backgroundAfter = state.conversations.find(c => c.id === backgroundId)!;
+    expect(backgroundAfter).toBe(backgroundBefore); // same reference — not mutated
+  });
+});
+
+// ── Test D: task output routes to run conversation, not active ───────────
+describe('Test D — runtime events go to the conversation that started the run', () => {
+  it('task output stays in the run conversation even after user switches', () => {
+    // Conversation A starts a task
+    let state = act(s(), { type: 'sendUserMessage', prompt: 'run me', provider: 'claude', mode: 'ask', timestamp: 1 });
+    const convA = state.activeConvId;
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+
+    // User creates a new conversation B and switches to it
+    state = act(state, { type: 'newConversation' });
+    const convB = state.activeConvId;
+    expect(convB).not.toBe(convA);
+
+    // Stdout arrives while B is active — should go to A (where the run started)
+    state = act(state, { type: 'extMsg', msg: { type: 'stdout', chunk: 'result\n' } });
+
+    const a = state.conversations.find(c => c.id === convA)!;
+    const b = state.conversations.find(c => c.id === convB)!;
+    const aLast = a.messages[a.messages.length - 1];
+    expect(aLast.role).toBe('assistant');
+    if (aLast.role === 'assistant') {
+      expect(aLast.lines.some(l => l.text === 'result')).toBe(true);
+    }
+    expect(b.messages).toHaveLength(0);
+  });
+
+  it('taskCompleted touches the run conversation, not the active one', () => {
+    let state = act(s(), { type: 'sendUserMessage', prompt: 'run me', provider: 'claude', mode: 'ask', timestamp: 1 });
+    const convA = state.activeConvId;
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+
+    state = act(state, { type: 'newConversation' });
+    const beforeUpdatedAt = state.conversations.find(c => c.id === convA)?.updatedAt;
+
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '1', exitCode: 0 } });
+
+    const aAfter = state.conversations.find(c => c.id === convA)!;
+    expect(aAfter.updatedAt).toBeGreaterThanOrEqual(beforeUpdatedAt ?? 0);
+    // saveKey incremented
+    expect(state.saveKey).toBeGreaterThan(0);
+  });
+});
+
+// ── Test E: assistant timestamp roundtrips through serialize/deserialize ──
+describe('Test E — assistant message timestamp survives serialize/deserialize', () => {
+  it('timestamp on assistant message is preserved through history roundtrip', () => {
+    let state = act(s(), { type: 'sendUserMessage', prompt: 'hello', provider: 'claude', mode: 'ask', timestamp: 1000 });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskStarted', taskId: '1', provider: 'claude', mode: 'ask' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'stdout', chunk: 'response\n' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'taskCompleted', taskId: '1', exitCode: 0 } });
+
+    const beforeHistory = serializeHistory(state);
+    const assistantInHistory = beforeHistory.conversations[0].messages.find(m => m.role === 'assistant');
+    expect(assistantInHistory?.timestamp).toBeGreaterThan(0);
+
+    const restored = act(s(), { type: 'extMsg', msg: { type: 'historyLoaded', history: beforeHistory } });
+    const restoredConv = restored.conversations[0];
+    const restoredAssistant = restoredConv.messages.find(m => m.role === 'assistant');
+    expect(restoredAssistant?.role).toBe('assistant');
+    if (restoredAssistant?.role === 'assistant') {
+      expect(restoredAssistant.timestamp).toBe(assistantInHistory?.timestamp);
+    }
+  });
+});

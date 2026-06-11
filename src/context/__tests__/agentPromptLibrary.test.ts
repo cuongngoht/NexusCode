@@ -43,7 +43,7 @@ describe('ensureWorkspaceAgents', () => {
     const dir = getWorkspaceAgentsDir(tmpDir);
     const files = fs.readdirSync(dir);
     expect(files.length).toBeGreaterThan(0);
-    expect(files.every(f => f.endsWith('.md'))).toBe(true);
+    expect(files.some(f => f.endsWith('.md'))).toBe(true);
   });
 
   it('does not overwrite existing workspace files', () => {
@@ -65,7 +65,7 @@ describe('listAgentPrompts', () => {
     expect(listAgentPrompts(tmpDir)).toEqual([]);
   });
 
-  it('lists only .md files, ignoring dotfiles and folders', () => {
+  it('lists only .md files, ignoring dotfiles and folders without index.md', () => {
     const dir = getWorkspaceAgentsDir(tmpDir);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'agent-one.md'), '# Agent One\nContent', 'utf8');
@@ -117,6 +117,27 @@ describe('listAgentPrompts', () => {
     expect(prompts[0].id).toBe('alpha');
     expect(prompts[1].id).toBe('zebra');
   });
+
+  it('detects a folder agent when it contains index.md', () => {
+    const dir = getWorkspaceAgentsDir(tmpDir);
+    fs.mkdirSync(path.join(dir, 'research'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'research', 'index.md'), '# Research Agent\nOrchestrates research.', 'utf8');
+
+    const prompts = listAgentPrompts(tmpDir);
+    const research = prompts.find(p => p.id === 'research');
+    expect(research).toBeDefined();
+    expect(research!.fileName).toBe('research/index.md');
+    expect(research!.displayName).toBe('Research Agent');
+  });
+
+  it('ignores a folder that has no index.md', () => {
+    const dir = getWorkspaceAgentsDir(tmpDir);
+    fs.mkdirSync(path.join(dir, 'empty-folder'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'empty-folder', 'step01.md'), 'Step content', 'utf8');
+
+    const ids = listAgentPrompts(tmpDir).map(p => p.id);
+    expect(ids).not.toContain('empty-folder');
+  });
 });
 
 describe('loadAgentPromptMarkdown', () => {
@@ -137,6 +158,26 @@ describe('loadAgentPromptMarkdown', () => {
     expect(loadAgentPromptMarkdown(tmpDir, 'agent/name')).toBeUndefined();
     expect(loadAgentPromptMarkdown(tmpDir, '/absolute')).toBeUndefined();
     expect(loadAgentPromptMarkdown(tmpDir, 'agent.md')).toBeUndefined();
+  });
+
+  it('loads from folder/index.md when single file does not exist', () => {
+    const dir = getWorkspaceAgentsDir(tmpDir);
+    fs.mkdirSync(path.join(dir, 'research'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'research', 'index.md'), '# Research\nFolder content', 'utf8');
+
+    const result = loadAgentPromptMarkdown(tmpDir, 'research');
+    expect(result).toBe('# Research\nFolder content');
+  });
+
+  it('prefers single .md file over folder/index.md when both exist', () => {
+    const dir = getWorkspaceAgentsDir(tmpDir);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'research.md'), '# Research File\nFrom file', 'utf8');
+    fs.mkdirSync(path.join(dir, 'research'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'research', 'index.md'), '# Research Folder\nFrom folder', 'utf8');
+
+    const result = loadAgentPromptMarkdown(tmpDir, 'research');
+    expect(result).toBe('# Research File\nFrom file');
   });
 });
 

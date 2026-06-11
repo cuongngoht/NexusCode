@@ -21,4 +21,10 @@ export const DEFAULT_CONFIG: NexusConfig = {
       context7: { enabled: true, apiKey: '' },
     },
   },
+  compact: {
+    enabled: true,
+    suggestAfterMessages: 12,
+    recentMessagesAfterCompact: 6,
+    maxCompactSummaryChars: 8_000,
+  },
 };

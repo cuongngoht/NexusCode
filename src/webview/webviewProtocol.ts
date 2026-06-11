@@ -1,7 +1,7 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
 import type { PromptAttachment } from '../core/types';
 import type { ProviderDetectionResult } from '../core/providerDetector';
-import type { ChatHistoryState } from '../core/chat/ChatHistory';
+import type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
 import type { McpPresetStatusView } from '../mcp/McpTypes';
@@ -62,11 +62,14 @@ export type ExtensionMessage =
   | { type: 'agentPromptError'; message: string }
   | { type: 'skillPrompts'; skills: SkillPrompt[] }
   | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
-  | { type: 'skillPromptError'; message: string };
+  | { type: 'skillPromptError'; message: string }
+  | { type: 'compactStarted'; conversationId: string }
+  | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
+  | { type: 'compactSummaryError'; conversationId: string; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
-  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string; attachments?: PromptAttachment[]; subagentsEnabled?: boolean }
+  | { type: 'runTask'; prompt: string; provider: ProviderId; mode: TaskMode; model?: string; conversationId: string; baseBranch?: string; attachments?: PromptAttachment[]; subagentsEnabled?: boolean; conversationContext?: string }
   | { type: 'pickPromptAttachment' }
   | { type: 'getWorkspaceFiles' }
   | { type: 'stopTask' }
@@ -89,4 +92,6 @@ export type WebviewMessage =
   | { type: 'getAgentPrompts' }
   | { type: 'reloadAgents' }
   | { type: 'getSkillPrompts' }
-  | { type: 'reloadSkills' };
+  | { type: 'reloadSkills' }
+  | { type: 'researchCommand'; action: 'done' | 'current' | 'next' | 'list' | 'reload' }
+  | { type: 'compactConversation'; conversationId: string; messages: SerializedChatMessage[]; provider: ProviderId; model?: string };

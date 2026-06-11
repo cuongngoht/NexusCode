@@ -49,6 +49,7 @@ import { SubagentPlanner } from './application/subagents/SubagentPlanner';
 import { SubagentExecutor } from './application/subagents/SubagentExecutor';
 import { SubagentOrchestrator } from './application/subagents/SubagentOrchestrator';
 import { DEFAULT_SUBAGENTS } from './application/subagents/DefaultSubagents';
+import { ConversationCompactor } from './context/ConversationCompactor';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -117,6 +118,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const detector = new ProviderDetector();
 
+  const compactor = new ConversationCompactor(registry, runner);
+
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
@@ -128,6 +131,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.globalState,
     context.workspaceState,
     subagentOrchestrator,
+    compactor,
   );
 
   context.subscriptions.push(

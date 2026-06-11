@@ -2,6 +2,7 @@ import type {
   ChatHistoryState,
   SerializedConversation,
   SerializedChatMessage,
+  SerializedConversationCompactSummary,
 } from '../core/chat/ChatHistory';
 import type {
   TokenRunUsage,
@@ -10,7 +11,7 @@ import type {
   TokenUsageSource,
 } from '../core/tokens/TokenUsage';
 
-export type { ChatHistoryState };
+export type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary };
 
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type ProviderId = 'nexus' | 'codex' | 'claude' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'grok' | 'auto';
@@ -130,6 +131,7 @@ export interface AssistantMessage {
   model?: string;
   lines: OutputLine[];
   isStreaming: boolean;
+  timestamp?: number;
   exitCode?: number;
   errorText?: string;
   steps: PipelineStep[];
@@ -152,6 +154,7 @@ export interface Conversation {
   createdAt?: number;
   updatedAt?: number;
   tokenUsage: ConversationTokenUsage;
+  compactSummary?: SerializedConversationCompactSummary;
 }
 
 export function emptyTokenUsage(): ConversationTokenUsage {
@@ -270,6 +273,10 @@ export interface AppState {
   agentMention?: AgentMentionState;
   skillPrompts: SkillPrompt[];
   skillMention?: SkillMentionState;
+  isCompacting: boolean;
+  compactError?: string;
+  showCompactInfo: boolean;
+  activeRunConversationId?: string;
 }
 
 export function createInitialState(): AppState {
@@ -303,6 +310,10 @@ export function createInitialState(): AppState {
     agentMention: undefined,
     skillPrompts: [],
     skillMention: undefined,
+    isCompacting: false,
+    compactError: undefined,
+    showCompactInfo: false,
+    activeRunConversationId: undefined,
   };
 }
 
@@ -379,7 +390,10 @@ export type ExtMsg =
   | { type: 'agentPromptError'; message: string }
   | { type: 'skillPrompts'; skills: SkillPrompt[] }
   | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
-  | { type: 'skillPromptError'; message: string };
+  | { type: 'skillPromptError'; message: string }
+  | { type: 'compactStarted'; conversationId: string }
+  | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
+  | { type: 'compactSummaryError'; conversationId: string; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -405,7 +419,126 @@ export type AppAction =
     timestamp: number;
   }
   | { type: 'setAgentMention'; state: AgentMentionState | undefined }
-  | { type: 'setSkillMention'; state: SkillMentionState | undefined };
+  | { type: 'setSkillMention'; state: SkillMentionState | undefined }
+  | { type: 'clearConvCompactSummary' }
+  | { type: 'toggleCompactInfo' };
+
+// ── Conversation context (mirrors src/context/conversationContext.ts) ────────
+
+const CONTEXT_MAX_MESSAGES = 8;
+const CONTEXT_CHAR_LIMIT = 12_000;
+const ASSISTANT_CONTENT_LIMIT = 2_000;
+const RECENT_MESSAGES_AFTER_COMPACT = 6;
+
+function extractAssistantContent(a: AssistantMessage): string {
+  return a.lines.filter(l => l.kind === 'stdout').map(l => l.text).join('\n').slice(0, ASSISTANT_CONTENT_LIMIT);
+}
+
+/**
+ * Builds a conversation context string from the webview state — no race condition
+ * with latestHistory because this reads directly from the current React state.
+ * Called in handleRun before dispatching sendUserMessage so it captures the state
+ * with all completed messages from prior turns.
+ *
+ * When a compact summary exists, injects it first and includes only messages
+ * after the compact point as "recent conversation".
+ */
+export function buildConversationContextForPrompt(
+  state: AppState,
+  conversationId: string,
+): string | undefined {
+  const conv = state.conversations.find(c => c.id === conversationId);
+  if (!conv || conv.messages.length === 0) return undefined;
+
+  const completedMessages = conv.messages.filter(
+    m => !(m.role === 'assistant' && (m as AssistantMessage).isStreaming),
+  );
+
+  if (conv.compactSummary) {
+    const { compactSummary } = conv;
+    const startIdx = compactSummary.sourceLastMessageId
+      ? completedMessages.findIndex(m => m.id === compactSummary.sourceLastMessageId) + 1
+      : Math.max(0, completedMessages.length - RECENT_MESSAGES_AFTER_COMPACT);
+    const recentMessages = completedMessages.slice(startIdx).slice(-CONTEXT_MAX_MESSAGES);
+
+    const parts: string[] = ['## Compact Conversation Summary', compactSummary.content, ''];
+
+    if (recentMessages.length > 0) {
+      parts.push('## Recent Conversation');
+      for (const m of recentMessages) {
+        if (m.role === 'user') {
+          parts.push(`User: ${(m as UserMessage).prompt}`);
+        } else {
+          parts.push(`Assistant: ${extractAssistantContent(m as AssistantMessage)}`);
+        }
+      }
+    }
+
+    return parts.join('\n');
+  }
+
+  const messages = completedMessages.slice(-CONTEXT_MAX_MESSAGES);
+  const lines: string[] = [];
+  let chars = 0;
+
+  for (const m of messages) {
+    let text: string;
+    if (m.role === 'user') {
+      text = `User: ${(m as UserMessage).prompt}`;
+    } else {
+      text = `Assistant: ${extractAssistantContent(m as AssistantMessage)}`;
+    }
+    lines.push(text);
+    chars += text.length;
+    if (chars >= CONTEXT_CHAR_LIMIT) break;
+  }
+
+  return lines.length > 0 ? lines.join('\n') : undefined;
+}
+
+/**
+ * Serializes completed messages from the active conversation for sending to the
+ * extension as part of a compactConversation request.
+ */
+export function serializeConversationMessagesForCompact(
+  state: AppState,
+  conversationId: string,
+): SerializedChatMessage[] {
+  const now = Date.now();
+  const conv = state.conversations.find(c => c.id === conversationId);
+  if (!conv) return [];
+
+  return conv.messages
+    .filter(m => m.role === 'user' || (m.role === 'assistant' && !(m as AssistantMessage).isStreaming))
+    .map(m => {
+      if (m.role === 'user') {
+        const u = m as UserMessage;
+        return {
+          id: u.id,
+          role: 'user' as const,
+          prompt: u.prompt,
+          provider: u.provider,
+          mode: u.mode,
+          model: u.model,
+          timestamp: u.timestamp,
+        };
+      }
+      const a = m as AssistantMessage;
+      const content = a.lines.filter(l => l.kind === 'stdout').map(l => l.text).join('\n');
+      return {
+        id: a.id,
+        role: 'assistant' as const,
+        providerLabel: a.providerLabel,
+        mode: a.mode,
+        model: a.model,
+        content,
+        exitCode: a.exitCode,
+        errorText: a.errorText,
+        timestamp: now,
+        tokenUsage: a.tokenUsage,
+      };
+    });
+}
 
 // ── History serialization ─────────────────────────────────────────────────
 
@@ -418,7 +551,7 @@ export function serializeHistory(state: AppState): ChatHistoryState {
   };
 }
 
-function serializeConversation(c: Conversation, now: number): SerializedConversation {
+function serializeConversation(c: Conversation, now = Date.now()): SerializedConversation {
   const messages: SerializedChatMessage[] = c.messages
     .filter(m => m.role === 'user' || (m.role === 'assistant' && !(m as AssistantMessage).isStreaming))
     .map(m => {
@@ -448,7 +581,7 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
         content,
         exitCode: a.exitCode,
         errorText: a.errorText,
-        timestamp: now,
+        timestamp: a.timestamp ?? now,
         tokenUsage: a.tokenUsage,
       };
     });
@@ -456,10 +589,11 @@ function serializeConversation(c: Conversation, now: number): SerializedConversa
     id: c.id,
     title: c.title,
     createdAt: c.createdAt ?? now,
-    updatedAt: now,
+    updatedAt: c.updatedAt ?? c.createdAt ?? now,
     messages,
     gitChanges: c.gitChanges,
     gitMessage: c.gitMessage,
+    compactSummary: c.compactSummary,
   };
 }
 
@@ -511,6 +645,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       errorText: m.errorText,
       steps: [],
       tokenUsage: m.tokenUsage,
+      timestamp: m.timestamp ?? 0,
     } satisfies AssistantMessage;
   });
   return {
@@ -522,18 +657,47 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
     createdAt: sc.createdAt,
     updatedAt: sc.updatedAt,
     tokenUsage: aggregateConversationTokenUsage(messages),
+    compactSummary: sc.compactSummary,
   };
 }
 
 // ── Reducer helpers ───────────────────────────────────────────────────────
 
-function updateActiveConv(state: AppState, fn: (c: Conversation) => Conversation): AppState {
-  return {
-    ...state,
-    conversations: state.conversations.map(c =>
-      c.id === state.activeConvId ? fn(c) : c,
-    ),
-  };
+/** Sets updatedAt to now and ensures createdAt is initialized. */
+function touchConversation(c: Conversation, now = Date.now()): Conversation {
+  return { ...c, createdAt: c.createdAt ?? now, updatedAt: now };
+}
+
+/**
+ * Update one conversation by id. Returns state unchanged if the id is not found.
+ * Use for runtime events that must target the conversation that originated the run,
+ * not necessarily the currently active (visible) conversation.
+ */
+function updateConversationById(
+  state: AppState,
+  conversationId: string,
+  update: (c: Conversation) => Conversation,
+): AppState {
+  let changed = false;
+  const conversations = state.conversations.map(c => {
+    if (c.id !== conversationId) return c;
+    changed = true;
+    return update(c);
+  });
+  if (!changed) return state;
+  return { ...state, conversations };
+}
+
+function updateActiveConversation(state: AppState, fn: (c: Conversation) => Conversation): AppState {
+  return updateConversationById(state, state.activeConvId, fn);
+}
+
+// Backward-compat alias — new code should prefer updateActiveConversation or updateConversationById.
+const updateActiveConv = updateActiveConversation;
+
+/** Returns the conversation id that should receive runtime task output. */
+function getRunConvId(state: AppState): string {
+  return state.activeRunConversationId ?? state.activeConvId;
 }
 
 function updateLastAssistant(conv: Conversation, fn: (m: AssistantMessage) => AssistantMessage): Conversation {
@@ -622,7 +786,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'selectConversation':
-      return { ...state, activeConvId: action.id, showHistory: false };
+      return { ...state, activeConvId: action.id, showHistory: false, saveKey: state.saveKey + 1 };
 
     case 'deleteConversation': {
       const remaining = state.conversations.filter(c => c.id !== action.id);
@@ -644,6 +808,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'sendUserMessage': {
+      const runConvId = state.activeConvId;
       const msg: UserMessage = {
         id: uid(),
         role: 'user',
@@ -654,11 +819,12 @@ export function reducer(state: AppState, action: AppAction): AppState {
         timestamp: action.timestamp,
       };
       return {
-        ...updateActiveConv(state, conv => ({
-          ...conv,
+        ...updateActiveConversation(state, conv => ({
+          ...touchConversation(conv, action.timestamp),
           title: conv.messages.length === 0 ? deriveTitle(action.prompt) : conv.title,
           messages: [...conv.messages, msg],
         })),
+        activeRunConversationId: runConvId,
         saveKey: state.saveKey + 1,
       };
     }
@@ -668,6 +834,17 @@ export function reducer(state: AppState, action: AppAction): AppState {
 
     case 'setSkillMention':
       return { ...state, skillMention: action.state };
+
+    case 'clearConvCompactSummary':
+      return {
+        ...updateActiveConv(state, conv => ({ ...conv, compactSummary: undefined })),
+        saveKey: state.saveKey + 1,
+        showCompactInfo: false,
+        compactError: undefined,
+      };
+
+    case 'toggleCompactInfo':
+      return { ...state, showCompactInfo: !state.showCompactInfo };
 
     case 'extMsg':
       return applyExtMsg(state, action.msg);
@@ -688,10 +865,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           model: msg.model,
           lines: [],
           isStreaming: true,
+          timestamp: Date.now(),
           steps: [newStep],
         };
         return {
-          ...updateActiveConv(state, conv => ({
+          ...updateConversationById(state, getRunConvId(state), conv => ({
             ...conv,
             messages: [...conv.messages, assistantMsg],
             gitChanges: [],
@@ -702,7 +880,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         };
       }
       // Subsequent steps: add to existing streaming message
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
           steps: [...m.steps, newStep],
@@ -711,7 +889,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'stepCompleted':
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
           steps: m.steps.map(s =>
@@ -721,7 +899,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       );
 
     case 'stepError':
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
           steps: m.steps.map(s =>
@@ -731,12 +909,13 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       );
 
     case 'taskStarted': {
-      const activeConv = state.conversations.find(c => c.id === state.activeConvId);
-      const lastMsg = activeConv?.messages[activeConv.messages.length - 1];
+      const runConvId = getRunConvId(state);
+      const runConv = state.conversations.find(c => c.id === runConvId);
+      const lastMsg = runConv?.messages[runConv.messages.length - 1];
       // Pipeline mode: AssistantMessage already created by stepStarted — store enhancedPrompt
-      if (lastMsg?.role === 'assistant' && lastMsg.isStreaming) {
+      if (lastMsg?.role === 'assistant' && (lastMsg as AssistantMessage).isStreaming) {
         return {
-          ...updateActiveConv(state, conv =>
+          ...updateConversationById(state, runConvId, conv =>
             updateLastAssistant(conv, m => ({ ...m, enhancedPrompt: msg.enhancedPrompt })),
           ),
           isRunning: true,
@@ -752,11 +931,12 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         model: msg.model,
         lines: [],
         isStreaming: true,
+        timestamp: Date.now(),
         steps: [],
         enhancedPrompt: msg.enhancedPrompt,
       };
       return {
-        ...updateActiveConv(state, conv => ({
+        ...updateConversationById(state, runConvId, conv => ({
           ...conv,
           messages: [...conv.messages, assistantMsg],
           gitChanges: [],
@@ -769,7 +949,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'stdout': {
       const lines = msg.chunk.split('\n').filter(l => l.trim());
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
           lines: [...m.lines, ...lines.map(text => ({ kind: 'stdout' as const, text }))],
@@ -779,7 +959,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'stderr': {
       const lines = msg.chunk.split('\n').filter(l => l.trim());
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
           lines: [...m.lines, ...lines.map(text => ({ kind: 'stderr' as const, text }))],
@@ -789,10 +969,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'taskCompleted':
       return {
-        ...updateActiveConv(state, conv =>
-          completeRunningActivities(
+        ...updateConversationById(state, getRunConvId(state), conv =>
+          touchConversation(completeRunningActivities(
             updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode })),
-          ),
+          )),
         ),
         isRunning: false,
         saveKey: state.saveKey + 1,
@@ -800,10 +980,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'taskStopped':
       return {
-        ...updateActiveConv(state, conv =>
-          completeRunningActivities(
+        ...updateConversationById(state, getRunConvId(state), conv =>
+          touchConversation(completeRunningActivities(
             updateLastAssistant(conv, m => ({ ...m, isStreaming: false })),
-          ),
+          )),
         ),
         isRunning: false,
         saveKey: state.saveKey + 1,
@@ -811,17 +991,17 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'taskError':
       return {
-        ...updateActiveConv(state, conv =>
-          completeRunningActivities(
+        ...updateConversationById(state, getRunConvId(state), conv =>
+          touchConversation(completeRunningActivities(
             updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message })),
-          ),
+          )),
         ),
         isRunning: false,
         saveKey: state.saveKey + 1,
       };
 
     case 'gitStatus':
-      return updateActiveConv(state, conv => ({
+      return updateConversationById(state, getRunConvId(state), conv => ({
         ...conv,
         gitChanges: msg.changes ?? [],
         gitMessage: msg.message,
@@ -829,7 +1009,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'activityStarted': {
       const newActivity: Activity = { kind: msg.activityKind, status: 'running', label: msg.label };
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => {
           const steps = m.steps.map((s, i) =>
             i === m.steps.length - 1 && s.status === 'running'
@@ -842,7 +1022,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'activityDone': {
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => {
           const steps = m.steps.map((s, i) => {
             if (i !== m.steps.length - 1 || s.status !== 'running') return s;
@@ -911,7 +1091,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return { ...state, reviewContextError: msg.message };
 
     case 'tokenUsageUpdated':
-      return updateActiveConv(state, conv => {
+      return updateConversationById(state, getRunConvId(state), conv => {
         const updated = updateLastAssistant(conv, m => ({
           ...m,
           tokenUsage: msg.usage,
@@ -923,7 +1103,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       });
 
     case 'planSaved':
-      return updateActiveConv(state, conv =>
+      return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({ ...m, planSaved: true, planPath: msg.planPath })),
       );
 
@@ -957,6 +1137,25 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'skillPromptError':
       return state;
+
+    case 'compactStarted':
+      return { ...state, isCompacting: true, compactError: undefined };
+
+    case 'compactSummaryUpdated': {
+      const updated = state.conversations.map(c =>
+        c.id === msg.conversationId ? { ...c, compactSummary: msg.summary } : c,
+      );
+      return {
+        ...state,
+        conversations: updated,
+        isCompacting: false,
+        compactError: undefined,
+        saveKey: state.saveKey + 1,
+      };
+    }
+
+    case 'compactSummaryError':
+      return { ...state, isCompacting: false, compactError: msg.message };
   }
   return state;
 }

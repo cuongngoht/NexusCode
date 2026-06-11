@@ -140,10 +140,23 @@
     "slashCommands": "Slash commands",
     "cmdReloadAgents": "Reload agent prompt list",
     "cmdReloadSkills": "Reload skill prompt list",
+    "cmdResearchDone": "Mark current research step as done",
+    "cmdResearchCurrent": "Show current research status",
+    "cmdResearchNext": "Advance to the next research step",
+    "cmdResearchList": "List research topics",
+    "cmdResearchReload": "Reload research orchestrator and state",
     "skillMentionNoResults": "No skills found",
     "skillsReloaded": "Skills reloaded: {{count}} found",
     "modeUnsupported": "Current agent does not support this mode",
-    "modeLimited": "Current agent has limited support for this mode"
+    "modeLimited": "Current agent has limited support for this mode",
+    "cmdCompact": "Compact conversation to reduce context",
+    "cmdShowCompact": "Show current compact summary",
+    "cmdClearCompact": "Clear compact summary"
+  },
+  "compact": {
+    "summaryTitle": "Compact summary",
+    "error": "Compact failed: {{message}}",
+    "compacting": "Compacting…"
   },
   "emptyState": {
     "title": "Start a conversation",

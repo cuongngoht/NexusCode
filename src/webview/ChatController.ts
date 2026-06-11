@@ -18,7 +18,9 @@ import { NavigationHandler } from './handlers/NavigationHandler';
 import { EventForwarder } from './handlers/EventForwarder';
 import { AgentPromptHandler } from './handlers/AgentPromptHandler';
 import { SkillPromptHandler } from './handlers/SkillPromptHandler';
-import { buildConversationContext } from '../context/conversationContext';
+import { ResearchCommandHandler } from './handlers/ResearchCommandHandler';
+import { CompactCommandHandler } from './handlers/CompactCommandHandler';
+import type { ConversationCompactor } from '../context/ConversationCompactor';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -31,6 +33,8 @@ export class ChatController {
   private readonly navigationHandler: NavigationHandler;
   private readonly agentPromptHandler: AgentPromptHandler;
   private readonly skillPromptHandler: SkillPromptHandler;
+  private readonly researchCommandHandler: ResearchCommandHandler;
+  private readonly compactCommandHandler: CompactCommandHandler;
 
   constructor(
     runAgent: RunAgentUseCase,
@@ -45,6 +49,7 @@ export class ChatController {
     extensionPath: string = '',
     subagentOrchestrator?: SubagentOrchestrator,
     workspaceState?: vscode.Memento,
+    compactor?: ConversationCompactor,
   ) {
     this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
     this.historyHandler  = new HistoryHandler(post, historyStore);
@@ -53,8 +58,10 @@ export class ChatController {
     this.attachmentHandler    = new AttachmentHandler(post);
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
     this.navigationHandler    = new NavigationHandler();
-    this.agentPromptHandler   = new AgentPromptHandler(extensionPath, post);
-    this.skillPromptHandler   = new SkillPromptHandler(extensionPath, post);
+    this.agentPromptHandler      = new AgentPromptHandler(extensionPath, post);
+    this.skillPromptHandler      = new SkillPromptHandler(extensionPath, post);
+    this.researchCommandHandler  = new ResearchCommandHandler();
+    this.compactCommandHandler   = new CompactCommandHandler(post, compactor);
 
     const forwarder = new EventForwarder(post);
     const busListener = (e: Parameters<typeof forwarder.forward>[0]) => forwarder.forward(e);
@@ -77,7 +84,7 @@ export class ChatController {
         await this.runTaskHandler.run(
           msg.prompt, msg.provider, msg.mode, msg.model, msg.baseBranch,
           this.historyHandler.latestHistory,
-          () => buildConversationContext(this.historyHandler.latestHistory, msg.conversationId),
+          msg.conversationContext,
           msg.attachments, msg.subagentsEnabled ?? false,
         );
         break;
@@ -102,6 +109,12 @@ export class ChatController {
       case 'reloadAgents':           await this.agentPromptHandler.reload(); break;
       case 'getSkillPrompts':        await this.skillPromptHandler.sendSkillPrompts(); break;
       case 'reloadSkills':           await this.skillPromptHandler.reload(); break;
+      case 'researchCommand':        await this.researchCommandHandler.handle(msg.action); break;
+      case 'compactConversation':
+        await this.compactCommandHandler.handle(
+          msg.conversationId, msg.messages, msg.provider, msg.model,
+        );
+        break;
     }
   }
 

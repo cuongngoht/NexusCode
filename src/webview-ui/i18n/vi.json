@@ -140,10 +140,23 @@
     "slashCommands": "Lệnh tắt",
     "cmdReloadAgents": "Tải lại danh sách agent prompt",
     "cmdReloadSkills": "Tải lại danh sách skill prompt",
+    "cmdResearchDone": "Đánh dấu bước nghiên cứu hiện tại là hoàn thành",
+    "cmdResearchCurrent": "Xem trạng thái nghiên cứu hiện tại",
+    "cmdResearchNext": "Chuyển sang bước tiếp theo",
+    "cmdResearchList": "Liệt kê các topic nghiên cứu",
+    "cmdResearchReload": "Tải lại orchestrator và trạng thái nghiên cứu",
     "skillMentionNoResults": "Không tìm thấy skill",
     "skillsReloaded": "Đã tải lại skills: tìm thấy {{count}}",
     "modeUnsupported": "Agent hiện tại không hỗ trợ chế độ này",
-    "modeLimited": "Agent hiện tại hỗ trợ hạn chế chế độ này"
+    "modeLimited": "Agent hiện tại hỗ trợ hạn chế chế độ này",
+    "cmdCompact": "Tóm tắt cuộc trò chuyện để giảm context",
+    "cmdShowCompact": "Hiển thị tóm tắt compact hiện tại",
+    "cmdClearCompact": "Xóa tóm tắt compact"
+  },
+  "compact": {
+    "summaryTitle": "Tóm tắt compact",
+    "error": "Compact thất bại: {{message}}",
+    "compacting": "Đang tóm tắt…"
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",

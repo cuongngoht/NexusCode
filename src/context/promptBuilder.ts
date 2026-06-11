@@ -33,6 +33,8 @@ export interface PromptContext {
   outputFormat?: string;
   /** MCP tool intent instructions injected when MCP is enabled. */
   mcpIntentPrompt?: string;
+  /** Research workflow context injected when @research is active. */
+  researchContext?: string;
 }
 
 export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): string {
@@ -107,6 +109,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Active Plan');
     lines.push(ctx.planContent);
+  }
+
+  if (ctx.researchContext) {
+    lines.push('');
+    lines.push('# Research Context');
+    lines.push(ctx.researchContext);
   }
 
   lines.push('');

@@ -39,6 +39,8 @@ interface Props {
   skillMention?: SkillMentionState;
   onSkillMentionChange: (state: SkillMentionState | undefined) => void;
   onReloadSkills: () => void;
+  onResearchCommand: (action: 'done' | 'current' | 'next' | 'list' | 'reload') => void;
+  onCompactCommand: (action: 'compact' | 'show' | 'clear') => void;
 }
 
 interface SlashCommand {
@@ -65,6 +67,8 @@ export function Composer({
   onResolveDroppedFiles,
   agentPrompts, agentMention, onAgentMentionChange, onReloadAgents,
   skillPrompts, skillMention, onSkillMentionChange, onReloadSkills,
+  onResearchCommand,
+  onCompactCommand,
 }: Props) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -141,7 +145,54 @@ export function Composer({
       description: t.composer.cmdReloadSkills,
       run: () => { onReloadSkills(); setPrompt(''); },
     },
-  ], [onReloadAgents, onReloadSkills, t.composer.cmdReloadAgents, t.composer.cmdReloadSkills]);
+    {
+      id: 'research done',
+      description: t.composer.cmdResearchDone,
+      run: () => { onResearchCommand('done'); setPrompt(''); },
+    },
+    {
+      id: 'research current',
+      description: t.composer.cmdResearchCurrent,
+      run: () => { onResearchCommand('current'); setPrompt(''); },
+    },
+    {
+      id: 'research next',
+      description: t.composer.cmdResearchNext,
+      run: () => { onResearchCommand('next'); setPrompt(''); },
+    },
+    {
+      id: 'research list',
+      description: t.composer.cmdResearchList,
+      run: () => { onResearchCommand('list'); setPrompt(''); },
+    },
+    {
+      id: 'research reload',
+      description: t.composer.cmdResearchReload,
+      run: () => { onResearchCommand('reload'); setPrompt(''); },
+    },
+    {
+      id: 'compact',
+      description: t.composer.cmdCompact,
+      run: () => { onCompactCommand('compact'); setPrompt(''); },
+    },
+    {
+      id: 'show-compact',
+      description: t.composer.cmdShowCompact,
+      run: () => { onCompactCommand('show'); setPrompt(''); },
+    },
+    {
+      id: 'clear-compact',
+      description: t.composer.cmdClearCompact,
+      run: () => { onCompactCommand('clear'); setPrompt(''); },
+    },
+  ], [
+    onReloadAgents, onReloadSkills, onResearchCommand, onCompactCommand,
+    t.composer.cmdReloadAgents, t.composer.cmdReloadSkills,
+    t.composer.cmdResearchDone, t.composer.cmdResearchCurrent,
+    t.composer.cmdResearchNext, t.composer.cmdResearchList,
+    t.composer.cmdResearchReload,
+    t.composer.cmdCompact, t.composer.cmdShowCompact, t.composer.cmdClearCompact,
+  ]);
 
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();

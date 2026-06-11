@@ -25,6 +25,16 @@ export interface SerializedAssistantMessage {
 
 export type SerializedChatMessage = SerializedUserMessage | SerializedAssistantMessage;
 
+export interface SerializedConversationCompactSummary {
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+  sourceMessageCount: number;
+  sourceLastMessageId?: string;
+  provider?: string;
+  model?: string;
+}
+
 export interface SerializedConversation {
   id: string;
   title: string;
@@ -33,6 +43,7 @@ export interface SerializedConversation {
   messages: SerializedChatMessage[];
   gitChanges?: { status: string; path: string }[];
   gitMessage?: string;
+  compactSummary?: SerializedConversationCompactSummary;
 }
 
 export interface ChatHistoryState {
