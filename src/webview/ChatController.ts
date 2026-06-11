@@ -122,6 +122,10 @@ export class ChatController {
     await this.providerHandler.refresh();
   }
 
+  async reloadAgentPrompts(): Promise<void> {
+    await this.agentPromptHandler.reload();
+  }
+
   dispose(): void {
     for (const d of this.disposables) d.dispose();
     this.disposables.length = 0;

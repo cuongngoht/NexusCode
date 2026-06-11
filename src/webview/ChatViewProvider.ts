@@ -75,4 +75,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   async refreshProviders(): Promise<void> {
     await this.controller?.refreshProviders();
   }
+
+  async reloadAgentPrompts(): Promise<void> {
+    await this.controller?.reloadAgentPrompts();
+  }
 }

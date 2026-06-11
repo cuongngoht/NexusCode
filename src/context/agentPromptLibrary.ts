@@ -118,8 +118,19 @@ export function loadAgentPromptMarkdown(workspaceRoot: string, agentId: string):
   const filePath = path.join(agentsDir, `${agentId}.md`);
   try { return fs.readFileSync(filePath, 'utf8'); } catch { /* fall through */ }
 
-  const indexPath = path.join(agentsDir, agentId, 'index.md');
-  try { return fs.readFileSync(indexPath, 'utf8'); } catch { return undefined; }
+  // Folder agent: bundle index.md first, then remaining .md files alphabetically
+  const agentDir = path.join(agentsDir, agentId);
+  const indexPath = path.join(agentDir, 'index.md');
+  if (!fs.existsSync(indexPath)) return undefined;
+
+  try {
+    const files = fs.readdirSync(agentDir)
+      .filter(f => f.endsWith('.md') && !f.startsWith('.'))
+      .sort((a, b) => a === 'index.md' ? -1 : b === 'index.md' ? 1 : a.localeCompare(b));
+    return files
+      .map(f => fs.readFileSync(path.join(agentDir, f), 'utf8'))
+      .join('\n\n---\n\n');
+  } catch { return undefined; }
 }
 
 export function loadAgentPromptBundle(workspaceRoot: string, agentIds: string[]): string {

@@ -179,6 +179,35 @@ describe('loadAgentPromptMarkdown', () => {
     const result = loadAgentPromptMarkdown(tmpDir, 'research');
     expect(result).toBe('# Research File\nFrom file');
   });
+
+  it('bundles all .md files from folder, index.md first', () => {
+    const dir = getWorkspaceAgentsDir(tmpDir);
+    const agentDir = path.join(dir, 'planner');
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(path.join(agentDir, 'index.md'), '# Planner\nOrchestrator', 'utf8');
+    fs.writeFileSync(path.join(agentDir, 'steps.md'), '# Steps\nStep content', 'utf8');
+    fs.writeFileSync(path.join(agentDir, 'context.md'), '# Context\nContext content', 'utf8');
+
+    const result = loadAgentPromptMarkdown(tmpDir, 'planner');
+    expect(result).toContain('# Planner');
+    expect(result).toContain('# Steps');
+    expect(result).toContain('# Context');
+    // index.md must appear before steps.md
+    expect(result!.indexOf('# Planner')).toBeLessThan(result!.indexOf('# Steps'));
+    // separator between files
+    expect(result).toContain('---');
+  });
+
+  it('excludes dotfiles when bundling folder agent', () => {
+    const dir = getWorkspaceAgentsDir(tmpDir);
+    const agentDir = path.join(dir, 'planner');
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(path.join(agentDir, 'index.md'), '# Planner', 'utf8');
+    fs.writeFileSync(path.join(agentDir, '.hidden.md'), '# Secret', 'utf8');
+
+    const result = loadAgentPromptMarkdown(tmpDir, 'planner');
+    expect(result).not.toContain('# Secret');
+  });
 });
 
 describe('loadAgentPromptBundle', () => {
