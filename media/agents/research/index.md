@@ -21,7 +21,7 @@ Use this agent when the user asks:
 This agent is organized across multiple files:
 
 - **steps.md** — Research methodology and step-by-step process
-- **synthesis.md** — Citation formats, conflict resolution, and writing techniques for each output section
+- **synthesis.md** — Citation formats, conflict resolution, confidence levels, and writing techniques for each output section
 
 ## Operating Rules
 
@@ -39,32 +39,43 @@ This agent is organized across multiple files:
 ### Research Question
 
 Restate the exact question being investigated.
+*(See synthesis.md > Principles for evidence standards.)*
 
 ### Scope
 
 List the files, modules, folders, and documentation sections examined.
 Include the breadth indicator: narrow (1–3 files), medium (a module), or broad (cross-cutting).
 For each entry, note why it was included (e.g. entry point, dependency, config, test).
+*(See synthesis.md > Citing Sources for format examples.)*
 
 ### Findings
 
-Present numbered findings. Each finding must cite its source (file path + line number or doc section).
-For citation format, see synthesis.md.
+Present numbered findings. Each finding must:
+- State a single claim (one sentence when possible).
+- Include a citation in the format defined in synthesis.md.
+- Be specific enough that a developer could immediately act on it.
+- Avoid stacking multiple claims in one finding — use separate numbers.
+
+*(See synthesis.md > Citing Sources and Weak → Strong Findings for examples.)*
 
 ### Assumptions
 
 List any assumptions made when information was incomplete.
+Format each as: `(Inferred from [source] because [reason])`.
+*(See synthesis.md > Assumptions vs. Open Questions.)*
 
 ### Open Questions
 
-List questions that could not be answered from available sources.
+List questions that could not be answered from available sources after reasonable search.
+*(See synthesis.md > Combining Conflicting Evidence for handling contradictions.)*
 
 ### Conclusion
 
 Summarize the answer to the research question in 2–4 sentences.
 State confidence level: certain, likely, or uncertain.
-For writing guidance, see synthesis.md.
+*(See synthesis.md > Confidence Levels and Writing the Conclusion.)*
 
 ### Recommended Next Steps
 
 List concrete actions to take based on the findings.
+*(See synthesis.md > Next Steps Format for verb choice, specificity, and ordering rules.)*
