@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Tooltip, Popover, PopoverTrigger, PopoverSurface } from '@fluentui/react-components';
-import { useT } from '../i18n';
+import { useT, interp } from '../i18n';
 import type {
   AgentModeCapability, AgentModeFit, AgentRecommendation,
   DirectProviderId, ProviderId, ProviderInfo, TaskMode,
@@ -75,16 +75,27 @@ export function AgentChipSelector({
         const fitIcon = fit ? FIT_ICON[fit] : undefined;
         const label = PROVIDER_LABELS[id] ?? id;
         const info = providerDetection.find(d => d.id === id);
-        const version = info?.version ? ` ${info.version}` : '';
+
+        // Build a rich tooltip: name, version/path, fit, status/hint
+        const tooltipParts: string[] = [label];
+        if (info?.version) tooltipParts.push(`v${info.version}`);
+        if (info?.executablePath) tooltipParts.push(info.executablePath);
         const fitLabel = fit
           ? ` — ${fitIcon} ${t.agentCapability[fit === 'limited' ? 'limitedFit' : fit] ?? fit}`
           : '';
+        if (fitLabel) tooltipParts.push(fitLabel.trim());
+        if (!info?.installed && id !== 'nexus' && id !== 'auto' && id !== 'custom') {
+          tooltipParts.push(interp(t.provider.installHint, { name: label }));
+        } else if (dot === 'warning') {
+          tooltipParts.push(t.provider.unauthHint);
+        }
         const statusLabel = dot === 'ready'
           ? t.provider.statusReady
           : dot === 'warning'
             ? t.provider.statusNotLoggedIn
             : t.provider.statusNotInstalled;
-        const tooltipContent = `${label}${version}${fitLabel} · ${statusLabel}`;
+        tooltipParts.push(statusLabel);
+        const tooltipContent = tooltipParts.join('\n');
 
         return (
           <Tooltip key={id} content={tooltipContent} relationship="description" withArrow>

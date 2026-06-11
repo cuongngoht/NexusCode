@@ -1,18 +1,24 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
-import { IconSparkle, IconCopy, IconThumbUp, IconThumbDown, IconRetry } from '../NexusIcons';
+import { IconSparkle } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import { getVsCodeApi } from '../vscodeApi';
 import { PlanReadyCard } from './PlanReadyCard';
+import { MessageActions } from './MessageActions';
+import { EnhancedPromptModal } from './EnhancedPromptModal';
 
 interface Props {
   message: AssistantMsg;
   isRunning?: boolean;
   providerDetection?: ProviderInfo[];
   availableProviders?: string[];
+  conversationId: string;
+  userMessageId?: string;
+  onFeedback: (messageId: string, rating: 'good' | 'bad' | null) => void;
+  onRetry: (userMessageId: string, useCurrentSettings: boolean) => void;
 }
 
 function StepIcon({ status }: { status: PipelineStep['status'] }) {
@@ -90,15 +96,44 @@ function StatusPill({ message }: { message: AssistantMsg }) {
     : <span className="fl-pill fl-pill-error">{interp(t.agent.statusFailed, { code: message.exitCode })}</span>;
 }
 
-export function AssistantMessage({ message, providerDetection = [], availableProviders = [] }: Props) {
+export const AssistantMessage = memo(function AssistantMessage({
+  message,
+  providerDetection = [],
+  availableProviders = [],
+  conversationId,
+  userMessageId,
+  onFeedback,
+  onRetry,
+}: Props) {
   const t = useT();
-  const [thumbs, setThumbs] = useState<'up' | 'down' | null>(null);
+  const [showPromptModal, setShowPromptModal] = useState(false);
 
   const agentLabel = (t.agent.modeLabel as Record<string, string>)[message.mode] ?? message.mode;
   const meta = [message.providerLabel, message.model].filter(Boolean).join(' · ');
 
+  const handleCopy = () => {
+    const text = message.lines.filter(l => l.kind === 'stdout').map(l => l.text).join('\n');
+    try {
+      navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  };
+
+  const handleRetry = (useCurrentSettings: boolean) => {
+    const msgId = message.retrySourceMessageId ?? userMessageId;
+    if (msgId) {
+      onRetry(msgId, useCurrentSettings);
+    }
+  };
+
   return (
-    <div className="fl-row fl-row-asst">
+    <div className="fl-row fl-row-asst" role="article" aria-label={t.agent.name}>
       <span className="fl-msg-avatar" aria-hidden="true">
         <IconSparkle size={14} />
       </span>
@@ -168,31 +203,15 @@ export function AssistantMessage({ message, providerDetection = [], availablePro
         </div>
 
         {!message.isStreaming && (
-          <div className="fl-msg-actions">
-            <button type="button" className="fl-act" title={t.agent.copy}>
-              <IconCopy size={14} />
-            </button>
-            <button
-              type="button"
-              className={`fl-act${thumbs === 'up' ? ' fl-act-on' : ''}`}
-              title={t.agent.goodResponse}
-              onClick={() => setThumbs(v => v === 'up' ? null : 'up')}
-            >
-              <IconThumbUp size={14} />
-            </button>
-            <button
-              type="button"
-              className={`fl-act${thumbs === 'down' ? ' fl-act-on' : ''}`}
-              title={t.agent.badResponse}
-              onClick={() => setThumbs(v => v === 'down' ? null : 'down')}
-            >
-              <IconThumbDown size={14} />
-            </button>
-            <button type="button" className="fl-act" title={t.agent.retry}>
-              <IconRetry size={14} />
-            </button>
-          </div>
+          <MessageActions
+            msg={message}
+            onCopy={handleCopy}
+            onRetry={handleRetry}
+            onFeedback={(rating) => onFeedback(message.id, rating)}
+            onViewPrompt={message.enhancedPromptSnapshot ? () => setShowPromptModal(true) : undefined}
+          />
         )}
+
         {message.planSaved && !message.isStreaming && (
           <PlanReadyCard
             mode={message.mode as TaskMode}
@@ -217,6 +236,19 @@ export function AssistantMessage({ message, providerDetection = [], availablePro
           />
         )}
       </div>
+
+      {showPromptModal && message.enhancedPromptSnapshot && (
+        <EnhancedPromptModal
+          snapshot={message.enhancedPromptSnapshot}
+          onClose={() => setShowPromptModal(false)}
+        />
+      )}
     </div>
   );
-}
+}, (prev, next) => {
+  if (prev.message.id !== next.message.id) return false;
+  if (prev.message.isStreaming !== next.message.isStreaming) return false;
+  if (prev.message.isStreaming) return false; // always re-render while streaming
+  if (prev.message.feedback !== next.message.feedback) return false;
+  return true; // stable completed message — skip re-render
+});

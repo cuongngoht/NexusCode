@@ -26,13 +26,19 @@
     "abbrevAntigravity": "AG",
     "statusReady": "Sẵn sàng",
     "statusNotLoggedIn": "Chưa đăng nhập",
-    "statusNotInstalled": "Chưa cài đặt"
+    "statusNotInstalled": "Chưa cài đặt",
+    "notInstalled": "Chưa cài đặt",
+    "installHint": "Chưa cài đặt — cài {{name}} từ tài liệu chính thức",
+    "unauthHint": "Chưa đăng nhập — nhấn Đăng nhập để xác thực"
   },
   "model": {
     "auto": "Model mặc định",
     "label": "Model"
   },
   "mode": {
+    "riskReadOnly": "Chỉ đọc — không chỉnh sửa file",
+    "riskPlan": "Tạo file kế hoạch — không chỉnh sửa source code",
+    "riskMutate": "Có thể chỉnh sửa file trong workspace",
     "ask": {
       "label": "Hỏi đáp",
       "desc": "Chỉ chat · không dùng công cụ"
@@ -47,7 +53,7 @@
     },
     "brainstorm": {
       "label": "Brainstorm",
-      "desc": "Create agents · explore ideas"
+      "desc": "Tạo agents · khám phá ý tưởng"
     },
     "review": {
       "label": "Đánh giá code",
@@ -94,7 +100,19 @@
     "retry": "Thử lại",
     "inspectPrompt": "Xem prompt đã gửi",
     "inspectPromptTitle": "Prompt gửi tới CLI",
-    "planSaved": "✓ Kế hoạch đã lưu"
+    "planSaved": "✓ Kế hoạch đã lưu",
+    "viewPrompt": "Xem Prompt",
+    "promptModalTitle": "Xem Prompt Đã Tăng Cường",
+    "promptTabEnhanced": "Đã tăng cường",
+    "promptTabOriginal": "Gốc",
+    "promptCopy": "Sao chép",
+    "promptCopied": "Đã sao chép",
+    "promptTruncatedWarning": "Prompt đã bị cắt ngắn do vượt giới hạn kích thước.",
+    "retryWithOriginal": "Thử lại với cài đặt gốc",
+    "retryWithCurrent": "Thử lại với cài đặt hiện tại",
+    "feedbackGood": "Phản hồi tốt",
+    "feedbackBad": "Phản hồi không tốt",
+    "copied": "Đã sao chép"
   },
   "agentCapability": {
     "agent": "Agent",
@@ -131,6 +149,7 @@
     "hintToSend": "để gửi",
     "working": "Nexus đang xử lý… {{elapsed}}s",
     "stop": "Dừng",
+    "stopping": "Đang dừng…",
     "send": "Gửi",
     "subagentsToggle": "Subagents",
     "subagentsTooltip": "Chạy các pre-agent trước agent chính",
@@ -151,12 +170,26 @@
     "modeLimited": "Agent hiện tại hỗ trợ hạn chế chế độ này",
     "cmdCompact": "Tóm tắt cuộc trò chuyện để giảm context",
     "cmdShowCompact": "Hiển thị tóm tắt compact hiện tại",
-    "cmdClearCompact": "Xóa tóm tắt compact"
+    "cmdClearCompact": "Xóa tóm tắt compact",
+    "charCount": "{{n}} ký tự",
+    "promptTooLong": "Prompt quá dài ({{n}} ký tự) — cân nhắc dùng đính kèm file",
+    "formAriaLabel": "Khung soạn tin nhắn",
+    "agentMentionLabel": "Gợi ý agent",
+    "skillMentionLabel": "Gợi ý skill"
   },
   "compact": {
     "summaryTitle": "Tóm tắt compact",
     "error": "Compact thất bại: {{message}}",
-    "compacting": "Đang tóm tắt…"
+    "compacting": "Đang tóm tắt…",
+    "compactAction": "Tóm tắt",
+    "compactConversation": "Tóm tắt hội thoại",
+    "summaryOf": "{{n}} tin nhắn đã tóm tắt",
+    "showSummary": "Hiển thị tóm tắt",
+    "hideSummary": "Ẩn tóm tắt",
+    "clearCompact": "Xóa tóm tắt",
+    "longConversationHint": "Hội thoại khá dài. Tóm tắt để giảm context.",
+    "tokenWarning": "Context lớn ({{n}}k tokens). Cân nhắc tóm tắt.",
+    "tokenDanger": "Context rất lớn ({{n}}k tokens). Nên tóm tắt ngay."
   },
   "emptyState": {
     "title": "Bắt đầu cuộc trò chuyện",
@@ -167,6 +200,7 @@
   },
   "history": {
     "ariaLabel": "Lịch sử trò chuyện",
+    "messagesAriaLabel": "Tin nhắn hội thoại",
     "deleteConversation": "Xóa cuộc trò chuyện",
     "clearAll": "Xóa tất cả",
     "confirmClear": "Xác nhận xóa tất cả?",
@@ -197,12 +231,18 @@
     "planPath": "Đường dẫn kế hoạch",
     "mode": "Chế độ",
     "model": "Model",
-    "provider": "Provider"
+    "provider": "Provider",
+    "openPlan": "Mở kế hoạch",
+    "applyWithCurrentSettings": "Áp dụng với cài đặt hiện tại",
+    "browseSavedPlans": "Xem kế hoạch đã lưu",
+    "reviewTruncated": "Diff lớn và có thể bị cắt bớt — review có thể không đầy đủ.",
+    "reviewError": "Không thể tải ngữ cảnh review.",
+    "mutatesFilesWarning": "Chế độ này có thể chỉnh sửa file trong workspace."
   },
   "pipeline": {
     "steps": {
       "scan": "Quét dự án",
-      "prepare-brainstorm-agents": "Preparing brainstorm agents",
+      "prepare-brainstorm-agents": "Chuẩn bị brainstorm agents",
       "analyze": "Phân tích",
       "summarize": "Tóm tắt AI",
       "read-source-context": "Đọc source code",
@@ -247,5 +287,11 @@
     "placeholder": "Thêm yêu cầu review nếu cần…",
     "sendButton": "Review",
     "sendTitle": "Review branch"
+  },
+  "errors": {
+    "noAgentsInstalled": "Không phát hiện agent nào. Cài Claude CLI, Codex CLI, Gemini CLI hoặc agent được hỗ trợ khác.",
+    "providerNotAuthenticated": "{{provider}} chưa được xác thực.",
+    "loginAction": "Đăng nhập",
+    "dismiss": "Bỏ qua"
   }
 }

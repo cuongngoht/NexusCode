@@ -96,6 +96,24 @@ function deriveTitle(prompt: string): string {
 
 // ── Message types ─────────────────────────────────────────────────────────
 
+export interface EnhancedPromptSection {
+  title: string;
+  content: string;
+}
+
+export interface EnhancedPromptSnapshot {
+  originalPrompt: string;
+  enhancedPrompt: string;
+  sections: EnhancedPromptSection[];
+  wasTruncated: boolean;
+  generatedAt: number;
+}
+
+export interface MessageFeedback {
+  rating: 'good' | 'bad' | null;
+  ratedAt?: number;
+}
+
 export interface UserMessage {
   id: string;
   role: 'user';
@@ -104,6 +122,7 @@ export interface UserMessage {
   mode: TaskMode;
   model?: string;
   timestamp: number;
+  attachmentPaths?: string[];
 }
 
 export interface OutputLine {
@@ -137,8 +156,12 @@ export interface AssistantMessage {
   steps: PipelineStep[];
   tokenUsage?: TokenRunUsage;
   enhancedPrompt?: string;
+  enhancedPromptSnapshot?: EnhancedPromptSnapshot;
   planSaved?: boolean;
   planPath?: string;
+  feedback?: MessageFeedback;
+  retrySourceMessageId?: string;
+  elapsed?: number;
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -248,6 +271,7 @@ export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
   isRunning: boolean;
+  isStopping: boolean;
   elapsed: number;
   provider: ProviderId;
   selectedModel?: string;
@@ -277,6 +301,14 @@ export interface AppState {
   compactError?: string;
   showCompactInfo: boolean;
   activeRunConversationId?: string;
+  pendingRetry?: {
+    prompt: string;
+    provider: ProviderId;
+    mode: TaskMode;
+    model?: string;
+    sourceMessageId: string;
+    useCurrentSettings: boolean;
+  };
 }
 
 export function createInitialState(): AppState {
@@ -285,6 +317,7 @@ export function createInitialState(): AppState {
     conversations: [conv],
     activeConvId: conv.id,
     isRunning: false,
+    isStopping: false,
     elapsed: 0,
     provider: 'nexus',
     selectedModel: undefined,
@@ -314,6 +347,7 @@ export function createInitialState(): AppState {
     compactError: undefined,
     showCompactInfo: false,
     activeRunConversationId: undefined,
+    pendingRetry: undefined,
   };
 }
 
@@ -349,7 +383,7 @@ export interface ProviderInfo {
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -400,6 +434,7 @@ export type ExtMsg =
 export type AppAction =
   | { type: 'extMsg'; msg: ExtMsg }
   | { type: 'tick' }
+  | { type: 'stopTask' }
   | { type: 'setProvider'; value: ProviderId }
   | { type: 'setModel'; value?: string }
   | { type: 'setMode'; value: TaskMode }
@@ -421,7 +456,15 @@ export type AppAction =
   | { type: 'setAgentMention'; state: AgentMentionState | undefined }
   | { type: 'setSkillMention'; state: SkillMentionState | undefined }
   | { type: 'clearConvCompactSummary' }
-  | { type: 'toggleCompactInfo' };
+  | { type: 'toggleCompactInfo' }
+  | { type: 'setFeedback'; conversationId: string; messageId: string; rating: 'good' | 'bad' | null }
+  | { type: 'retryMessage'; userMessageId: string; useCurrentSettings: boolean }
+  | { type: 'clearPendingRetry' }
+  | { type: 'clearHistoryError' }
+  | { type: 'clearHistorySaveError' }
+  | { type: 'clearHistoryTrimmed' }
+  | { type: 'clearCompactError' }
+  | { type: 'appendOutputBatch'; chunks: Array<{ type: 'stdout' | 'stderr'; chunk: string }> };
 
 // ── Conversation context (mirrors src/context/conversationContext.ts) ────────
 
@@ -583,6 +626,9 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
         errorText: a.errorText,
         timestamp: a.timestamp ?? now,
         tokenUsage: a.tokenUsage,
+        feedback: a.feedback,
+        retrySourceMessageId: a.retrySourceMessageId,
+        elapsed: a.elapsed,
       };
     });
   return {
@@ -646,6 +692,9 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       steps: [],
       tokenUsage: m.tokenUsage,
       timestamp: m.timestamp ?? 0,
+      feedback: m.feedback,
+      retrySourceMessageId: m.retrySourceMessageId,
+      elapsed: m.elapsed,
     } satisfies AssistantMessage;
   });
   return {
@@ -721,10 +770,26 @@ function completeRunningActivities(conv: Conversation): Conversation {
 
 // ── Reducer ───────────────────────────────────────────────────────────────
 
+const MAX_LINES = 2000;
+const TRUNCATE_TO = 1900;
+
+/** Caps output lines at MAX_LINES, keeping the most recent TRUNCATE_TO lines. */
+function truncateLines(lines: OutputLine[]): OutputLine[] {
+  if (lines.length <= MAX_LINES) return lines;
+  const dropped = lines.length - TRUNCATE_TO;
+  return [
+    { kind: 'stdout' as const, text: `[... ${dropped} earlier lines hidden ...]` },
+    ...lines.slice(lines.length - TRUNCATE_TO),
+  ];
+}
+
 export function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'tick':
       return { ...state, elapsed: state.elapsed + 1 };
+
+    case 'stopTask':
+      return { ...state, isStopping: true };
 
     case 'setProvider': {
       const EXCLUDED_AUTO_MODES: TaskMode[] = ['scan-project'];
@@ -735,13 +800,25 @@ export function reducer(state: AppState, action: AppAction): AppState {
       )?.fit;
 
       let newMode: TaskMode = state.mode;
-      if (currentFit !== 'best' && currentFit !== 'good' && matrix.length > 0) {
-        const bestEntry = matrix.find(
-          r => r.agentId === action.value &&
-               r.fit === 'best' &&
-               !EXCLUDED_AUTO_MODES.includes(r.mode),
-        );
-        if (bestEntry) newMode = bestEntry.mode;
+      if (matrix.length > 0) {
+        if (currentFit === 'unsupported') {
+          // Hard fallback: unsupported modes must switch to best, or 'ask' if no best exists
+          const bestEntry = matrix.find(
+            r => r.agentId === action.value &&
+                 r.fit === 'best' &&
+                 !EXCLUDED_AUTO_MODES.includes(r.mode),
+          );
+          newMode = bestEntry ? bestEntry.mode : 'ask';
+        } else if (currentFit !== 'best' && currentFit !== 'good' && currentFit !== 'limited') {
+          // For unknown/undefined fit, try to find the best mode (soft preference)
+          const bestEntry = matrix.find(
+            r => r.agentId === action.value &&
+                 r.fit === 'best' &&
+                 !EXCLUDED_AUTO_MODES.includes(r.mode),
+          );
+          if (bestEntry) newMode = bestEntry.mode;
+        }
+        // 'limited' fit: keep the current mode — user chose it intentionally
       }
 
       return {
@@ -846,6 +923,73 @@ export function reducer(state: AppState, action: AppAction): AppState {
     case 'toggleCompactInfo':
       return { ...state, showCompactInfo: !state.showCompactInfo };
 
+    case 'setFeedback': {
+      let changed = false;
+      const conversations = state.conversations.map(c => {
+        if (c.id !== action.conversationId) return c;
+        const messages = c.messages.map(m => {
+          if (m.id !== action.messageId || m.role !== 'assistant') return m;
+          changed = true;
+          return {
+            ...m,
+            feedback: { rating: action.rating, ratedAt: Date.now() },
+          } as AssistantMessage;
+        });
+        return { ...c, messages };
+      });
+      if (!changed) return state;
+      return { ...state, conversations, saveKey: state.saveKey + 1 };
+    }
+
+    case 'retryMessage': {
+      const activeConv = state.conversations.find(c => c.id === state.activeConvId);
+      if (!activeConv) return state;
+      const userMsg = activeConv.messages.find(m => m.id === action.userMessageId) as UserMessage | undefined;
+      if (!userMsg) return state;
+      return {
+        ...state,
+        pendingRetry: {
+          prompt: userMsg.prompt,
+          provider: userMsg.provider,
+          mode: userMsg.mode,
+          model: userMsg.model,
+          sourceMessageId: action.userMessageId,
+          useCurrentSettings: action.useCurrentSettings,
+        },
+      };
+    }
+
+    case 'clearPendingRetry':
+      return { ...state, pendingRetry: undefined };
+
+    case 'clearHistoryError':
+      return { ...state, historyError: undefined };
+
+    case 'clearHistorySaveError':
+      return { ...state, historySaveError: undefined };
+
+    case 'clearHistoryTrimmed':
+      return { ...state, historyTrimmedCount: undefined };
+
+    case 'clearCompactError':
+      return { ...state, compactError: undefined };
+
+    case 'appendOutputBatch': {
+      if (!state.isRunning) return state;
+      const allNewLines: OutputLine[] = [];
+      for (const item of action.chunks) {
+        const lines = item.chunk.split('\n').filter(l => l.trim());
+        allNewLines.push(...lines.map(text => ({ kind: item.type as 'stdout' | 'stderr', text })));
+      }
+      if (allNewLines.length === 0) return state;
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          lines: truncateLines([...m.lines, ...allNewLines]),
+        })),
+      );
+    }
+
     case 'extMsg':
       return applyExtMsg(state, action.msg);
   }
@@ -912,11 +1056,35 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       const runConvId = getRunConvId(state);
       const runConv = state.conversations.find(c => c.id === runConvId);
       const lastMsg = runConv?.messages[runConv.messages.length - 1];
-      // Pipeline mode: AssistantMessage already created by stepStarted — store enhancedPrompt
+
+      // Build EnhancedPromptSnapshot from event data
+      let snapshot: EnhancedPromptSnapshot | undefined;
+      if (msg.enhancedPrompt) {
+        const originalPrompt = (() => {
+          const msgs = runConv?.messages ?? [];
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === 'user') return (msgs[i] as UserMessage).prompt;
+          }
+          return '';
+        })();
+        snapshot = {
+          originalPrompt,
+          enhancedPrompt: msg.enhancedPrompt,
+          sections: msg.enhancedPromptSections ?? [],
+          wasTruncated: false,
+          generatedAt: Date.now(),
+        };
+      }
+
+      // Pipeline mode: AssistantMessage already created by stepStarted — update with snapshot
       if (lastMsg?.role === 'assistant' && (lastMsg as AssistantMessage).isStreaming) {
         return {
           ...updateConversationById(state, runConvId, conv =>
-            updateLastAssistant(conv, m => ({ ...m, enhancedPrompt: msg.enhancedPrompt })),
+            updateLastAssistant(conv, m => ({
+              ...m,
+              enhancedPrompt: msg.enhancedPrompt,
+              enhancedPromptSnapshot: snapshot,
+            })),
           ),
           isRunning: true,
           elapsed: 0,
@@ -934,6 +1102,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         timestamp: Date.now(),
         steps: [],
         enhancedPrompt: msg.enhancedPrompt,
+        enhancedPromptSnapshot: snapshot,
       };
       return {
         ...updateConversationById(state, runConvId, conv => ({
@@ -948,21 +1117,25 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'stdout': {
+      // Drop chunks that arrive after the task has already ended (race condition on stop)
+      if (!state.isRunning) return state;
       const lines = msg.chunk.split('\n').filter(l => l.trim());
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
-          lines: [...m.lines, ...lines.map(text => ({ kind: 'stdout' as const, text }))],
+          lines: truncateLines([...m.lines, ...lines.map(text => ({ kind: 'stdout' as const, text }))]),
         })),
       );
     }
 
     case 'stderr': {
+      // Drop chunks that arrive after the task has already ended (race condition on stop)
+      if (!state.isRunning) return state;
       const lines = msg.chunk.split('\n').filter(l => l.trim());
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
-          lines: [...m.lines, ...lines.map(text => ({ kind: 'stderr' as const, text }))],
+          lines: truncateLines([...m.lines, ...lines.map(text => ({ kind: 'stderr' as const, text }))]),
         })),
       );
     }
@@ -971,10 +1144,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode, elapsed: state.elapsed })),
           )),
         ),
         isRunning: false,
+        isStopping: false,
         saveKey: state.saveKey + 1,
       };
 
@@ -982,10 +1156,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, elapsed: state.elapsed })),
           )),
         ),
         isRunning: false,
+        isStopping: false,
         saveKey: state.saveKey + 1,
       };
 
@@ -993,10 +1168,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message, elapsed: state.elapsed })),
           )),
         ),
         isRunning: false,
+        isStopping: false,
         saveKey: state.saveKey + 1,
       };
 

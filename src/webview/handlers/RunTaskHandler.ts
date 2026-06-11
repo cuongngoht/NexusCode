@@ -254,6 +254,7 @@ export class RunTaskHandler {
   }
 
   async stop(): Promise<void> {
+    if (!this.hasActive()) return; // no-op — no task is running
     await this.runAgent.stop();
   }
 

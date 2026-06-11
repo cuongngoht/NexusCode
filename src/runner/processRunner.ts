@@ -47,6 +47,8 @@ export class ProcessRunner implements IProcessRunner {
       const child = spawn(command.executable, [...command.args], {
         cwd: options.cwd,
         shell: false,
+        // detached on Unix so we can kill the entire process group (negative PID)
+        detached: process.platform !== 'win32',
         stdio: [
           command.stdin === undefined ? 'ignore' : 'pipe',
           'pipe',
@@ -103,6 +105,8 @@ export class ProcessRunner implements IProcessRunner {
 
       child.on('close', (code: number | null) => {
         console.log(`${label} closed, exit code=${code}, elapsed=${Date.now() - startedAt}ms`);
+        childStdout.removeAllListeners();
+        childStderr.removeAllListeners();
         this.activeProcess = null;
         resolve(new AgentResult(code ?? -1, stdout, stderr, Date.now() - startedAt));
       });
@@ -111,15 +115,27 @@ export class ProcessRunner implements IProcessRunner {
 
   async stop(): Promise<void> {
     if (!this.activeProcess) return;
-    const proc = this.activeProcess;
-    this.activeProcess = null;
+    const child = this.activeProcess;
+    this.activeProcess = null; // prevent double-stop
 
-    let exited = false;
-    proc.once('exit', () => { exited = true; });
+    try {
+      if (process.platform === 'win32') {
+        // Kill entire process tree on Windows
+        spawn('taskkill', ['/F', '/T', '/PID', String(child.pid!)], { shell: false }).unref();
+      } else {
+        // Kill the whole process group on macOS/Linux (negative PID = process group)
+        process.kill(-child.pid!, 'SIGTERM');
+      }
+    } catch { /* already dead */ }
 
-    proc.kill('SIGTERM');
     await new Promise<void>(resolve => setTimeout(resolve, 3000));
-    if (!exited) proc.kill('SIGKILL');
+
+    try {
+      if (process.platform !== 'win32') {
+        // Windows: already force-killed above with /F flag
+        process.kill(-child.pid!, 'SIGKILL');
+      }
+    } catch { /* already dead */ }
   }
 
   isRunning(): boolean {

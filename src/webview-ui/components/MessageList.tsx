@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { ChatMessage, Conversation, ProviderInfo } from '../messages';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
@@ -16,6 +16,8 @@ interface Props {
   onSendSuggestion: (text: string) => void;
   onOpenFile: (path: string) => void;
   onAttachFiles: (paths: string[]) => void;
+  onFeedback: (conversationId: string, messageId: string, rating: 'good' | 'bad' | null) => void;
+  onRetry: (userMessageId: string, useCurrentSettings: boolean) => void;
 }
 
 function EmptyState({ onSend }: { onSend: (text: string) => void }) {
@@ -47,7 +49,8 @@ function EmptyState({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-export function MessageList({ conversation, isRunning, providerDetection, availableProviders, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles }: Props) {
+export const MessageList = memo(function MessageList({ conversation, isRunning, providerDetection, availableProviders, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles, onFeedback, onRetry }: Props) {
+  const t = useT();
   const anchorRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { messages, gitChanges, gitMessage } = conversation;
@@ -60,16 +63,42 @@ export function MessageList({ conversation, isRunning, providerDetection, availa
   }, [messages.length, messages[messages.length - 1]]);
 
   return (
-    <div className="fl-convo fl-scroll" ref={scrollRef} role="log" aria-live="polite">
+    <div
+      className="fl-convo fl-scroll"
+      ref={scrollRef}
+      role="log"
+      aria-label={t.history.messagesAriaLabel}
+      aria-live="polite"
+      aria-atomic="false"
+    >
       {messages.length === 0 ? (
         <EmptyState onSend={onSendSuggestion} />
       ) : (
         <div className="fl-thread">
-          {messages.map((msg: ChatMessage) =>
-            msg.role === 'user'
-              ? <UserMessage key={msg.id} message={msg} />
-              : <AssistantMessage key={msg.id} message={msg} isRunning={isRunning} providerDetection={providerDetection} availableProviders={availableProviders} />
-          )}
+          {messages.map((msg: ChatMessage, index: number) => {
+            if (msg.role === 'user') return <UserMessage key={msg.id} message={msg} />;
+            // Find the preceding user message ID for retry
+            let precedingUserMessageId: string | undefined;
+            for (let i = index - 1; i >= 0; i--) {
+              if (messages[i].role === 'user') {
+                precedingUserMessageId = messages[i].id;
+                break;
+              }
+            }
+            return (
+              <AssistantMessage
+                key={msg.id}
+                message={msg}
+                isRunning={isRunning}
+                providerDetection={providerDetection}
+                availableProviders={availableProviders}
+                conversationId={conversation.id}
+                userMessageId={precedingUserMessageId}
+                onFeedback={(messageId, rating) => onFeedback(conversation.id, messageId, rating)}
+                onRetry={onRetry}
+              />
+            );
+          })}
 
           {(gitChanges.length > 0 || gitMessage) && (
             <GitStatusPanel
@@ -88,4 +117,4 @@ export function MessageList({ conversation, isRunning, providerDetection, availa
       )}
     </div>
   );
-}
+});

@@ -86,7 +86,7 @@ export class RunAgentUseCase {
 
     this.activeTask = task;
     task.start();
-    this.eventBus.emit({ kind: 'task_started', task });
+    this.eventBus.emit({ kind: 'task_started', task, enhancedPrompt: task.enhancedPrompt });
     this.eventBus.emit({
       kind: 'token_usage_updated',
       task,
@@ -141,10 +141,10 @@ export class RunAgentUseCase {
 
   async stop(): Promise<void> {
     const task = this.activeTask;
-    if (!task) return;
+    this.activeTask = null; // clear immediately to prevent double-stop
+    if (!task) return; // no-op — no task is running
     await this.runner.stop();
     task.cancel();
-    this.activeTask = null;
     this.eventBus.emit({ kind: 'task_stopped', task });
   }
 
