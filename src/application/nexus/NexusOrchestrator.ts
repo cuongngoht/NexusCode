@@ -22,7 +22,14 @@ export class NexusOrchestrator {
 
     for (let i = 0; i < flow.length; i++) {
       const stage = flow[i];
-      const agent = await this.resolveAgent(stage);
+
+      let agent: IAgent;
+      try {
+        agent = await this.resolveAgent(stage);
+      } catch (err) {
+        this.eventBus.emit({ kind: 'step_error', stepLabel: stage, error: String(err) });
+        return;
+      }
 
       this.eventBus.emit({
         kind: 'step_started',

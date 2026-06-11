@@ -4,6 +4,8 @@ import type { IProcessRunner, RunOptions } from '../core/runner/IProcessRunner';
 import { CommandGuard } from './commandGuard';
 
 // Heuristic: stderr lines that look like internal diagnostic logs, not user-facing errors
+const DEBUG = process.env.NEXUS_DEBUG === '1';
+
 function isInternalLog(line: string): boolean {
   return (
     /^\[[\w.]+\] /.test(line) ||          // [ClassName] log format
@@ -69,8 +71,10 @@ export class ProcessRunner implements IProcessRunner {
       }
 
       if (command.stdin !== undefined) {
-        const stdinPreview = command.stdin.slice(0, 300);
-        console.log(`${label} stdin (${command.stdin.length} chars):`, stdinPreview);
+        if (DEBUG) {
+          const stdinPreview = command.stdin.slice(0, 300);
+          console.log(`${label} stdin (${command.stdin.length} chars):`, stdinPreview);
+        }
         child.stdin?.write(command.stdin);
         child.stdin?.end();
       }
@@ -80,13 +84,13 @@ export class ProcessRunner implements IProcessRunner {
 
       childStdout.on('data', (chunk: string) => {
         stdout += chunk;
-        console.log(`${label} stdout chunk (${chunk.length} chars):`, chunk.slice(0, 300));
+        if (DEBUG) console.log(`${label} stdout chunk (${chunk.length} chars):`, chunk.slice(0, 300));
         options.onStdout?.(chunk);
       });
 
       childStderr.on('data', (chunk: string) => {
         stderr += chunk;
-        console.log(`${label} stderr chunk:`, chunk.slice(0, 300));
+        if (DEBUG) console.log(`${label} stderr chunk:`, chunk.slice(0, 300));
         const filtered = filterNoise(chunk);
         if (filtered.trim()) options.onStderr?.(filtered);
       });
@@ -109,9 +113,13 @@ export class ProcessRunner implements IProcessRunner {
     if (!this.activeProcess) return;
     const proc = this.activeProcess;
     this.activeProcess = null;
+
+    let exited = false;
+    proc.once('exit', () => { exited = true; });
+
     proc.kill('SIGTERM');
     await new Promise<void>(resolve => setTimeout(resolve, 3000));
-    if (!proc.killed) proc.kill('SIGKILL');
+    if (!exited) proc.kill('SIGKILL');
   }
 
   isRunning(): boolean {

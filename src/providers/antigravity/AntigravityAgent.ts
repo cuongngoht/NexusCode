@@ -28,13 +28,15 @@ export class AntigravityAgent extends BaseAgent {
     const args: string[] = [];
     if (task.model) args.push('--model', task.model);
     args.push('--prompt', task.enhancedPrompt, '--dangerously-skip-permissions');
-    console.log('[AntigravityAgent] buildCommand', {
-      model: task.model,
-      mode: task.mode,
-      promptLength: task.enhancedPrompt.length,
-      promptPreview: task.enhancedPrompt.slice(0, 400),
-      args: args.map(a => a.length > 200 ? a.slice(0, 200) + '…' : a),
-    });
+    if (process.env.NEXUS_DEBUG === '1') {
+      console.log('[AntigravityAgent] buildCommand', {
+        model: task.model,
+        mode: task.mode,
+        promptLength: task.enhancedPrompt.length,
+        promptPreview: task.enhancedPrompt.slice(0, 400),
+        args: args.map(a => a.length > 200 ? a.slice(0, 200) + '…' : a),
+      });
+    }
     return new AgentCommand('agy', args, undefined, undefined, task.enhancedPrompt);
   }
 

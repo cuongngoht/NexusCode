@@ -18,6 +18,10 @@ export class SkillPromptHandler {
     if (!workspaceRoot) return;
     try {
       const cfg = vscode.workspace.getConfiguration('nexus');
+      if (!cfg.get<boolean>('skills.enabled', true)) {
+        this.post({ type: 'skillPrompts', skills: [] });
+        return;
+      }
       if (cfg.get<boolean>('skills.autoCopyDefaults', true)) {
         ensureWorkspaceSkills(workspaceRoot, this.extensionRoot);
       }

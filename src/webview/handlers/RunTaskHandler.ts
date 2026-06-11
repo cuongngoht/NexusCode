@@ -172,7 +172,7 @@ export class RunTaskHandler {
     }
   }
 
-  async applyPlan(mode: TaskMode, model?: string, planPath?: string, providerId?: ProviderId): Promise<void> {
+  async applyPlan(_mode: TaskMode, model?: string, planPath?: string, providerId?: ProviderId): Promise<void> {
     const workspaceRoot = requireWorkspaceRoot(this.post);
     if (!workspaceRoot) return;
 
@@ -208,7 +208,7 @@ export class RunTaskHandler {
       workspaceRoot,
       originalPrompt: approvedPlanPrompt,
       enhancedPrompt: approvedPlanPrompt,
-      mode,
+      mode: 'edit',
       model,
       providerId: effectiveProvider,
       enableEnhancement: false,
@@ -226,14 +226,14 @@ export class RunTaskHandler {
           stepIndex: 0,
           totalSteps: 1,
           provider: String(effectiveProvider),
-          mode: String(mode),
+          mode: 'edit',
           model,
         });
         const task = new AgentTask(
           approvedPlanPrompt,
           approvedPlanPrompt,
           effectiveProvider,
-          mode,
+          'edit',
           model?.trim() || undefined,
           workspaceRoot,
         );
@@ -439,16 +439,20 @@ export class RunTaskHandler {
   private setupGitStatusListener(task: AgentTask, workspaceRoot: string): void {
     const listener = (event: NexusEvent) => {
       if (
-        (event.kind === 'task_completed' || event.kind === 'task_stopped') &&
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
         event.task.id === task.id
       ) {
         this.eventBus.off('task_completed', listener);
         this.eventBus.off('task_stopped', listener);
-        const status = getGitStatus(workspaceRoot);
-        this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
+        this.eventBus.off('task_error', listener);
+        if (event.kind !== 'task_error') {
+          const status = getGitStatus(workspaceRoot);
+          this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
+        }
       }
     };
     this.eventBus.on('task_completed', listener);
     this.eventBus.on('task_stopped', listener);
+    this.eventBus.on('task_error', listener);
   }
 }
