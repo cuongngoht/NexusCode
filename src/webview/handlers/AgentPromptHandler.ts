@@ -18,6 +18,10 @@ export class AgentPromptHandler {
     if (!workspaceRoot) return;
     try {
       const cfg = vscode.workspace.getConfiguration('nexus');
+      if (!cfg.get<boolean>('agents.enabled', true)) {
+        this.post({ type: 'agentPrompts', agents: [] });
+        return;
+      }
       if (cfg.get<boolean>('agents.autoCopyDefaults', true)) {
         ensureWorkspaceAgents(workspaceRoot, this.extensionRoot);
       }

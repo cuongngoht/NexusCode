@@ -6,10 +6,12 @@ import { AgentRouter } from '../AgentRouter';
 import { TokenMeter } from '../../tokens/TokenMeter';
 import type { McpToolUseCase } from '../../mcp/McpToolUseCase';
 import type { ConfigService } from '../../config/ConfigService';
+import { AgentStreamPipelineFactory } from '../stream/AgentStreamPipelineFactory';
+import type { AgentStreamPipeline } from '../stream/AgentStreamPipeline';
+import type { AgentStreamEvent } from '../../core/stream/AgentStreamEvent';
 
 export class RunAgentUseCase {
   private activeTask: AgentTask | null = null;
-  private readonly tokenMeter = new TokenMeter();
 
   constructor(
     private readonly router: AgentRouter,
@@ -17,6 +19,7 @@ export class RunAgentUseCase {
     private readonly eventBus: IEventBus,
     private readonly mcpToolUseCase?: McpToolUseCase,
     private readonly configService?: ConfigService,
+    private readonly tokenMeter: TokenMeter = new TokenMeter(),
   ) { }
 
   async execute(task: AgentTask): Promise<AgentResult> {
@@ -81,12 +84,13 @@ export class RunAgentUseCase {
   private async _run(task: AgentTask, agent: IAgent, onStdoutCollect?: (chunk: string) => void): Promise<AgentResult> {
     const command = agent.buildCommand(task);
     const parser = agent.outputParser;
+    const pipeline: AgentStreamPipeline | null = AgentStreamPipelineFactory.create(command);
 
     const inputPrompt = command.inputPrompt ?? task.enhancedPrompt;
 
     this.activeTask = task;
     task.start();
-    this.eventBus.emit({ kind: 'task_started', task });
+    this.eventBus.emit({ kind: 'task_started', task, enhancedPrompt: task.enhancedPrompt });
     this.eventBus.emit({
       kind: 'token_usage_updated',
       task,
@@ -98,28 +102,54 @@ export class RunAgentUseCase {
       const result = await this.runner.run(command, {
         onStdout: chunk => {
           onStdoutCollect?.(chunk);
+          if (pipeline) {
+            this._emitStreamEvents(task, pipeline.processChunk(chunk));
+            return;
+          }
+          // Always emit the raw chunk as stdout. This guarantees the agent's full output
+          // (the "result") reaches the UI message body, history, copy, and context builders
+          // regardless of how the (optional) outputParser classifies lines.
+          // Parser is used *only* as a side-channel to produce activity_* events for
+          // nice progress chips (see _emitStreamEvents for the stream/pipeline equivalent).
+          // This is the robust best practice: content fidelity is independent of activity extraction.
+          // Matches the design of PlainTextAdapter + content_delta, Claude/Antigravity/Codex parsers
+          // (which default prose to plain), and prevents the class of bug where review-style NL
+          // output (triggered by @agent/#skill prompts) gets entirely diverted to activities.
+          this.eventBus.emit({ kind: 'stdout', task, chunk });
+
           if (!parser) {
-            this.eventBus.emit({ kind: 'stdout', task, chunk });
             return;
           }
           const activities = parser.parse(chunk);
-          const plainLines: string[] = [];
           for (const act of activities) {
-            if (act.kind === 'plain') {
-              plainLines.push(act.raw);
-            } else if (act.status === 'running') {
-              this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
-            } else {
-              this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+            if (act.kind !== 'plain') {
+              if (act.status === 'running') {
+                this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
+              } else {
+                this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+              }
             }
-          }
-          if (plainLines.length > 0) {
-            this.eventBus.emit({ kind: 'stdout', task, chunk: plainLines.join('\n') });
+            // Note: we no longer collect/filter "plainLines" for a separate stdout emit.
+            // The raw chunk above already ensures all content (including what used to be plain)
+            // is present. Activities provide compact UI annotations on top.
           }
         },
         onStderr: chunk => this.eventBus.emit({ kind: 'stderr', task, chunk }),
         cwd: task.cwd,
       });
+
+      if (pipeline) {
+        this._emitStreamEvents(task, pipeline.flush());
+      } else if (parser?.flush) {
+        for (const act of parser.flush()) {
+          if (act.kind === 'plain') continue;
+          if (act.status === 'running') {
+            this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
+          } else {
+            this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+          }
+        }
+      }
 
       task.complete(result);
       this.activeTask = null;
@@ -139,12 +169,33 @@ export class RunAgentUseCase {
     }
   }
 
+  private _emitStreamEvents(task: AgentTask, events: AgentStreamEvent[]): void {
+    for (const event of events) {
+      switch (event.kind) {
+        case 'content_delta':
+          this.eventBus.emit({ kind: 'stdout', task, chunk: event.text });
+          break;
+        case 'tool_call':
+          this.eventBus.emit({ kind: 'activity_started', task, activityKind: event.toolKind ?? 'tool_call', label: event.toolName });
+          break;
+        case 'tool_result':
+          this.eventBus.emit({ kind: 'activity_done', task, activityKind: event.toolKind ?? 'tool_call', label: event.toolName, status: event.status });
+          break;
+        case 'stream_done':
+          break;
+        case 'stream_error':
+          this.eventBus.emit({ kind: 'stderr', task, chunk: `[stream] ${event.message}\n` });
+          break;
+      }
+    }
+  }
+
   async stop(): Promise<void> {
     const task = this.activeTask;
-    if (!task) return;
+    this.activeTask = null; // clear immediately to prevent double-stop
+    if (!task) return; // no-op — no task is running
     await this.runner.stop();
     task.cancel();
-    this.activeTask = null;
     this.eventBus.emit({ kind: 'task_stopped', task });
   }
 

@@ -1,13 +1,35 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
+import { ErrorBanner } from './ErrorBanner';
+
+type RiskLevel = 'readonly' | 'plan' | 'mutate';
+
+const MODE_RISK: Record<TaskMode, RiskLevel> = {
+  ask: 'readonly',
+  research: 'readonly',
+  'scan-project': 'readonly',
+  brainstorm: 'readonly',
+  plan: 'plan',
+  review: 'readonly',
+  edit: 'mutate',
+  debug: 'mutate',
+  test: 'mutate',
+};
+
+const RISK_DOT_CLASS: Record<RiskLevel, string> = {
+  readonly: 'nx-mode-risk-dot--readonly',
+  plan: 'nx-mode-risk-dot--plan',
+  mutate: 'nx-mode-risk-dot--mutate',
+};
 
 interface Props {
   isRunning: boolean;
+  isStopping?: boolean;
   elapsed: number;
   provider: ProviderId;
   mode: TaskMode;
@@ -39,6 +61,8 @@ interface Props {
   skillMention?: SkillMentionState;
   onSkillMentionChange: (state: SkillMentionState | undefined) => void;
   onReloadSkills: () => void;
+  onResearchCommand: (action: 'done' | 'current' | 'next' | 'list' | 'reload') => void;
+  onCompactCommand: (action: 'compact' | 'show' | 'clear') => void;
 }
 
 interface SlashCommand {
@@ -52,8 +76,12 @@ interface SlashMention {
   selectedIndex: number;
 }
 
-export function Composer({
-  isRunning, elapsed, provider, mode,
+export interface ComposerRef {
+  focus(): void;
+}
+
+export const Composer = forwardRef<ComposerRef, Props>(function Composer({
+  isRunning, isStopping, elapsed, provider, mode,
   availableProviders, providerDetection,
   agentCapabilityMatrix, agentRecommendations,
   reviewContext, reviewContextError,
@@ -65,7 +93,9 @@ export function Composer({
   onResolveDroppedFiles,
   agentPrompts, agentMention, onAgentMentionChange, onReloadAgents,
   skillPrompts, skillMention, onSkillMentionChange, onReloadSkills,
-}: Props) {
+  onResearchCommand,
+  onCompactCommand,
+}: Props, ref) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
   const [selectedBase, setSelectedBase] = useState<string>('');
@@ -76,6 +106,10 @@ export function Composer({
   const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => textareaRef.current?.focus(),
+  }));
 
   // Sync selectedBase when reviewContext first loads or the server returns a different base branch
   useEffect(() => {
@@ -141,7 +175,54 @@ export function Composer({
       description: t.composer.cmdReloadSkills,
       run: () => { onReloadSkills(); setPrompt(''); },
     },
-  ], [onReloadAgents, onReloadSkills, t.composer.cmdReloadAgents, t.composer.cmdReloadSkills]);
+    {
+      id: 'research done',
+      description: t.composer.cmdResearchDone,
+      run: () => { onResearchCommand('done'); setPrompt(''); },
+    },
+    {
+      id: 'research current',
+      description: t.composer.cmdResearchCurrent,
+      run: () => { onResearchCommand('current'); setPrompt(''); },
+    },
+    {
+      id: 'research next',
+      description: t.composer.cmdResearchNext,
+      run: () => { onResearchCommand('next'); setPrompt(''); },
+    },
+    {
+      id: 'research list',
+      description: t.composer.cmdResearchList,
+      run: () => { onResearchCommand('list'); setPrompt(''); },
+    },
+    {
+      id: 'research reload',
+      description: t.composer.cmdResearchReload,
+      run: () => { onResearchCommand('reload'); setPrompt(''); },
+    },
+    {
+      id: 'compact',
+      description: t.composer.cmdCompact,
+      run: () => { onCompactCommand('compact'); setPrompt(''); },
+    },
+    {
+      id: 'show-compact',
+      description: t.composer.cmdShowCompact,
+      run: () => { onCompactCommand('show'); setPrompt(''); },
+    },
+    {
+      id: 'clear-compact',
+      description: t.composer.cmdClearCompact,
+      run: () => { onCompactCommand('clear'); setPrompt(''); },
+    },
+  ], [
+    onReloadAgents, onReloadSkills, onResearchCommand, onCompactCommand,
+    t.composer.cmdReloadAgents, t.composer.cmdReloadSkills,
+    t.composer.cmdResearchDone, t.composer.cmdResearchCurrent,
+    t.composer.cmdResearchNext, t.composer.cmdResearchList,
+    t.composer.cmdResearchReload,
+    t.composer.cmdCompact, t.composer.cmdShowCompact, t.composer.cmdClearCompact,
+  ]);
 
   const handleRun = useCallback(() => {
     const trimmed = prompt.trim();
@@ -501,7 +582,7 @@ export function Composer({
           </div>
 
           {reviewContextError && (
-            <div className="nx-review-error">{reviewContextError}</div>
+            <ErrorBanner severity="error" message={reviewContextError} />
           )}
 
           {reviewContext?.message && (
@@ -512,6 +593,10 @@ export function Composer({
             <div className="nx-review-meta">
               <span>{interp(t.review.metaChangedFiles, { count: String(reviewContext.changedFiles.length) })}</span>
             </div>
+          )}
+
+          {reviewContext?.diffTruncated && (
+            <ErrorBanner severity="warning" message={t.nexus.reviewTruncated} />
           )}
 
           {reviewContext?.diffStat && (
@@ -538,7 +623,7 @@ export function Composer({
       )}
 
       {agentMention && filteredAgents.length > 0 && (
-        <div className="fl-agent-mention-list" role="listbox" aria-label="Agent prompts">
+        <div className="fl-agent-mention-list" role="listbox" aria-label={t.composer.agentMentionLabel}>
           {filteredAgents.map((a, i) => (
             <div
               key={a.id}
@@ -555,7 +640,7 @@ export function Composer({
       )}
 
       {skillMention && filteredSkills.length > 0 && (
-        <div className="fl-agent-mention-list" role="listbox" aria-label="Skill prompts">
+        <div className="fl-agent-mention-list" role="listbox" aria-label={t.composer.skillMentionLabel}>
           {filteredSkills.map((s, i) => (
             <div
               key={s.id}
@@ -573,6 +658,8 @@ export function Composer({
 
       <div
         className={`fl-cmp-box${isDragOver ? ' fl-cmp-box--drag' : ''}`}
+        role="form"
+        aria-label={t.composer.formAriaLabel}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -596,12 +683,21 @@ export function Composer({
           aria-label={t.composer.promptAriaLabel}
         />
 
+        {prompt.length > 4000 && (
+          <div className={`fl-cmp-char-counter${prompt.length > 8000 ? ' fl-cmp-char-counter--warn' : ''}`}>
+            {prompt.length > 8000
+              ? interp(t.composer.promptTooLong, { n: prompt.length })
+              : interp(t.composer.charCount, { n: prompt.length })}
+          </div>
+        )}
+
         <div className="fl-cmp-bar">
           <div className="fl-cmp-bar-left">
             <button
               type="button"
               className={`fl-cmp-add${showFilePicker ? ' fl-cmp-add--active' : ''}`}
               title={t.composer.attachFile}
+              aria-label={t.composer.attachFile}
               onClick={openFilePicker}
             >
               <IconAdd size={16} />
@@ -636,16 +732,28 @@ export function Composer({
                     const fit = modeFitMap.get(m);
                     const isUnsupported = fit === 'unsupported';
                     const isLimited = fit === 'limited';
+                    const risk = MODE_RISK[m];
+                    const riskText = risk === 'plan'
+                      ? t.mode.riskPlan
+                      : risk === 'mutate'
+                        ? t.mode.riskMutate
+                        : t.mode.riskReadOnly;
+                    const itemTitle = isUnsupported
+                      ? t.composer.modeUnsupported
+                      : isLimited
+                        ? `${t.composer.modeLimited}\n${riskText}`
+                        : riskText;
                     return (
                       <MenuItem
                         key={m}
                         className={`nx-mode-menu-item${mode === m ? ' nx-mode-menu-item--active' : ''}${isUnsupported ? ' nx-mode-menu-item--unsupported' : ''}`}
                         onClick={() => !isUnsupported && onModeChange(m)}
                         disabled={isUnsupported}
-                        title={isUnsupported ? t.composer.modeUnsupported : isLimited ? t.composer.modeLimited : undefined}
+                        title={itemTitle}
                       >
                         <span className="nx-mode-menu-item-main">
                           <span>
+                            <span className={`nx-mode-risk-dot ${RISK_DOT_CLASS[risk]}`} aria-hidden="true" />
                             {modeT?.label ?? m}
                             {isLimited && <span className="nx-mode-fit-badge nx-mode-fit-badge--limited">!</span>}
                           </span>
@@ -666,8 +774,9 @@ export function Composer({
                   <span className="fl-spinner" style={{ width: 10, height: 10 }} />
                   {interp(t.composer.working, { elapsed })}
                 </span>
-                <button type="button" className="fl-cmp-stop-btn" title={t.composer.stop} onClick={onStop}>
+                <button type="button" className="fl-cmp-stop-btn" title={isStopping ? t.composer.stopping : t.composer.stop} aria-label={isStopping ? t.composer.stopping : t.composer.stop} onClick={onStop} disabled={isStopping}>
                   <IconStop size={13} />
+                  {isStopping && <span style={{ fontSize: 10, marginLeft: 4 }}>{t.composer.stopping}</span>}
                 </button>
               </>
             ) : (
@@ -676,6 +785,7 @@ export function Composer({
                 className="fl-cmp-send-btn"
                 disabled={mode !== 'review' && !prompt.trim()}
                 title={mode === 'review' ? t.review.sendTitle : t.composer.send}
+                aria-label={mode === 'review' ? t.review.sendTitle : t.composer.send}
                 onClick={handleRun}
               >
                 <IconArrowUp size={16} />
@@ -692,6 +802,19 @@ export function Composer({
         onUseRecommended={onProviderChange}
       />
 
+      {modeFitMap.size > 0 && modeFitMap.get(mode) === 'limited' && (
+        <div className="nx-limited-mode-banner" role="status">
+          <span className="nx-limited-mode-banner-icon" aria-hidden="true">⚠</span>
+          {t.composer.modeLimited}
+        </div>
+      )}
+
+      {(mode === 'edit' || mode === 'debug' || mode === 'test') && (
+        <div className="nx-mode-mutate-hint" role="note">
+          {t.nexus.mutatesFilesWarning}
+        </div>
+      )}
+
       <AgentChipSelector
         provider={provider}
         mode={mode}
@@ -706,7 +829,7 @@ export function Composer({
     </div>
     </>
   );
-}
+});
 
 function extractDroppedPaths(e: React.DragEvent): string[] {
   const paths: string[] = [];

@@ -1,623 +1,727 @@
 # Nexus Code
 
-Nexus Code is a Visual Studio Code extension and companion CLI that turns local AI coding tools into one coordinated chat cockpit. It can route prompts to installed CLI agents such as Gemini, Codex, Claude, Copilot, Aider, or a custom command, enrich prompts with workspace context, stream results back into VS Code, save implementation plans, apply approved plans, review branches, debug failures, and build project maps under `.nexus/`.
+**Nexus Code** is a Visual Studio Code extension and companion CLI for coordinating local AI coding agents from one workspace-aware chat cockpit.
 
-The project is designed around a simple workflow:
+It routes prompts to installed CLI providers such as **Claude Code**, **Codex**, **Antigravity**, **GitHub Copilot**, **Aider**, **Grok**, or a user-defined custom command. Nexus enriches prompts with project context, streams agent output back into VS Code, preserves conversations, tracks token usage, builds `.nexus/` project maps, supports reusable markdown agents and skills, and can optionally run MCP-assisted tool flows.
 
 ```text
-Understand the workspace -> choose the right agent -> plan safely -> apply or review changes
+Understand the workspace -> choose the right agent -> enrich the prompt -> stream the result -> review changes
 ```
 
-## Core Features
+---
+
+## What Nexus Code Solves
+
+Modern AI coding workflows often involve several strong tools, but each tool has different strengths:
+
+- some are better at planning;
+- some are better at direct code edits;
+- some are better at repository-aware debugging;
+- some are better at web or documentation research;
+- some are better as custom local automations.
+
+Nexus Code provides one cockpit inside VS Code so the user can choose the right provider, mode, model, context, agent prompt, skill prompt, and review workflow without leaving the editor.
+
+---
+
+## Main Capabilities
 
 ### VS Code Chat Cockpit
 
-- Adds a dedicated **Nexus** Activity Bar container.
-- Provides a persistent **Chat** webview view.
-- Supports multi-turn conversations with saved chat history.
-- Lets users start new conversations, switch conversations, delete conversations, and clear history.
-- Supports English and Vietnamese UI strings.
-- Streams live output from CLI agents into the chat panel.
-- Shows running status, elapsed time, pipeline steps, task completion, failure, and stopped states.
-- Provides a **Stop** action to cancel the active task.
-- Allows inspection of the final enhanced prompt sent to the CLI.
-- Shows copied, retry, good response, and bad response UI actions for assistant messages.
+Nexus adds a dedicated **Nexus** activity bar container and a persistent **Chat** webview in the secondary sidebar.
 
-### Multi-Agent Provider Routing
+The chat cockpit supports:
 
-Nexus can route tasks to multiple local CLI providers:
+- multi-turn conversations;
+- saved conversation history per workspace;
+- conversation switching and deletion;
+- live stdout and stderr streaming from CLI agents;
+- visible running, completed, stopped, and failed task states;
+- elapsed task timer;
+- stop/cancel action for active tasks;
+- copy, retry, good response, and bad response actions;
+- viewing the final enhanced prompt sent to the provider;
+- provider, mode, and model selection;
+- English and Vietnamese UI strings;
+- workspace file attachments;
+- drag-and-drop file/folder attachment resolution;
+- git status display after a task completes;
+- conversation token usage summaries;
+- conversation compaction for long histories.
 
-| Provider | Command               | Main Use                                                |
-| -------- | --------------------- | ------------------------------------------------------- |
-| Nexus    | internal orchestrator | Automatically coordinates search, plan, and code stages |
-| Gemini   | `gemini`              | Web-aware search/research and synthesis                 |
-| Codex    | `codex`               | Planning, coding, tests, and code analysis              |
-| Claude   | `claude`              | Coding and implementation work                          |
-| Copilot  | `copilot`             | GitHub Copilot CLI workflows                            |
-| Aider    | `aider`               | Repo-aware editing workflows                            |
-| Custom   | user-defined          | Any local command that accepts a prompt template        |
+---
 
-Provider behavior includes:
+### Supported Providers
 
-- Automatic CLI detection using local executable lookup.
-- Provider enable/disable controls in Nexus Settings.
-- Last selected provider persistence.
-- Model selection support for providers with seeded model lists.
-- Custom command support using `{{prompt}}` and `{{model}}` placeholders.
-- Provider capability checks before Nexus chooses an agent for a stage.
+Nexus can route work to these provider IDs:
 
-### Nexus Smart Orchestrator
+| Provider ID   | Purpose                                                       | Typical executable |
+| ------------- | ------------------------------------------------------------- | ------------------ |
+| `nexus`       | Internal Nexus orchestrator that chooses staged provider flow | internal           |
+| `auto`        | Auto/provider recommendation mode                             | internal           |
+| `claude`      | Strong coding, editing, debugging, and tests                  | `claude`           |
+| `codex`       | Strong planning, code reasoning, review, and tests            | `codex`            |
+| `antigravity` | Strong research/search-oriented workflows                     | `agy`              |
+| `copilot`     | GitHub Copilot CLI workflows                                  | `copilot`          |
+| `aider`       | Repo-aware direct editing workflows                           | `aider`            |
+| `grok`        | Research, reasoning, coding, and shell-capable workflows      | `grok`             |
+| `custom`      | User-defined local command                                    | configured by user |
 
-The built-in `nexus` provider is not a normal CLI command. It is an orchestration layer that chooses agents based on task stage and provider capabilities.
+Provider detection is based on local executable availability. Providers can be enabled, disabled, and configured from Nexus settings.
 
-Supported stages:
+---
 
-| Stage    | Purpose                                                   | Preferred Providers                           |
-| -------- | --------------------------------------------------------- | --------------------------------------------- |
-| `search` | Gather information, use web-capable agents when available | Gemini, Codex, Claude, Copilot, Aider, Custom |
-| `plan`   | Produce an implementation or reasoning plan               | Codex, Claude, Gemini, Copilot, Aider, Custom |
-| `code`   | Apply a saved plan with an edit-capable agent             | Claude, Codex, Aider, Copilot, Custom, Gemini |
+### Task Modes
 
-Mode-to-stage flow:
+Nexus models the user's intent with task modes:
 
-| Mode           | Nexus Flow       |
+| Mode           | Use case                                         |
+| -------------- | ------------------------------------------------ |
+| `ask`          | General workspace-aware questions                |
+| `research`     | Research and source-gathering tasks              |
+| `scan-project` | Project structure scanning and understanding     |
+| `plan`         | Implementation planning without direct edits     |
+| `brainstorm`   | Ideation, product thinking, architecture options |
+| `edit`         | Code changes and feature implementation          |
+| `debug`        | Bug investigation and debugging plans            |
+| `test`         | Test strategy and test implementation            |
+| `review`       | Branch/diff review and code quality analysis     |
+
+The UI shows provider recommendations and capability fit per mode so users can choose the best agent for the task.
+
+---
+
+## Nexus Internal Orchestrator
+
+The `nexus` provider is an internal orchestrator. Instead of sending the prompt to a single provider immediately, it can break the task into stages and choose the best available provider for each stage.
+
+### Stage Flow
+
+| Mode           | Nexus stage flow |
 | -------------- | ---------------- |
 | `edit`         | `search -> plan` |
 | `debug`        | `search -> plan` |
 | `test`         | `search -> plan` |
 | `review`       | `search -> plan` |
 | `research`     | `search`         |
+| `scan-project` | `search`         |
 | `plan`         | `plan`           |
 | `ask`          | `plan`           |
 | `brainstorm`   | `plan`           |
-| `scan-project` | `search`         |
 
-For coding modes, Nexus saves the generated plan instead of immediately modifying files. The user can then approve and apply it with **Apply Plan**.
+For coding-oriented modes, Nexus saves successful plan output as a plan file under `.nexus/plans/` so it can be inspected before implementation.
 
-### Plan-First Workflow
+### Stage Provider Priority
 
-Nexus supports a safer two-step coding workflow:
+| Stage    | Provider priority                                                      |
+| -------- | ---------------------------------------------------------------------- |
+| `search` | `antigravity`, `grok`, `codex`, `claude`, `copilot`, `aider`, `custom` |
+| `plan`   | `codex`, `claude`, `grok`, `antigravity`, `copilot`, `aider`, `custom` |
+| `code`   | `claude`, `codex`, `grok`, `aider`, `copilot`, `custom`, `antigravity` |
 
-1. Ask Nexus to inspect/search/plan.
-2. Nexus saves the plan to `.nexus/plan.md` and `.nexus/runs/<task-id>/plan.md`.
-3. Review or edit the plan manually.
-4. Use **Apply Plan** to run the `code` stage with an editing-capable agent.
+Nexus only selects providers that are registered, available, and capable enough for the required stage.
 
-This reduces accidental edits because planning and code mutation are separated.
+---
 
-### Task Modes
+## Agent Capability Recommendations
 
-Nexus supports these task modes:
+Nexus includes a capability matrix for direct providers and task modes.
 
-| Mode           | UI Label       | Purpose                                                                   |
-| -------------- | -------------- | ------------------------------------------------------------------------- |
-| `ask`          | Ask            | Answer questions using provided context without broad project scanning    |
-| `research`     | Research Agent | Research and synthesize information, preferring web-capable agents        |
-| `scan-project` | Scan Project   | Analyze workspace structure and write project map files                   |
-| `plan`         | Planner        | Produce an implementation plan without mutating files                     |
-| `brainstorm`   | Brainstorm     | Run a multi-agent brainstorming workflow using markdown agent definitions |
-| `edit`         | Build Agent    | Implement scoped code changes                                             |
-| `debug`        | Debug Agent    | Diagnose failures and apply focused fixes when safe                       |
-| `test`         | Test Agent     | Create, improve, or run tests                                             |
-| `review`       | Code Reviewer  | Review branch diffs for bugs, regressions, risks, and missing tests       |
+| Mode           | Best providers                           | Good providers                   | Limited / fallback                 |
+| -------------- | ---------------------------------------- | -------------------------------- | ---------------------------------- |
+| `ask`          | `codex`, `claude`                        | `grok`, `antigravity`, `copilot` | `aider`, `custom`                  |
+| `plan`         | `codex`, `claude`                        | `grok`, `antigravity`, `copilot` | `aider`, `custom`                  |
+| `edit`         | `claude`, `codex`                        | `grok`, `aider`                  | `antigravity`, `copilot`, `custom` |
+| `debug`        | `claude`, `codex`                        | `grok`, `aider`                  | `antigravity`, `copilot`, `custom` |
+| `test`         | `claude`, `codex`, `grok`, `aider`       | —                                | `antigravity`, `copilot`, `custom` |
+| `review`       | `codex`, `claude`                        | `grok`, `antigravity`, `copilot` | `aider`, `custom`                  |
+| `research`     | `antigravity`, `grok`                    | `codex`, `claude`                | `copilot`, `aider`, `custom`       |
+| `brainstorm`   | `claude`, `codex`, `antigravity`, `grok` | `copilot`                        | `aider`, `custom`                  |
+| `scan-project` | `antigravity`, `codex`                   | `grok`, `claude`                 | `copilot`, `aider`, `custom`       |
 
-### Prompt Enhancement
+`custom` is treated as unknown because its behavior depends on the command configured by the user.
 
-When prompt enhancement is enabled, Nexus builds a richer prompt before sending it to a CLI provider.
+---
 
-Enhanced prompt context can include:
+## Prompt Enhancement
 
-- Workspace name and root path.
-- Current Git branch.
-- Package manager.
-- Detected frameworks.
-- Available package scripts.
-- Task mode guidance.
-- `.nexus/rules.md` project rules.
-- Project map content.
-- Important source files.
-- Previous conversation context.
-- Active plan content from `.nexus/plan.md`.
-- Debug signal analysis.
-- Branch review diff context.
-- Brainstorm agent definitions.
+When prompt enhancement is enabled, Nexus builds a richer prompt before sending it to the selected provider.
 
-Prompt enhancement can be disabled with `nexus.enablePromptEnhancement`.
+Enhancement may include:
 
-### Project Rules
+- workspace context;
+- package/project detection;
+- selected files or folders;
+- branch review context;
+- loaded project rules;
+- selected `@agent` markdown prompt;
+- selected `#skill` markdown workflow;
+- compacted conversation summary;
+- MCP result context when MCP is enabled and a tool intent is detected.
 
-Create this file in the workspace root:
+The final enhanced prompt can be inspected in the chat UI.
+
+---
+
+## Project-Level Markdown Agents
+
+Nexus supports reusable project-specific agent prompts through `@agent` mentions.
+
+Bundled default agents include:
+
+| Agent                | Focus                                                    |
+| -------------------- | -------------------------------------------------------- |
+| `code-review`        | Branch diff review, bugs, regressions, security, tests   |
+| `product-owner`      | User value, scope, acceptance criteria, MVP slicing      |
+| `senior-developer`   | Minimal safe implementation, maintainability, edge cases |
+| `software-architect` | Architecture, boundaries, data flow, tradeoffs           |
+| `tester`             | Test scenarios, regression risks, manual verification    |
+
+When enabled, Nexus can copy default agent prompts into:
 
 ```text
-.nexus/rules.md
+.nexus/agents/
 ```
 
-Its contents are automatically injected into enhanced prompts. Use it for project conventions such as architecture rules, coding standards, testing requirements, or forbidden commands.
+Users can create custom markdown agents and reference them in chat with `@agent-name`.
 
-### Project Map Generation
+A context menu command is available when right-clicking `.nexus/agents`:
 
-Nexus can scan the workspace and generate a structured project map under `.nexus/`.
+```text
+Nexus: Create Workflow Agent
+```
+
+---
+
+## Project-Level Markdown Skills
+
+Nexus supports reusable workflow prompts through `#skill` mentions.
+
+Bundled default skills include:
+
+| Skill             | Focus                                                               |
+| ----------------- | ------------------------------------------------------------------- |
+| `api-design`      | Interfaces, types, compatibility, errors, examples                  |
+| `bug-fix`         | Reproduction, root cause, scoped fix, regression tests              |
+| `design-patterns` | SOLID, OOP/OOD, DRY, structure, pattern selection                   |
+| `refactor`        | Simpler structure while preserving behavior                         |
+| `security-review` | Path traversal, command injection, secret leakage, trust boundaries |
+| `write-tests`     | Unit tests, integration tests, edge cases, mocking                  |
+
+When enabled, Nexus can copy default skill prompts into:
+
+```text
+.nexus/skills/
+```
+
+Users can create custom markdown skills and reference them in chat with `#skill-name`.
+
+---
+
+## Optional Subagent Layer
+
+Nexus includes an optional subagent layer that can run focused pre-agents before the main agent.
+
+Default subagents include:
+
+| Subagent   | Typical role                          |
+| ---------- | ------------------------------------- |
+| `search`   | Find relevant context and sources     |
+| `planner`  | Break work into implementation steps  |
+| `tester`   | Identify test strategy and edge cases |
+| `reviewer` | Review risks and quality issues       |
+| `security` | Inspect security-sensitive changes    |
+| `debugger` | Analyze failures and likely causes    |
+| `docs`     | Documentation and explanation support |
+| `product`  | Product and scope thinking            |
+| `research` | Research-oriented decomposition       |
+
+The subagent layer is disabled by default and can be enabled with settings.
+
+---
+
+## MCP Tool Layer
+
+Nexus includes an optional MCP layer for tool-assisted workflows.
+
+Supported preset configuration includes:
+
+- **Microsoft Learn** preset for official Microsoft documentation;
+- **Context7** preset for up-to-date library documentation;
+- optional Context7 API key;
+- automatic preset selection by task intent;
+- max result size limits;
+- max MCP rounds per task;
+- approval requirement for high-risk tools.
+
+When MCP is enabled, Nexus can inspect an agent's output for tool intent, run the selected MCP tool, compress the result, and inject that result into a follow-up agent run.
+
+---
+
+## Project Map
+
+Nexus can build a project map under `.nexus/` to help agents understand the repository.
 
 Generated files include:
 
-| File                          | Purpose                                  |
-| ----------------------------- | ---------------------------------------- |
-| `.nexus/project-map.md`       | Human-readable project overview          |
-| `.nexus/file-tree.txt`        | Scanned file list                        |
-| `.nexus/workspace-units.json` | Detected project units and metadata      |
-| `.nexus/scan-cache.json`      | Scan summary and cache metadata          |
-| `.nexus/.gitignore`           | Ignores generated scan cache/debug files |
-
-The scanner:
-
-- Respects Nexus ignore matching.
-- Limits scan depth and file count.
-- Detects project markers such as `package.json`, `tsconfig.json`, `vite.config.ts`, `next.config.js`, `.sln`, `.csproj`, `pyproject.toml`, `requirements.txt`, `pom.xml`, `go.mod`, `Cargo.toml`, `Dockerfile`, and `docker-compose.yml`.
-- Detects project kinds such as frontend, backend, library, tooling, and unknown.
-- Detects languages and frameworks such as TypeScript, .NET, Python, Java, Go, Rust, Vite, Next.js, ASP.NET Core, Django, Flask, Maven, Gradle, and Docker.
-
-### AI Project Summary
-
-The extension registers a project summary command that can ask a selected AI provider to summarize the generated project map.
-
-It can write:
-
-| File                             | Purpose                                                          |
-| -------------------------------- | ---------------------------------------------------------------- |
-| `.nexus/project-summary.json`    | Structured AI summary with risks, missing pieces, and next steps |
-| `.nexus/project-map.md`          | Updated markdown project map with summary content                |
-| `.nexus/project-summary.raw.txt` | Raw AI output for debugging                                      |
-
-### Branch Review Workflow
-
-Review mode is built for branch diff review.
-
-It can:
-
-- Detect available Git branches.
-- Choose or refresh a base branch.
-- Compare the current branch against the selected base branch.
-- Collect changed files, diff stats, and diff content.
-- Load a review agent template from `.nexus/agents/code-review.md`.
-- Create the review agent markdown file from bundled defaults when missing.
-- Open the review agent file for editing.
-- Read changed source file excerpts for stronger review context.
-- Build a structured review prompt focused on bugs, regressions, security, data loss, async issues, edge cases, tests, and maintainability.
-
-### Debug Workflow
-
-Debug mode prepares a specialized debugging context before running the selected agent.
-
-It can detect:
-
-- TypeScript compiler errors such as `TS2345`.
-- JavaScript/TypeScript stack traces.
-- Test failures from tools such as Vitest and Jest.
-- Build failures from Vite, Rollup, TypeScript, and related tools.
-- Failing commands such as `npm`, `npx`, `pnpm`, `yarn`, `bun`, `node`, `vitest`, `jest`, `tsc`, `eslint`, and `vite`.
-- Relevant file paths, line numbers, and columns from error output.
-- Async/concurrency hints such as race conditions, timeouts, debounce/throttle, flaky behavior, and missing awaits.
-- `no-edit`, `no edit`, and `noedit` flags for read-only debugging.
-
-Debug prompts instruct the agent to identify the root cause, keep fixes small, add regression tests when relevant, rerun the failing command when available, and report verification results.
-
-### Brainstorm Workflow
-
-Brainstorm mode prepares a multi-agent ideation context.
-
-It can:
-
-- Build a project map first.
-- Read important source files.
-- Copy bundled brainstorm agent markdown files into `.nexus/agents/brainstorm/` when available.
-- Load all markdown agent definitions from `.nexus/agents/brainstorm/`.
-- Ask the selected provider to synthesize multiple specialist perspectives into ranked recommendations.
-
-### Conversation Context
-
-Nexus can include previous chat context in the enhanced prompt, making follow-up requests more useful while still routing through local CLI agents.
-
-Conversation features include:
-
-- Persistent chat history stored in VS Code state.
-- Multiple conversations.
-- Active conversation tracking.
-- Conversation-specific token usage.
-- Context injection for follow-up tasks.
-
-### Token Usage Estimates
-
-Nexus estimates token usage with `gpt-tokenizer`.
-
-It tracks:
-
-- Original prompt tokens.
-- Enhanced prompt tokens.
-- Context overhead tokens.
-- Output tokens.
-- Total estimated tokens.
-- Provider, mode, model, start time, and completion time.
-
-The UI includes a conversation token bar and prompt inspection so users can see how much context Nexus added.
-
-### Git Status After Tasks
-
-When enabled, Nexus runs `git status --porcelain` after task completion or stop events and shows changed files in the UI.
-
-This helps users immediately inspect what an editing agent changed.
-
-### Settings UI
-
-Nexus includes a settings panel with:
-
-- Provider enable/disable checkboxes.
-- Local CLI scan button.
-- Saved provider configuration.
-- Setup banner when no CLI provider has been configured.
-
-Default provider configuration enables Gemini and Codex and disables Claude, Copilot, and Aider until the user enables them.
-
-### About Panel
-
-The extension includes an About panel registered through the `nexus.openAbout` command handler.
-
-### Command Guard for Custom Providers
-
-Custom provider execution validates configured commands before running them. This helps prevent invalid or unsafe custom command definitions from being launched accidentally.
-
-### Output Parsing and Normalization
-
-Nexus includes provider-specific output parsers for:
-
-- Claude
-- Codex
-- Gemini
-- Generic/default providers
-
-The output layer normalizes streamed stdout/stderr into cleaner chat output and activity events.
-
-### Live Pipeline Events
-
-The internal event bus forwards task and pipeline events to the webview.
-
-Supported event types include:
-
-- Task started.
-- Task completed.
-- Task stopped.
-- Task error.
-- Stdout chunks.
-- Stderr chunks.
-- Step started.
-- Step completed.
-- Step error.
-- Activity started.
-- Activity done.
-- Token usage updated.
-- Plan saved.
-
-### CLI Companion
-
-The package exposes a `nexus` command.
-
-Available CLI commands:
-
-```bash
-nexus map
-nexus run --prompt "Your task"
+```text
+.nexus/project-map.md
+.nexus/file-tree.txt
+.nexus/workspace-units.json
+.nexus/scan-cache.json
+.nexus/.gitignore
 ```
 
-#### `nexus map`
+The `.nexus/.gitignore` file ignores generated scan/cache/debug artifacts such as:
 
-Builds a Nexus project map.
-
-Options:
-
-```bash
-nexus map --root <path> --json --max-depth <number> --max-files <number>
+```text
+scan-cache.json
+file-tree.txt
+project-summary.raw.txt
+tmp/
+*.cache.json
 ```
 
-Examples:
+Project map support includes:
 
-```bash
-nexus map
-nexus map --root ./my-project
-nexus map --root ./my-project --json
-nexus map --max-depth 6 --max-files 3000
+- file tree scanning;
+- marker detection;
+- workspace unit detection;
+- markdown project map generation;
+- JSON workspace unit output;
+- optional AI-generated project summary.
+
+---
+
+## Git and Review Support
+
+Nexus can collect git context for review workflows:
+
+- current branch;
+- base branch;
+- available branches;
+- changed files;
+- diff stat;
+- diff content;
+- truncation status for large diffs.
+
+The chat UI can show branch review context and changed files. After a task completes, Nexus can run `git status` and display changed files.
+
+---
+
+## Conversation and Token Management
+
+Nexus stores chat history per workspace and tracks token usage for assistant runs.
+
+Supported behavior includes:
+
+- saved conversations;
+- active conversation tracking;
+- derived conversation titles;
+- token usage by provider;
+- preview token estimates before a run;
+- final token usage after completion;
+- exact, estimated, or heuristic token source breakdown;
+- compact summaries for long conversations.
+
+Default compaction behavior:
+
+| Setting                              | Default |
+| ------------------------------------ | ------- |
+| `compact.enabled`                    | `true`  |
+| `compact.suggestAfterMessages`       | `12`    |
+| `compact.recentMessagesAfterCompact` | `6`     |
+| `compact.maxCompactSummaryChars`     | `8000`  |
+
+---
+
+## Extension Commands
+
+Commands contributed by the extension:
+
+| Command                        | Description                                             |
+| ------------------------------ | ------------------------------------------------------- |
+| `Nexus: Open Chat`             | Focus the Nexus chat webview                            |
+| `Nexus: Open Settings`         | Open Nexus settings panel                               |
+| `Nexus: Create Workflow Agent` | Create a markdown workflow agent inside `.nexus/agents` |
+
+Additional internal commands are registered by the extension for about/settings and project summary workflows.
+
+---
+
+## Settings
+
+Nexus uses VS Code settings and `.nexus/config.json` depending on the feature.
+
+### VS Code Settings
+
+| Setting                                     | Default | Description                                           |
+| ------------------------------------------- | ------- | ----------------------------------------------------- |
+| `nexus.defaultProvider`                     | `nexus` | Default provider for routing tasks                    |
+| `nexus.customProvider.command`              | empty   | Executable for the custom provider                    |
+| `nexus.customProvider.args`                 | `[]`    | Arguments for custom provider; supports `{{prompt}}`  |
+| `nexus.enablePromptEnhancement`             | `true`  | Prepend workspace context to prompts                  |
+| `nexus.showRawOutput`                       | `false` | Show unfiltered stdout/stderr with parsed output      |
+| `nexus.runGitStatusAfterTask`               | `true`  | Run git status after task completion                  |
+| `nexus.mcp.enabled`                         | `false` | Enable MCP tool layer                                 |
+| `nexus.mcp.autoSelectPreset`                | `true`  | Let Nexus select MCP preset by task intent            |
+| `nexus.mcp.requireApprovalForHighRiskTools` | `true`  | Require approval for high-risk MCP tools              |
+| `nexus.mcp.maxResultChars`                  | `6000`  | Maximum MCP result chars injected into prompt         |
+| `nexus.mcp.maxRoundsPerTask`                | `1`     | Maximum MCP rounds per task                           |
+| `nexus.mcp.presets.microsoftLearn.enabled`  | `true`  | Enable Microsoft Learn MCP preset                     |
+| `nexus.mcp.presets.context7.enabled`        | `true`  | Enable Context7 MCP preset                            |
+| `nexus.mcp.presets.context7.apiKey`         | empty   | Optional Context7 API key                             |
+| `nexus.subagents.enabled`                   | `false` | Enable subagent layer                                 |
+| `nexus.subagents.maxRuns`                   | `4`     | Maximum subagent runs per task                        |
+| `nexus.subagents.includeSecurity`           | `false` | Include security subagent when applicable             |
+| `nexus.subagents.includeDocs`               | `false` | Include docs subagent when applicable                 |
+| `nexus.agents.enabled`                      | `true`  | Enable markdown agents and `@agent` autocomplete      |
+| `nexus.agents.autoCopyDefaults`             | `true`  | Copy bundled agents into `.nexus/agents` when missing |
+| `nexus.skills.enabled`                      | `true`  | Enable markdown skills and `#skill` autocomplete      |
+| `nexus.skills.autoCopyDefaults`             | `true`  | Copy bundled skills into `.nexus/skills` when missing |
+
+### Workspace `.nexus/config.json`
+
+Default workspace config shape:
+
+```json
+{
+  "version": 1,
+  "providers": {
+    "antigravity": { "enabled": true, "command": "agy" },
+    "codex": { "enabled": true, "command": "codex" },
+    "claude": { "enabled": false, "command": "claude" },
+    "copilot": { "enabled": false, "command": "copilot" },
+    "aider": { "enabled": false, "command": "aider" },
+    "grok": { "enabled": false, "command": "grok" }
+  },
+  "mcp": {
+    "enabled": false,
+    "autoSelectPreset": true,
+    "requireApprovalForHighRiskTools": true,
+    "maxResultChars": 6000,
+    "maxRoundsPerTask": 1,
+    "presets": {
+      "microsoftLearn": { "enabled": true },
+      "context7": { "enabled": true, "apiKey": "" }
+    }
+  },
+  "compact": {
+    "enabled": true,
+    "suggestAfterMessages": 12,
+    "recentMessagesAfterCompact": 6,
+    "maxCompactSummaryChars": 8000
+  }
+}
 ```
 
-#### `nexus run`
+---
 
-Runs a task through the Nexus orchestrator.
+## Custom Provider
 
-Options:
+A custom provider can run any local command that accepts a prompt.
+
+VS Code setting example:
+
+```json
+{
+  "nexus.customProvider.command": "my-agent",
+  "nexus.customProvider.args": ["run", "--prompt", "{{prompt}}"]
+}
+```
+
+CLI workspace config example:
+
+```json
+{
+  "customProvider": {
+    "command": "my-agent",
+    "args": ["run", "--prompt", "{{prompt}}"]
+  }
+}
+```
+
+Environment fallback for CLI custom provider:
+
+```bash
+export NEXUS_CUSTOM_COMMAND="my-agent"
+export NEXUS_CUSTOM_ARGS="run --prompt {{prompt}}"
+```
+
+---
+
+## CLI Usage
+
+The package exposes a `nexus` CLI.
+
+### Build a Project Map
+
+```bash
+nexus map --root .
+```
+
+Output JSON:
+
+```bash
+nexus map --root . --json
+```
+
+Limit scan depth and file count:
+
+```bash
+nexus map --root . --max-depth 8 --max-files 5000
+```
+
+### Run a Task
+
+```bash
+nexus run --prompt "Implement the user settings panel" --root . --mode edit --provider nexus
+```
+
+Useful options:
 
 ```bash
 nexus run \
-  --prompt "Implement the saved plan" \
-  --root <path> \
-  --mode <mode> \
-  --provider <id> \
-  --stage <auto|search|plan|code> \
-  --plan <path> \
-  --base-branch <branch> \
-  --model <model>
+  --prompt "Review this branch for regressions" \
+  --root . \
+  --mode review \
+  --provider nexus \
+  --base-branch main
 ```
-
-Examples:
 
 ```bash
-nexus run --prompt "Plan a safe refactor for the auth module" --mode edit
-nexus run --prompt "Review this branch" --mode review --base-branch main
-nexus run --prompt "Apply this implementation" --stage code --model sonnet
+nexus run \
+  --prompt "Create an implementation plan for MCP preset selection" \
+  --root . \
+  --mode plan \
+  --provider codex \
+  --model gpt-5.1
 ```
 
-## Installation
+CLI options include:
 
-### From VSIX
+| Option                   | Description                                         |
+| ------------------------ | --------------------------------------------------- |
+| `--prompt <text>`        | Required user prompt                                |
+| `--root <path>`          | Workspace root; defaults to current directory       |
+| `--mode <mode>`          | Task mode                                           |
+| `--provider <id>`        | Provider override                                   |
+| `--stage <stage>`        | Force Nexus stage: `auto`, `search`, `plan`, `code` |
+| `--plan <path>`          | Plan file path for code stage                       |
+| `--base-branch <branch>` | Base branch for review mode                         |
+| `--model <model>`        | Model override                                      |
 
-A packaged extension file is included in the project archive:
+---
+
+## Development
+
+### Requirements
+
+- Node.js compatible with the project's toolchain;
+- VS Code `^1.85.0` or newer;
+- npm;
+- local CLI agents installed for the providers you want to use.
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Build
+
+Compile extension and webview:
+
+```bash
+npm run compile
+```
+
+Compile extension only:
+
+```bash
+npm run compile:extension
+```
+
+Compile webview only:
+
+```bash
+npm run compile:webview
+```
+
+Build CLI bundle:
+
+```bash
+npm run build:cli
+```
+
+### Typecheck
+
+```bash
+npm run typecheck
+```
+
+### Tests
+
+```bash
+npm run test:webview
+```
+
+### Watch Mode
+
+Extension watch:
+
+```bash
+npm run watch
+```
+
+Webview watch:
+
+```bash
+npm run watch:webview
+```
+
+---
+
+## Project Structure
 
 ```text
-nexus-visual-code-0.1.4.vsix
+src/
+  application/          Application services, routing, orchestration, use cases
+  application/nexus/    Nexus internal orchestrator, routing policy, capability matrix
+  application/pipeline/ Pipeline pre-steps for task context
+  application/subagents Optional subagent planning/execution layer
+  cli/                  `nexus` CLI commands
+  config/               Workspace config and defaults
+  context/              Prompt building, agents, skills, research, project map context
+  core/                 Domain types, agent contracts, events, runner interfaces
+  debug/                Debug prompt/context support
+  git/                  Git status, branch, diff, review context helpers
+  infrastructure/       Infrastructure adapters for AI/project map summaries
+  mcp/                  MCP presets, broker, execution policy, result compression
+  output/               Output normalization and provider output parsers
+  providers/            Provider adapters for Claude, Codex, Aider, etc.
+  runner/               Child process runner and command guard
+  settings/             Settings and About panels
+  tokens/               Token counting and token usage meter
+  webview/              VS Code webview provider, controller, handlers, protocol
+  webview-ui/           React chat UI
+
+media/
+  agents/               Bundled markdown agents
+  skills/               Bundled markdown skills
+  subagents/            Bundled subagent prompts
+  webview/              Built webview assets
 ```
 
-Install it manually in VS Code:
+---
 
-1. Open VS Code.
-2. Open the Extensions view.
-3. Choose **Install from VSIX...**.
-4. Select `nexus-visual-code-0.1.4.vsix`.
+## Architecture Principles
 
-Or install from the command line:
+Nexus Code follows a Clean Architecture-style separation:
+
+```text
+core -> application -> infrastructure/providers/webview
+```
+
+Core principles:
+
+- domain contracts stay in `src/core`;
+- orchestration and use cases stay in `src/application`;
+- provider-specific command building and parsing stay in `src/providers`;
+- VS Code webview glue stays in `src/webview`;
+- React UI state and rendering stay in `src/webview-ui`;
+- context construction stays in `src/context`;
+- external process execution stays behind runner abstractions;
+- provider output parsing is separated from process execution;
+- prompt enhancement is explicit and inspectable;
+- risky tool flows are gated by configuration and execution policy.
+
+---
+
+## Safety and Boundaries
+
+Nexus is designed to keep potentially risky work visible and controllable:
+
+- tasks stream output live;
+- active tasks can be stopped;
+- enhanced prompts can be inspected;
+- branch review uses explicit git context;
+- generated plans can be saved before implementation;
+- MCP high-risk tools can require approval;
+- MCP results are compressed and size-limited;
+- file attachments are normalized as workspace-relative paths;
+- generated project-map cache files are isolated under `.nexus/`.
+
+---
+
+## Typical Workflows
+
+### Ask a Workspace Question
+
+1. Open **Nexus: Open Chat**.
+2. Choose mode `ask`.
+3. Select a provider such as `codex`, `claude`, or `nexus`.
+4. Ask the question.
+5. Inspect streamed output and enhanced prompt if needed.
+
+### Create an Implementation Plan
+
+1. Choose mode `plan`.
+2. Mention a relevant agent, for example `@software-architect`.
+3. Mention a skill if useful, for example `#api-design`.
+4. Send the prompt.
+5. Review the generated plan before asking for code changes.
+
+### Review a Branch
+
+1. Choose mode `review`.
+2. Select or provide a base branch.
+3. Nexus gathers git review context.
+4. Use `@code-review` for stricter review output.
+5. Review issues by severity and affected file.
+
+### Fix a Bug
+
+1. Choose mode `debug` or `edit`.
+2. Attach relevant files or folders.
+3. Use `#bug-fix`.
+4. Ask Nexus to identify root cause, propose a scoped fix, and add regression tests.
+
+### Build a Project Map
 
 ```bash
-code --install-extension nexus-visual-code-0.1.4.vsix
+nexus map --root .
 ```
 
-### From Source
+Then inspect:
+
+```text
+.nexus/project-map.md
+.nexus/workspace-units.json
+```
+
+---
+
+## Packaging Notes
+
+The repository includes VSIX artifacts in the archive, but local development should generally rebuild from source:
 
 ```bash
 npm install
 npm run compile
 ```
 
-Then launch the extension in the VS Code Extension Development Host.
+When publishing or packaging a new version, confirm:
 
-## Requirements
+- `package.json` version is correct;
+- extension bundle is compiled;
+- webview bundle is compiled;
+- CLI bundle is built if needed;
+- tests and typecheck pass;
+- generated `.DS_Store` and `__MACOSX` artifacts are not included in release packaging.
 
-- Visual Studio Code `^1.85.0`.
-- Node.js compatible with the project dependencies.
-- At least one supported local CLI provider installed if you want to run AI tasks.
-- Git installed for branch review and changed-file tracking.
-
-Optional local CLI tools:
-
-```bash
-gemini
-codex
-claude
-copilot
-aider
-```
-
-## Configuration
-
-VS Code settings contributed by the extension:
-
-| Setting                         | Default | Description                                                                                 |
-| ------------------------------- | ------- | ------------------------------------------------------------------------------------------- |
-| `nexus.defaultProvider`         | `nexus` | Default provider used when routing tasks                                                    |
-| `nexus.customProvider.command`  | `""`    | Executable for the custom provider                                                          |
-| `nexus.customProvider.args`     | `[]`    | Arguments for the custom provider; use `{{prompt}}` in any argument                         |
-| `nexus.enablePromptEnhancement` | `true`  | Adds workspace, rules, package, project, debug, review, and conversation context to prompts |
-| `nexus.showRawOutput`           | `false` | Shows unfiltered stdout/stderr alongside parsed output                                      |
-| `nexus.runGitStatusAfterTask`   | `true`  | Shows changed files after each task completes or stops                                      |
-
-Nexus also stores provider enablement in its own config service. The default provider config is:
-
-```json
-{
-  "version": 1,
-  "providers": {
-    "gemini": { "enabled": true, "command": "gemini" },
-    "codex": { "enabled": true, "command": "codex" },
-    "claude": { "enabled": false, "command": "claude" },
-    "copilot": { "enabled": false, "command": "copilot" },
-    "aider": { "enabled": false, "command": "aider" }
-  }
-}
-```
-
-## Custom Provider
-
-Configure a custom provider when you want Nexus to call your own local executable.
-
-Example VS Code settings:
-
-```json
-{
-  "nexus.customProvider.command": "my-agent",
-  "nexus.customProvider.args": [
-    "run",
-    "--prompt",
-    "{{prompt}}",
-    "--model",
-    "{{model}}"
-  ]
-}
-```
-
-The CLI fallback can also read:
-
-```bash
-NEXUS_CUSTOM_COMMAND=my-agent
-NEXUS_CUSTOM_ARGS="run --prompt {{prompt}}"
-```
-
-## Usage
-
-### Open Nexus Chat
-
-1. Open a workspace in VS Code.
-2. Open the Command Palette.
-3. Run **Nexus: Open Chat**.
-4. Open Settings if the setup banner appears.
-5. Click **Scan for CLIs**.
-6. Enable the providers you want to use.
-7. Choose a provider, mode, and model.
-8. Type a prompt and send it.
-
-### Generate a Project Map
-
-Use **Scan Project** mode in the UI, or run:
-
-```bash
-nexus map
-```
-
-### Plan Before Editing
-
-1. Select provider `Nexus`.
-2. Select `Build Agent`, `Debug Agent`, `Test Agent`, or `Code Reviewer` mode.
-3. Send a task.
-4. Review `.nexus/plan.md` after Nexus saves it.
-5. Click **Apply Plan** to run the implementation stage.
-
-### Review a Branch
-
-1. Select `Code Reviewer` mode.
-2. Choose or refresh the base branch.
-3. Optionally edit `.nexus/agents/code-review.md`.
-4. Send the review task.
-
-### Debug a Failure
-
-Paste terminal output, a stack trace, or a compiler/test error into Debug mode.
-
-Examples:
-
-```text
-npm run compile fails with TS2345 in src/core/types.ts
-```
-
-```text
-vitest run failed. no-edit. Explain the root cause and propose a patch.
-```
-
-## Development
-
-### Scripts
-
-| Script                      | Purpose                                  |
-| --------------------------- | ---------------------------------------- |
-| `npm run compile:extension` | Compile the VS Code extension TypeScript |
-| `npm run compile:webview`   | Build the React/Vite webview UI          |
-| `npm run compile`           | Build both extension and webview         |
-| `npm run build:cli`         | Compile the CLI entrypoint               |
-| `npm run watch`             | Watch extension TypeScript compilation   |
-| `npm run watch:webview`     | Watch webview build                      |
-| `npm run test:webview`      | Run Vitest tests                         |
-
-### Project Structure
-
-```text
-src/
-  application/       Use cases, orchestration, pipeline steps
-  application/nexus/ Nexus smart routing, plan store, mode/stage policy
-  cli/               `nexus` command implementation
-  config/            Default config and config service
-  context/           Prompt context, workspace scanning, project map, rules, review prompt
-  core/              Agent interfaces, task types, event bus, pipeline contracts
-  debug/             Debug signal parser and debug prompt builder
-  git/               Branch, diff, status, and review context helpers
-  infrastructure/    AI runner integration for project summaries
-  output/            Output normalization and provider parsers
-  providers/         Claude, Codex, Gemini, Copilot, Aider, Custom, Nexus agents
-  runner/            Process runner and command guard
-  settings/          Settings and About panels
-  tokens/            Token estimation
-  webview/           VS Code webview provider, controller, protocol, handlers
-  webview-ui/        React UI components, i18n, theme, client state
-media/
-  agents/            Bundled agent markdown templates
-  nexus.svg          Activity Bar icon
-out/                 Compiled extension output
-```
-
-## Architecture
-
-Nexus follows a layered design:
-
-```text
-VS Code Webview UI
-        |
-ChatController + handlers
-        |
-Pipeline steps + prompt builders
-        |
-AgentRouter / NexusOrchestrator
-        |
-Provider adapters
-        |
-ProcessRunner
-        |
-Local CLI tools
-```
-
-Important architectural concepts:
-
-- `AgentTask` represents one unit of work.
-- `AgentCapabilities` describes whether an agent can edit files, run shell commands, search the web, or stream output.
-- `AgentRegistry` stores all available providers.
-- `AgentRouter` selects a provider for direct execution.
-- `NexusOrchestrator` coordinates staged Nexus workflows.
-- `RunAgentUseCase` executes a task and publishes lifecycle events.
-- `ProcessRunner` launches and controls local CLI processes.
-- `EventBus` decouples backend execution from UI updates.
-- Pipeline steps prepare mode-specific context before execution.
-
-## Safety Model
-
-Nexus is designed to reduce risky edits by separating intent, context, planning, and execution.
-
-Safety-related behavior includes:
-
-- Plan-first workflow for Nexus coding modes.
-- Explicit **Apply Plan** step before code mutation.
-- Stop button for active processes.
-- Custom project rules via `.nexus/rules.md`.
-- Review mode focused on concrete diff-grounded issues.
-- Debug mode with `no-edit` support.
-- Command validation for custom providers.
-- Git status shown after tasks.
-- Generated `.nexus/.gitignore` to avoid committing scan cache/debug artifacts accidentally.
-
-## Generated `.nexus` Files
-
-| Path                             | Created By             | Description                                  |
-| -------------------------------- | ---------------------- | -------------------------------------------- |
-| `.nexus/rules.md`                | User                   | Optional project rules injected into prompts |
-| `.nexus/plan.md`                 | Nexus plan stage       | Latest saved plan                            |
-| `.nexus/runs/<task-id>/plan.md`  | Nexus plan stage       | Per-run saved plan                           |
-| `.nexus/project-map.md`          | Scan Project / CLI map | Project overview                             |
-| `.nexus/file-tree.txt`           | Scan Project / CLI map | Scanned file list                            |
-| `.nexus/workspace-units.json`    | Scan Project / CLI map | Detected project units                       |
-| `.nexus/scan-cache.json`         | Scan Project / CLI map | Scan cache metadata                          |
-| `.nexus/project-summary.json`    | AI summary command     | Structured AI project summary                |
-| `.nexus/project-summary.raw.txt` | AI summary command     | Raw summary output for debugging             |
-| `.nexus/agents/code-review.md`   | Review mode            | Editable code review agent template          |
-| `.nexus/agents/brainstorm/*.md`  | Brainstorm mode        | Editable brainstorm agent personas           |
-
-## Current Limitations
-
-- Nexus depends on local CLI tools being installed and authenticated separately.
-- Web search support depends on the selected provider capability.
-- Token usage is estimated with `gpt-tokenizer`; it is not provider-billed usage.
-- The project map scanner is intentionally bounded by depth and file-count limits.
-- The `nexus` provider is an orchestrator and does not directly build a shell command.
-- Some registered commands may be invoked internally even when not all are listed in `package.json` contributions.
+---
 
 ## License
 
-See `LICENSE`.
+See [`LICENSE`](./LICENSE).

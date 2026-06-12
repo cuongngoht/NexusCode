@@ -19,4 +19,5 @@ export interface ParsedActivity {
 
 export interface IOutputParser {
   parse(chunk: string): ParsedActivity[];
+  flush?(): ParsedActivity[];
 }

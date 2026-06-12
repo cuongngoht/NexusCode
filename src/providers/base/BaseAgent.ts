@@ -24,7 +24,7 @@ export abstract class BaseAgent implements IAgent {
     const cwdArgs = this.buildCwdArgs(task.cwd);
     if (cwdArgs.length > 0) {
       const base = this.doBuildCommand(task);
-      return new AgentCommand(base.executable, [...cwdArgs, ...base.args], base.env, base.stdin, base.inputPrompt);
+      return new AgentCommand(base.executable, [...cwdArgs, ...base.args], base.env, base.stdin, base.inputPrompt, base.transport);
     }
     const augmented = new AgentTask(
       task.prompt,

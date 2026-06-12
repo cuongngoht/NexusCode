@@ -49,6 +49,12 @@ import { SubagentPlanner } from './application/subagents/SubagentPlanner';
 import { SubagentExecutor } from './application/subagents/SubagentExecutor';
 import { SubagentOrchestrator } from './application/subagents/SubagentOrchestrator';
 import { DEFAULT_SUBAGENTS } from './application/subagents/DefaultSubagents';
+import { ConversationCompactor } from './context/ConversationCompactor';
+import {
+  createWorkflowAgentFile,
+  isWorkspaceAgentsDir,
+  normalizeAgentId,
+} from './context/workflowAgentCreator';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -117,6 +123,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const detector = new ProviderDetector();
 
+  const compactor = new ConversationCompactor(registry, runner);
+
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
@@ -128,6 +136,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.globalState,
     context.workspaceState,
     subagentOrchestrator,
+    compactor,
   );
 
   context.subscriptions.push(
@@ -191,6 +200,71 @@ export function activate(context: vscode.ExtensionContext): void {
           }
         },
       );
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nexus.createWorkflowAgent', async (uri?: vscode.Uri) => {
+      const workspaceFolder = uri
+        ? vscode.workspace.getWorkspaceFolder(uri)
+        : vscode.workspace.workspaceFolders?.[0];
+
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage('Selected folder is not inside the current workspace.');
+        return;
+      }
+
+      const workspaceRoot = workspaceFolder.uri.fsPath;
+
+      if (!uri?.fsPath) {
+        vscode.window.showErrorMessage('Right-click the .nexus/agents folder to create a workflow agent.');
+        return;
+      }
+
+      if (!isWorkspaceAgentsDir(workspaceRoot, uri.fsPath)) {
+        vscode.window.showErrorMessage('Nexus workflow agents can only be created inside .nexus/agents.');
+        return;
+      }
+
+      const rawName = await vscode.window.showInputBox({
+        title: 'Create Nexus Workflow Agent',
+        prompt: 'Enter a workflow agent name. Example: release-manager, qa-checklist, portal-planner',
+        placeHolder: 'my-workflow-agent',
+        validateInput(value) {
+          const normalized = normalizeAgentId(value);
+          if (!normalized) {
+            return 'Enter a valid agent name.';
+          }
+          return undefined;
+        },
+      });
+
+      if (!rawName) {
+        return;
+      }
+
+      try {
+        const result = createWorkflowAgentFile({
+          workspaceRoot,
+          selectedFolderPath: uri.fsPath,
+          rawName,
+          extensionRoot: context.extensionUri.fsPath,
+        });
+
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.file(result.filePath));
+        await vscode.window.showTextDocument(document);
+
+        await provider.reloadAgentPrompts();
+
+        if (result.alreadyExists) {
+          vscode.window.showWarningMessage(`Workflow agent already exists: @${result.agentId}`);
+        } else {
+          vscode.window.showInformationMessage(`Created Nexus workflow agent: @${result.agentId}`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`Create workflow agent failed: ${message}`);
+      }
     }),
   );
 }

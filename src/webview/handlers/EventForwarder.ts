@@ -13,7 +13,8 @@ export class EventForwarder {
           provider: event.task.agentId,
           mode: event.task.mode,
           model: event.task.model,
-          enhancedPrompt: event.task.enhancedPrompt,
+          enhancedPrompt: event.enhancedPrompt ?? event.task.enhancedPrompt,
+          enhancedPromptSections: event.enhancedPromptSections,
         });
         break;
       case 'stdout':

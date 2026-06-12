@@ -27,11 +27,14 @@ import { buildGitReviewContext } from '../../git/gitReviewContext';
 import { loadReviewAgentMarkdown } from '../../context/reviewAgentLoader';
 import { buildReviewPrompt } from '../../context/reviewPromptBuilder';
 import { requireWorkspaceRoot } from './workspaceUtils';
+import { buildConversationContext } from '../../context/conversationContext';
 import type { PromptAttachment } from '../../core/types';
 import type { ChatHistoryState } from '../../core/chat/ChatHistory';
 import type { SubagentOrchestrator, SubagentRunConfig } from '../../application/subagents/SubagentOrchestrator';
 import type { SubagentPlanConfig } from '../../application/subagents/SubagentPlanner';
 import { SubagentSummary } from '../../application/subagents/SubagentSummary';
+import { loadResearchContext } from '../../context/research/researchFolderLoader';
+import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -65,7 +68,7 @@ export class RunTaskHandler {
     model: string | undefined,
     baseBranch: string | undefined,
     latestHistory: ChatHistoryState | null,
-    buildConversationContext: () => string | undefined,
+    conversationContext: string | undefined,
     attachments?: PromptAttachment[],
     subagentsEnabled = false,
   ): Promise<void> {
@@ -96,7 +99,7 @@ export class RunTaskHandler {
       providerId,
       enableEnhancement,
       enhancedPrompt: effectivePrompt,
-      conversationContext: latestHistory ? buildConversationContext() : undefined,
+      conversationContext: conversationContext ?? (latestHistory ? buildConversationContext(latestHistory, undefined) : undefined),
       baseBranch: baseBranch || undefined,
     };
 
@@ -169,7 +172,7 @@ export class RunTaskHandler {
     }
   }
 
-  async applyPlan(mode: TaskMode, model?: string, planPath?: string, providerId?: ProviderId): Promise<void> {
+  async applyPlan(_mode: TaskMode, model?: string, planPath?: string, providerId?: ProviderId): Promise<void> {
     const workspaceRoot = requireWorkspaceRoot(this.post);
     if (!workspaceRoot) return;
 
@@ -205,7 +208,7 @@ export class RunTaskHandler {
       workspaceRoot,
       originalPrompt: approvedPlanPrompt,
       enhancedPrompt: approvedPlanPrompt,
-      mode,
+      mode: 'edit',
       model,
       providerId: effectiveProvider,
       enableEnhancement: false,
@@ -223,14 +226,14 @@ export class RunTaskHandler {
           stepIndex: 0,
           totalSteps: 1,
           provider: String(effectiveProvider),
-          mode: String(mode),
+          mode: 'edit',
           model,
         });
         const task = new AgentTask(
           approvedPlanPrompt,
           approvedPlanPrompt,
           effectiveProvider,
-          mode,
+          'edit',
           model?.trim() || undefined,
           workspaceRoot,
         );
@@ -251,6 +254,7 @@ export class RunTaskHandler {
   }
 
   async stop(): Promise<void> {
+    if (!this.hasActive()) return; // no-op — no task is running
     await this.runAgent.stop();
   }
 
@@ -337,13 +341,23 @@ export class RunTaskHandler {
 
     const planContent = loadPlanContent(workspaceRoot) || undefined;
 
-    // Parse @agent mentions from the original user prompt
+    // Detect @research mention before normal agent/skill parsing
+    const researchResult = loadResearchContext(workspaceRoot, ctx.originalPrompt);
+    const researchContext = researchResult ? buildResearchContextBlock(researchResult) : undefined;
+    const promptForParsing = researchResult ? researchResult.cleanedPrompt : ctx.originalPrompt;
+
+    // Parse @agent mentions from the (research-cleaned) prompt
     const knownAgentIds = listAgentPrompts(workspaceRoot).map(a => a.id);
-    const { agentIds, cleanedPrompt: agentCleaned } = parseAgentMentions(ctx.originalPrompt, knownAgentIds);
+    const { agentIds: parsedAgentIds, cleanedPrompt: agentCleaned } = parseAgentMentions(promptForParsing, knownAgentIds);
+
+    // If @research is active, also inject the assigned research agent
+    const agentIds = researchResult
+      ? [...new Set([researchResult.assignedAgent, ...parsedAgentIds])]
+      : parsedAgentIds;
 
     // Parse #skill mentions from the (agent-cleaned) prompt
     const knownSkillIds = listSkillPrompts(workspaceRoot).map(s => s.id);
-    const agentCleanedPrompt = agentIds.length > 0 ? agentCleaned : ctx.originalPrompt;
+    const agentCleanedPrompt = parsedAgentIds.length > 0 ? agentCleaned : promptForParsing;
     const { skillIds, cleanedPrompt: skillCleaned } = parseSkillMentions(agentCleanedPrompt, knownSkillIds);
     const taskPrompt = skillIds.length > 0 ? skillCleaned : agentCleanedPrompt;
 
@@ -360,6 +374,7 @@ export class RunTaskHandler {
       planContent,
       attachmentContext: ctx.attachmentContext,
       extensionRoot: this.extensionPath,
+      researchContext,
     });
 
     if (agentIds.length > 0 || skillIds.length > 0) {
@@ -425,16 +440,20 @@ export class RunTaskHandler {
   private setupGitStatusListener(task: AgentTask, workspaceRoot: string): void {
     const listener = (event: NexusEvent) => {
       if (
-        (event.kind === 'task_completed' || event.kind === 'task_stopped') &&
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
         event.task.id === task.id
       ) {
         this.eventBus.off('task_completed', listener);
         this.eventBus.off('task_stopped', listener);
-        const status = getGitStatus(workspaceRoot);
-        this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
+        this.eventBus.off('task_error', listener);
+        if (event.kind !== 'task_error') {
+          const status = getGitStatus(workspaceRoot);
+          this.post({ type: 'gitStatus', changes: status.changes, message: status.message });
+        }
       }
     };
     this.eventBus.on('task_completed', listener);
     this.eventBus.on('task_stopped', listener);
+    this.eventBus.on('task_error', listener);
   }
 }

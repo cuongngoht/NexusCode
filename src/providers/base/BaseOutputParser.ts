@@ -14,5 +14,15 @@ export abstract class BaseOutputParser implements IOutputParser {
     return this.parseLines(lines);
   }
 
+  // Drains any buffered partial line when the stream ends.
+  // Subclasses that maintain additional state (e.g. a pending running activity)
+  // should override and call super.flush() first.
+  flush(): ParsedActivity[] {
+    const remaining = this._lineBuffer;
+    this._lineBuffer = '';
+    if (!remaining || TOOL_ERROR_RE.test(remaining)) return [];
+    return this.parseLines([remaining]);
+  }
+
   protected abstract parseLines(lines: string[]): ParsedActivity[];
 }

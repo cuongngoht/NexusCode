@@ -2744,7 +2744,20 @@ html, body, #root {
 }
 
 .nx-agent-chip-dot--unavailable {
-  background: var(--colorNeutralForeground4);
+  background: var(--vscode-notificationsErrorIcon-foreground, #f85149);
+}
+
+/* Provider badge helper classes (used for external/custom styled indicators) */
+.provider-badge-ok {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+}
+
+.provider-badge-warn {
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+}
+
+.provider-badge-error {
+  color: var(--vscode-notificationsErrorIcon-foreground, #f85149);
 }
 
 .nx-agent-matrix-btn {
@@ -2828,7 +2841,54 @@ html, body, #root {
   color: var(--vscode-charts-yellow, #d7ba7d);
 }
 
-/* ── Agent Matrix Popover ────────────────────────────────────────────── */
+.nx-mode-chip-limited {
+  font-size: 10px;
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  margin-right: 2px;
+}
+
+/* ── Mode risk indicator dot ─────────────────────────────────────────── */
+
+.nx-mode-risk-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.nx-mode-risk-dot--readonly {
+  background: var(--vscode-notificationsInfoIcon-foreground, #3b9ded);
+}
+
+.nx-mode-risk-dot--plan {
+  background: var(--vscode-notificationsInfoIcon-foreground, #3b9ded);
+}
+
+.nx-mode-risk-dot--mutate {
+  background: var(--vscode-notificationsErrorIcon-foreground, #f85149);
+}
+
+/* ── Limited mode warning banner ─────────────────────────────────────── */
+
+.nx-limited-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  background: rgba(227, 179, 65, 0.08);
+  border-top: 1px solid rgba(227, 179, 65, 0.18);
+}
+
+.nx-limited-mode-banner-icon {
+  flex-shrink: 0;
+}
+
+
 
 .nx-agent-matrix-popover {
   position: fixed;
@@ -2900,4 +2960,511 @@ html, body, #root {
 
 .nx-mode-menu-item--active {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Enhanced Prompt Modal ───────────────────────────────────────────── */
+
+.enhanced-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.enhanced-prompt-modal {
+  background: var(--vscode-editor-background, var(--colorNeutralBackground4));
+  border: 1px solid var(--vscode-panel-border, var(--colorNeutralStroke1));
+  border-radius: var(--borderRadiusXLarge);
+  box-shadow: var(--shadow28);
+  width: 100%;
+  max-width: 800px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--colorNeutralStroke2));
+  flex-shrink: 0;
+  background: var(--vscode-sideBarSectionHeader-background, var(--colorNeutralBackground2));
+}
+
+.ep-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.ep-tab {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--fontFamilyBase);
+  font-size: 12.5px;
+  font-weight: var(--fontWeightMedium);
+  color: var(--colorNeutralForeground3);
+  padding: 4px 10px;
+  border-radius: var(--borderRadiusMedium);
+  transition: background var(--durationFast), color var(--durationFast);
+}
+
+.ep-tab:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--colorNeutralForeground2);
+}
+
+.ep-tab.active {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--colorNeutralForeground1);
+  font-weight: var(--fontWeightSemibold);
+}
+
+.ep-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ep-btn {
+  appearance: none;
+  border: 1px solid var(--vscode-widget-border, var(--colorNeutralStroke2));
+  background: none;
+  cursor: pointer;
+  font-family: var(--fontFamilyBase);
+  font-size: 12px;
+  color: var(--vscode-foreground, var(--colorNeutralForeground2));
+  padding: 3px 10px;
+  border-radius: var(--borderRadiusMedium);
+  transition: background var(--durationFast);
+}
+
+.ep-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.07));
+}
+
+.ep-close {
+  padding: 3px 8px;
+  font-size: 13px;
+}
+
+.ep-warning {
+  padding: 6px 12px;
+  background: rgba(204, 167, 0, 0.12);
+  border-bottom: 1px solid rgba(204, 167, 0, 0.25);
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ep-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.ep-content {
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-editor-foreground, var(--colorNeutralForeground1));
+  line-height: 1.55;
+  background: none;
+}
+
+.ep-sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.ep-section {
+  border-bottom: 1px solid var(--vscode-panel-border, var(--colorNeutralStroke3));
+}
+
+.ep-section:last-child {
+  border-bottom: none;
+}
+
+.ep-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--fontFamilyBase);
+  font-size: 12px;
+  color: var(--vscode-foreground, var(--colorNeutralForeground1));
+  transition: background var(--durationFast);
+}
+
+.ep-section-header:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.04));
+}
+
+.ep-section-icon {
+  font-size: 9px;
+  color: var(--colorNeutralForeground4);
+  flex-shrink: 0;
+  width: 10px;
+}
+
+.ep-section-title {
+  flex: 1;
+  font-weight: var(--fontWeightSemibold);
+  color: var(--vscode-foreground, var(--colorNeutralForeground1));
+}
+
+.ep-section-chars {
+  font-size: 11px;
+  color: var(--colorNeutralForeground4);
+  flex-shrink: 0;
+}
+
+.ep-section-content {
+  margin: 0;
+  padding: 8px 12px 12px 28px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11.5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-editor-foreground, var(--colorNeutralForeground2));
+  line-height: 1.5;
+  background: none;
+}
+
+/* ── MessageActions retry menu ───────────────────────────────────────── */
+
+.msg-action-retry-container {
+  position: relative;
+}
+
+.retry-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  background: var(--vscode-menu-background, var(--colorNeutralBackground4));
+  border: 1px solid var(--vscode-menu-border, var(--colorNeutralStroke1));
+  border-radius: var(--borderRadiusLarge);
+  box-shadow: var(--shadow28);
+  z-index: 200;
+  min-width: 200px;
+  padding: 3px;
+  animation: nx-fade-down var(--durationFast) var(--curveDecelerate);
+}
+
+.retry-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  color: var(--vscode-menu-foreground, var(--colorNeutralForeground1));
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--fontFamilyBase);
+  border-radius: var(--borderRadiusMedium);
+}
+
+.retry-menu button:hover {
+  background: var(--vscode-menu-selectionBackground, rgba(255, 255, 255, 0.07));
+}
+
+/* ── ErrorBanner ─────────────────────────────────────────────────────────── */
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  margin: 4px 8px;
+  flex-shrink: 0;
+}
+
+.error-banner--error {
+  background: var(--vscode-inputValidation-errorBackground, rgba(248, 81, 73, 0.1));
+  border: 1px solid var(--vscode-inputValidation-errorBorder, #f85149);
+  color: var(--vscode-foreground);
+}
+
+.error-banner--warning {
+  background: var(--vscode-inputValidation-warningBackground, rgba(227, 179, 65, 0.1));
+  border: 1px solid var(--vscode-inputValidation-warningBorder, #e3b341);
+  color: var(--vscode-foreground);
+}
+
+.error-banner--info {
+  background: var(--vscode-inputValidation-infoBackground, rgba(58, 142, 255, 0.1));
+  border: 1px solid var(--vscode-inputValidation-infoBorder, #3a8eff);
+  color: var(--vscode-foreground);
+}
+
+.error-banner-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.error-banner-message {
+  flex: 1;
+}
+
+.error-banner-action {
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.error-banner-action:hover {
+  opacity: 0.8;
+}
+
+.error-banner-dismiss {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.6;
+  padding: 0 2px;
+}
+
+.error-banner-dismiss:hover {
+  opacity: 1;
+}
+
+/* ── Composer char counter ────────────────────────────────────────────────── */
+
+.fl-cmp-char-counter {
+  font-size: 11px;
+  padding: 0 14px 4px;
+  color: var(--vscode-descriptionForeground, var(--colorNeutralForeground3));
+  text-align: right;
+}
+
+.fl-cmp-char-counter--warn {
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+}
+
+/* ── History trim info status ────────────────────────────────────────────── */
+
+.nx-history-trim-info {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  color: var(--colorNeutralForeground3);
+  background: var(--colorNeutralBackground2);
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   TOKEN BAR — WARNING / DANGER STATES
+   ============================================================ */
+.nx-token-bar--warn {
+  border-top-color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground, #e3b341) 8%, var(--colorNeutralBackground2));
+}
+.nx-token-bar--danger {
+  border-top-color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+  background: color-mix(in srgb, var(--vscode-notificationsErrorIcon-foreground, #f14c4c) 8%, var(--colorNeutralBackground2));
+}
+
+.nx-token-source {
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.nx-token-source--estimated {
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  border-color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+}
+.nx-token-source--heuristic {
+  color: var(--colorNeutralForeground4);
+  border-color: var(--colorNeutralStroke2);
+}
+
+.nx-token-compact-btn {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  border: 1px solid var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nx-token-compact-btn:hover {
+  background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground, #e3b341) 15%, transparent);
+}
+.nx-token-bar--danger .nx-token-compact-btn {
+  color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+  border-color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+}
+.nx-token-bar--danger .nx-token-compact-btn:hover {
+  background: color-mix(in srgb, var(--vscode-notificationsErrorIcon-foreground, #f14c4c) 15%, transparent);
+}
+
+.nx-token-inspect-btn {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  color: var(--colorNeutralForeground4);
+  flex-shrink: 0;
+}
+.nx-token-inspect-btn:hover {
+  color: var(--colorNeutralForeground2);
+  background: var(--colorNeutralBackground4);
+}
+
+.nx-token-state-msg {
+  padding: 4px 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.nx-token-state-msg--warn {
+  color: var(--vscode-notificationsWarningIcon-foreground, #e3b341);
+  background: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground, #e3b341) 8%, var(--colorNeutralBackground2));
+}
+.nx-token-state-msg--danger {
+  color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+  background: color-mix(in srgb, var(--vscode-notificationsErrorIcon-foreground, #f14c4c) 8%, var(--colorNeutralBackground2));
+}
+
+/* ============================================================
+   COMPACT SUMMARY CARD
+   ============================================================ */
+.nx-compact-card {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+  background: var(--colorNeutralBackground2);
+  font-size: 11.5px;
+}
+.nx-compact-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  flex-wrap: wrap;
+}
+.nx-compact-card-title {
+  font-weight: 600;
+  color: var(--vscode-gitDecoration-addedResourceForeground, #4ec9b0);
+  white-space: nowrap;
+}
+.nx-compact-card-meta {
+  color: var(--colorNeutralForeground3);
+  white-space: nowrap;
+}
+.nx-compact-card-date {
+  color: var(--colorNeutralForeground4);
+  font-size: 11px;
+  white-space: nowrap;
+  flex: 1;
+}
+.nx-compact-card-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.nx-compact-card-btn {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--colorNeutralForeground2);
+  border: 1px solid var(--colorNeutralStroke2);
+  white-space: nowrap;
+}
+.nx-compact-card-btn:hover {
+  background: var(--colorNeutralBackground4);
+  color: var(--colorNeutralForeground1);
+}
+.nx-compact-card-btn--clear {
+  color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+  border-color: transparent;
+}
+.nx-compact-card-btn--clear:hover {
+  background: color-mix(in srgb, var(--vscode-notificationsErrorIcon-foreground, #f14c4c) 12%, transparent);
+  color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+}
+.nx-compact-info-content {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--colorNeutralForeground2);
+  border-top: 1px solid var(--colorNeutralStroke3);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   LONG CONVERSATION HINT
+   ============================================================ */
+.nx-long-conv-hint {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  color: var(--colorNeutralForeground3);
+  background: var(--colorNeutralBackground2);
+  border-top: 1px solid var(--colorNeutralStroke3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nx-long-conv-hint-btn {
+  all: unset;
+  cursor: pointer;
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+  font-size: 11.5px;
+  text-decoration: underline;
+}
+.nx-long-conv-hint-btn:hover {
+  color: var(--vscode-textLink-activeForeground, #4fc1ff);
+}
+
+/* ---- Accessibility: visually hidden but available to screen readers ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

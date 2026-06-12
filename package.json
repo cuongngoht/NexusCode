@@ -15,7 +15,8 @@
   "Programming Languages"
 ],
   "activationEvents": [
-    "onView:nexus.chatView"
+    "onView:nexus.chatView",
+    "onCommand:nexus.createWorkflowAgent"
   ],
   "main": "./out/extension.js",
   "bin": {
@@ -64,8 +65,22 @@
       {
         "command": "nexus.openSettings",
         "title": "Nexus: Open Settings"
+      },
+      {
+        "command": "nexus.createWorkflowAgent",
+        "title": "Nexus: Create Workflow Agent",
+        "category": "Nexus"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "nexus.createWorkflowAgent",
+          "when": "explorerResourceIsFolder && resourceFilename == agents && resourceDirname =~ /(^|[\\\\/])\\.nexus$/",
+          "group": "navigation@90"
+        }
+      ]
+    },
     "configuration": {
       "title": "Nexus Code",
       "properties": {

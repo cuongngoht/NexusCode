@@ -33,13 +33,23 @@ export function ensureWorkspaceAgents(workspaceRoot: string, extensionRoot: stri
   }
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-    const dest = path.join(destDir, entry.name);
-    if (!fs.existsSync(dest)) {
-      try {
-        fs.copyFileSync(path.join(srcDir, entry.name), dest);
-      } catch {
-        // best effort — skip files that fail to copy
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      const dest = path.join(destDir, entry.name);
+      if (!fs.existsSync(dest)) {
+        try {
+          fs.copyFileSync(path.join(srcDir, entry.name), dest);
+        } catch {
+          // best effort — skip files that fail to copy
+        }
+      }
+    } else if (entry.isDirectory()) {
+      const destFolder = path.join(destDir, entry.name);
+      if (!fs.existsSync(destFolder)) {
+        try {
+          fs.cpSync(path.join(srcDir, entry.name), destFolder, { recursive: true });
+        } catch {
+          // best effort — skip folders that fail to copy
+        }
       }
     }
   }
@@ -70,20 +80,32 @@ export function listAgentPrompts(workspaceRoot: string): AgentPrompt[] {
 
   const prompts: AgentPrompt[] = [];
   for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name.startsWith('.')) continue;
+    if (entry.isFile()) {
+      if (!entry.name.endsWith('.md')) continue;
+      if (entry.name.startsWith('.')) continue;
 
-    const id = entry.name.slice(0, -3);
-    if (!SAFE_AGENT_ID_RE.test(id)) continue;
+      const id = entry.name.slice(0, -3);
+      if (!SAFE_AGENT_ID_RE.test(id)) continue;
 
-    const workspacePath = path.join(dir, entry.name);
-    prompts.push({
-      id,
-      displayName: extractDisplayName(workspacePath, id),
-      fileName: entry.name,
-      workspacePath,
-    });
+      const workspacePath = path.join(dir, entry.name);
+      prompts.push({
+        id,
+        displayName: extractDisplayName(workspacePath, id),
+        fileName: entry.name,
+        workspacePath,
+      });
+    } else if (entry.isDirectory()) {
+      const id = entry.name;
+      if (!SAFE_AGENT_ID_RE.test(id)) continue;
+      const indexPath = path.join(dir, id, 'index.md');
+      if (!fs.existsSync(indexPath)) continue;
+      prompts.push({
+        id,
+        displayName: extractDisplayName(indexPath, id),
+        fileName: `${id}/index.md`,
+        workspacePath: indexPath,
+      });
+    }
   }
 
   return prompts.sort((a, b) => a.id.localeCompare(b.id));
@@ -92,12 +114,23 @@ export function listAgentPrompts(workspaceRoot: string): AgentPrompt[] {
 export function loadAgentPromptMarkdown(workspaceRoot: string, agentId: string): string | undefined {
   if (!SAFE_AGENT_ID_RE.test(agentId)) return undefined;
 
-  const filePath = path.join(getWorkspaceAgentsDir(workspaceRoot), `${agentId}.md`);
+  const agentsDir = getWorkspaceAgentsDir(workspaceRoot);
+  const filePath = path.join(agentsDir, `${agentId}.md`);
+  try { return fs.readFileSync(filePath, 'utf8'); } catch { /* fall through */ }
+
+  // Folder agent: bundle index.md first, then remaining .md files alphabetically
+  const agentDir = path.join(agentsDir, agentId);
+  const indexPath = path.join(agentDir, 'index.md');
+  if (!fs.existsSync(indexPath)) return undefined;
+
   try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return undefined;
-  }
+    const files = fs.readdirSync(agentDir)
+      .filter(f => f.endsWith('.md') && !f.startsWith('.'))
+      .sort((a, b) => a === 'index.md' ? -1 : b === 'index.md' ? 1 : a.localeCompare(b));
+    return files
+      .map(f => fs.readFileSync(path.join(agentDir, f), 'utf8'))
+      .join('\n\n---\n\n');
+  } catch { return undefined; }
 }
 
 export function loadAgentPromptBundle(workspaceRoot: string, agentIds: string[]): string {

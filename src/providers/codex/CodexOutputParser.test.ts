@@ -121,6 +121,43 @@ describe('CodexOutputParser', () => {
     expect(activities[0]).toMatchObject({ kind: 'plain', raw: 'Answer here.' });
   });
 
+  it('handles spinner overwrite pattern (\\r before text) without showing banner', () => {
+    const parser = new CodexOutputParser();
+
+    // Codex CLI uses a spinner that overwrites lines with \r:
+    // "⠋\r⠙\r⠹\rReading additional input from stdin..."
+    // The last segment after the final \r is the actual displayed content.
+    const activities = parser.parse([
+      '⠋\r⠙\r⠹\rReading additional input from stdin...',
+      '⠸\r⠼\rOpenAI Codex v0.130.0',
+      '--------',
+      'workdir: /repo',
+      '--------',
+      'Actual response.',
+      '',
+    ].join('\n'));
+
+    expect(activities).toHaveLength(1);
+    expect(activities[0]).toMatchObject({ kind: 'plain', raw: 'Actual response.' });
+  });
+
+  it('does not transition to done on bare \\r (whitespace-only line)', () => {
+    const parser = new CodexOutputParser();
+
+    const activities = parser.parse([
+      '\r',
+      'OpenAI Codex v0.130.0',
+      '--------',
+      'workdir: /repo',
+      '--------',
+      'Actual response.',
+      '',
+    ].join('\n'));
+
+    expect(activities).toHaveLength(1);
+    expect(activities[0]).toMatchObject({ kind: 'plain', raw: 'Actual response.' });
+  });
+
   it('handles separator with varying dash count', () => {
     const parser = new CodexOutputParser();
 

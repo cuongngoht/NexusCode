@@ -23,6 +23,13 @@ export interface McpConfig {
   }
 }
 
+export interface CompactConfig {
+  enabled: boolean
+  suggestAfterMessages: number
+  recentMessagesAfterCompact: number
+  maxCompactSummaryChars: number
+}
+
 export interface NexusConfig {
   version: 1
   providers: {
@@ -34,4 +41,5 @@ export interface NexusConfig {
     grok: ProviderConfig
   }
   mcp: McpConfig
+  compact: CompactConfig
 }

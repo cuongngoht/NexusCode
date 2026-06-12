@@ -26,13 +26,19 @@
     "abbrevAntigravity": "AG",
     "statusReady": "Ready",
     "statusNotLoggedIn": "Not logged in",
-    "statusNotInstalled": "Not installed"
+    "statusNotInstalled": "Not installed",
+    "notInstalled": "Not installed",
+    "installHint": "Not installed — install {{name}} from its official docs",
+    "unauthHint": "Not logged in — click Login to authenticate"
   },
   "model": {
     "auto": "Default model",
     "label": "Model"
   },
   "mode": {
+    "riskReadOnly": "Read-only — does not modify files",
+    "riskPlan": "Creates a plan file — does not modify source code",
+    "riskMutate": "May modify files in your workspace",
     "ask": {
       "label": "Ask",
       "desc": "Chat only · no tools"
@@ -94,7 +100,19 @@
     "retry": "Retry",
     "inspectPrompt": "Inspect sent prompt",
     "inspectPromptTitle": "Prompt sent to CLI",
-    "planSaved": "✓ Plan saved"
+    "planSaved": "✓ Plan saved",
+    "viewPrompt": "View Prompt",
+    "promptModalTitle": "Enhanced Prompt Preview",
+    "promptTabEnhanced": "Enhanced",
+    "promptTabOriginal": "Original",
+    "promptCopy": "Copy",
+    "promptCopied": "Copied",
+    "promptTruncatedWarning": "Prompt was truncated due to size limits.",
+    "retryWithOriginal": "Retry with original settings",
+    "retryWithCurrent": "Retry with current settings",
+    "feedbackGood": "Good response",
+    "feedbackBad": "Bad response",
+    "copied": "Copied"
   },
   "agentCapability": {
     "agent": "Agent",
@@ -131,6 +149,7 @@
     "hintToSend": "to send",
     "working": "Nexus is working… {{elapsed}}s",
     "stop": "Stop",
+    "stopping": "Stopping…",
     "send": "Send",
     "subagentsToggle": "Subagents",
     "subagentsTooltip": "Run focused pre-agents before main agent",
@@ -140,10 +159,37 @@
     "slashCommands": "Slash commands",
     "cmdReloadAgents": "Reload agent prompt list",
     "cmdReloadSkills": "Reload skill prompt list",
+    "cmdResearchDone": "Mark current research step as done",
+    "cmdResearchCurrent": "Show current research status",
+    "cmdResearchNext": "Advance to the next research step",
+    "cmdResearchList": "List research topics",
+    "cmdResearchReload": "Reload research orchestrator and state",
     "skillMentionNoResults": "No skills found",
     "skillsReloaded": "Skills reloaded: {{count}} found",
     "modeUnsupported": "Current agent does not support this mode",
-    "modeLimited": "Current agent has limited support for this mode"
+    "modeLimited": "Current agent has limited support for this mode",
+    "cmdCompact": "Compact conversation to reduce context",
+    "cmdShowCompact": "Show current compact summary",
+    "cmdClearCompact": "Clear compact summary",
+    "charCount": "{{n}} chars",
+    "promptTooLong": "Prompt is very long ({{n}} chars) — consider using attachments",
+    "formAriaLabel": "Message composer",
+    "agentMentionLabel": "Agent prompts",
+    "skillMentionLabel": "Skill prompts"
+  },
+  "compact": {
+    "summaryTitle": "Compact summary",
+    "error": "Compact failed: {{message}}",
+    "compacting": "Compacting…",
+    "compactAction": "Compact",
+    "compactConversation": "Compact conversation",
+    "summaryOf": "{{n}} messages summarized",
+    "showSummary": "Show summary",
+    "hideSummary": "Hide summary",
+    "clearCompact": "Clear summary",
+    "longConversationHint": "Conversation is long. Compact to reduce context.",
+    "tokenWarning": "Context is large ({{n}}k tokens). Consider compacting.",
+    "tokenDanger": "Context is very large ({{n}}k tokens). Compact recommended."
   },
   "emptyState": {
     "title": "Start a conversation",
@@ -154,6 +200,7 @@
   },
   "history": {
     "ariaLabel": "Conversation history",
+    "messagesAriaLabel": "Conversation messages",
     "deleteConversation": "Delete conversation",
     "clearAll": "Clear all",
     "confirmClear": "Confirm clear all?",
@@ -184,7 +231,13 @@
     "planPath": "Plan path",
     "mode": "Mode",
     "model": "Model",
-    "provider": "Provider"
+    "provider": "Provider",
+    "openPlan": "Open Plan",
+    "applyWithCurrentSettings": "Apply with current settings",
+    "browseSavedPlans": "Browse saved plans",
+    "reviewTruncated": "Diff is large and may be truncated — review may be incomplete.",
+    "reviewError": "Failed to load review context.",
+    "mutatesFilesWarning": "This mode may modify files in your workspace."
   },
   "pipeline": {
     "steps": {
@@ -234,5 +287,11 @@
     "placeholder": "Add extra review instructions if needed…",
     "sendButton": "Review",
     "sendTitle": "Review branch"
+  },
+  "errors": {
+    "noAgentsInstalled": "No coding agents detected. Install Claude CLI, Codex CLI, Gemini CLI, or another supported agent.",
+    "providerNotAuthenticated": "{{provider}} is not authenticated.",
+    "loginAction": "Login",
+    "dismiss": "Dismiss"
   }
 }

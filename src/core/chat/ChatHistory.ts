@@ -10,6 +10,19 @@ export interface SerializedUserMessage {
 
 import type { TokenRunUsage } from '../tokens/TokenUsage';
 
+export interface EnhancedPromptSection {
+  title: string;
+  charCount: number;
+}
+
+export interface EnhancedPromptSnapshotMeta {
+  originalPrompt: string;
+  wasTruncated: boolean;
+  sectionTitles: string[];
+  charCounts: Record<string, number>;
+  generatedAt: number;
+}
+
 export interface SerializedAssistantMessage {
   id: string;
   role: 'assistant';
@@ -21,9 +34,23 @@ export interface SerializedAssistantMessage {
   errorText?: string;
   timestamp: number;
   tokenUsage?: TokenRunUsage;
+  enhancedPromptMeta?: EnhancedPromptSnapshotMeta;
+  feedback?: { rating: 'good' | 'bad' | null; ratedAt?: number };
+  retrySourceMessageId?: string;
+  elapsed?: number;
 }
 
 export type SerializedChatMessage = SerializedUserMessage | SerializedAssistantMessage;
+
+export interface SerializedConversationCompactSummary {
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+  sourceMessageCount: number;
+  sourceLastMessageId?: string;
+  provider?: string;
+  model?: string;
+}
 
 export interface SerializedConversation {
   id: string;
@@ -33,6 +60,7 @@ export interface SerializedConversation {
   messages: SerializedChatMessage[];
   gitChanges?: { status: string; path: string }[];
   gitMessage?: string;
+  compactSummary?: SerializedConversationCompactSummary;
 }
 
 export interface ChatHistoryState {
