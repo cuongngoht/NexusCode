@@ -480,6 +480,70 @@ Important:
 
 ---
 
+# i18n enforcement — very important
+
+NexusCode uses `vi.json` as the TypeScript type master. Any user-facing UI text must go through the i18n system unless it is a deliberate technical/debug-only string.
+
+Important files:
+
+```txt
+src/webview-ui/i18n/index.ts
+src/webview-ui/i18n/vi.json
+src/webview-ui/i18n/en.json
+src/webview-ui/App.tsx
+src/webview-ui/components/*
+```
+
+Current i18n contract:
+
+```ts
+import vi from "./vi.json";
+import en from "./en.json";
+
+export type Locale = "vi" | "en";
+export type Messages = typeof vi;
+export const LOCALES: Record<Locale, Messages> = { vi, en };
+```
+
+Rules:
+
+1. `vi.json` defines the required key structure.
+2. `en.json` must match `vi.json` exactly.
+3. Do not add a key to only one locale file.
+4. Do not hardcode user-facing strings in React components.
+5. Use `const t = useT()` for labels, titles, aria labels, buttons, placeholders, status text, banners, empty states, errors, and tooltips.
+6. Use `interp()` for placeholders such as `{{count}}`, `{{message}}`, `{{provider}}`, `{{mode}}`, or `{{elapsed}}`.
+7. Pipeline labels are semantic keys. Add display labels under:
+
+```json
+{
+  "pipeline": {
+    "steps": {
+      "<semantic-step-key>": "Display label"
+    }
+  }
+}
+```
+
+8. Provider labels/status text should live under existing provider/agent-capability sections instead of being hardcoded.
+9. Mode labels/descriptions should live under `mode`.
+10. New review/debug/plan/composer/history/settings strings must be added to both locale files.
+11. After i18n changes, run:
+
+```bash
+npm run compile
+```
+
+Review checklist for i18n:
+
+- Search for new hardcoded strings in touched `.tsx` files.
+- Verify both `vi.json` and `en.json` have identical nested keys.
+- Verify placeholder names match between locales.
+- Verify `interp()` is used when a translation contains `{{...}}`.
+- Verify no pipeline display string is used as an internal step label.
+
+---
+
 # Process spawning and command safety
 
 Rules:
