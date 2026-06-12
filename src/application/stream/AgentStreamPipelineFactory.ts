@@ -7,6 +7,7 @@ import { SseDecoder } from '../../infrastructure/stream/SseDecoder';
 import { LineDecoder } from '../../infrastructure/stream/LineDecoder';
 import { PlainTextDecoder } from '../../infrastructure/stream/PlainTextDecoder';
 import { CodexSseAdapter } from '../../providers/codex/CodexSseAdapter';
+import { CodexJsonlAdapter } from '../../providers/codex/CodexJsonlAdapter';
 
 class PlainTextAdapter implements IProviderStreamAdapter {
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
@@ -22,7 +23,7 @@ export class AgentStreamPipelineFactory {
       case 'sse':
         return new AgentStreamPipeline(new SseDecoder(), new CodexSseAdapter());
       case 'jsonl':
-        return new AgentStreamPipeline(new LineDecoder(), new PlainTextAdapter());
+        return new AgentStreamPipeline(new LineDecoder(), AgentStreamPipelineFactory._pickJsonlAdapter(command.executable));
       case 'plain':
         return new AgentStreamPipeline(new PlainTextDecoder(), new PlainTextAdapter());
       case 'stdio':
@@ -35,5 +36,9 @@ export class AgentStreamPipelineFactory {
         return null;
       }
     }
+  }
+
+  private static _pickJsonlAdapter(executable: string): IProviderStreamAdapter {
+    return executable === 'codex' ? new CodexJsonlAdapter() : new PlainTextAdapter();
   }
 }

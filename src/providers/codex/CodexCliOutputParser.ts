@@ -36,7 +36,14 @@ export class CodexCliOutputParser extends BaseOutputParser {
     const result: ParsedActivity[] = [];
 
     for (const raw of lines) {
-      const line = raw.replace(ANSI_RE, '').trim();
+      // Strip ANSI codes, then take only the content after the last \r.
+      // Codex CLI uses a spinner that overwrites the line with \r (e.g.
+      // "⠋\r⠙\r⠹\rReading additional input from stdin..."). Taking the last
+      // segment after \r simulates what the terminal renders and ensures banner
+      // detection regexes match correctly.
+      const stripped = raw.replace(ANSI_RE, '');
+      const line = (stripped.includes('\r') ? stripped.split('\r').pop()! : stripped).trim();
+      if (line.length === 0) continue;
 
       switch (this.state) {
         case 'done':

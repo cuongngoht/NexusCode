@@ -158,10 +158,10 @@ export class RunAgentUseCase {
           this.eventBus.emit({ kind: 'stdout', task, chunk: event.text });
           break;
         case 'tool_call':
-          this.eventBus.emit({ kind: 'activity_started', task, activityKind: 'tool_call', label: event.toolName });
+          this.eventBus.emit({ kind: 'activity_started', task, activityKind: event.toolKind ?? 'tool_call', label: event.toolName });
           break;
         case 'tool_result':
-          this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: event.toolName, status: event.status });
+          this.eventBus.emit({ kind: 'activity_done', task, activityKind: event.toolKind ?? 'tool_call', label: event.toolName, status: event.status });
           break;
         case 'stream_done':
           break;

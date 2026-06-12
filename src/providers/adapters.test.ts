@@ -18,9 +18,12 @@ describe('provider agents', () => {
     expect(cmd.args).toEqual(['--dangerously-skip-permissions', '--model', 'sonnet', 'fix it']);
   });
 
-  it('passes selected model to Codex', () => {
-    const cmd = new CodexAgent().buildCommand(makeTask('fix it', 'gpt-5.2'));
+  it('passes selected model to Codex (legacy CLI without --json)', () => {
+    // jsonOutputOverride=false pins the legacy path — keeps the test
+    // independent of whichever codex binary is installed locally.
+    const cmd = new CodexAgent(false).buildCommand(makeTask('fix it', 'gpt-5.2'));
     expect(cmd.executable).toBe('codex');
+    expect(cmd.transport).toBeUndefined();
     expect(cmd.args).toEqual([
       '--ask-for-approval',
       'never',
@@ -31,6 +34,30 @@ describe('provider agents', () => {
       'gpt-5.2',
       'fix it',
     ]);
+  });
+
+  it('adds --json and jsonl transport when Codex CLI supports it', () => {
+    const cmd = new CodexAgent(true).buildCommand(makeTask('fix it', 'gpt-5.2'));
+    expect(cmd.executable).toBe('codex');
+    expect(cmd.transport).toBe('jsonl');
+    expect(cmd.args).toEqual([
+      '--ask-for-approval',
+      'never',
+      '--sandbox',
+      'workspace-write',
+      'exec',
+      '--json',
+      '--model',
+      'gpt-5.2',
+      'fix it',
+    ]);
+  });
+
+  it('uses --experimental-json for intermediate Codex builds', () => {
+    const cmd = new CodexAgent('experimental').buildCommand(makeTask('fix it', 'gpt-5.2'));
+    expect(cmd.transport).toBe('jsonl');
+    expect(cmd.args).toContain('--experimental-json');
+    expect(cmd.args).not.toContain('--json');
   });
 
   it('uses non-interactive prompt args for Antigravity with model', () => {
@@ -70,7 +97,7 @@ describe('provider agents', () => {
   });
 
   it('omits --model when no model is selected for Codex', () => {
-    const cmd = new CodexAgent().buildCommand(makeTask('fix it'));
+    const cmd = new CodexAgent(false).buildCommand(makeTask('fix it'));
     expect(cmd.executable).toBe('codex');
     expect(cmd.args).toEqual([
       '--ask-for-approval',

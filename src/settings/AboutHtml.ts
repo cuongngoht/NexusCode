@@ -157,12 +157,21 @@ export function getAboutHtml(webview: vscode.Webview): string {
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .author-github {
+    .author-links {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .author-link {
       font-size: 0.78em;
       color: var(--vscode-textLink-foreground);
+      text-decoration: none;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .author-link:hover {
+      text-decoration: underline;
     }
 
     /* ── Sponsors ── */
@@ -279,14 +288,19 @@ export function getAboutHtml(webview: vscode.Webview): string {
         <div class="author-avatar">NTC</div>
         <div class="author-info">
           <span class="author-name">Ngô Hoàng Tuấn Cường</span>
-          <span class="author-github">github.com/cuongngoht</span>
+          <div class="author-links">
+            <a class="author-link" href="https://github.com/cuongngoht" target="_blank" rel="noopener">github.com/cuongngoht</a>
+            <a class="author-link" href="https://x.com/cuongngoht" target="_blank" rel="noopener">x.com/cuongngoht</a>
+          </div>
         </div>
       </div>
       <div class="author-card">
         <div class="author-avatar">THĐ</div>
         <div class="author-info">
           <span class="author-name">Trần Hồng Đông</span>
-          <span class="author-github">github.com/dongth19</span>
+          <div class="author-links">
+            <a class="author-link" href="https://github.com/dongth19" target="_blank" rel="noopener">github.com/dongth19</a>
+          </div>
         </div>
       </div>
     </div>
