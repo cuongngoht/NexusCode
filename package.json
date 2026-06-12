@@ -16,6 +16,7 @@
   ],
   "activationEvents": [
     "onView:nexus.chatView",
+    "onView:nexus.launcherView",
     "onCommand:nexus.createWorkflowAgent"
   ],
   "main": "./out/extension.js",
@@ -43,8 +44,8 @@
       "nexus": [
         {
           "id": "nexus.launcherView",
-          "name": "Nexus",
-          "type": "tree",
+          "name": "Dashboard",
+          "type": "webview",
           "visibility": "visible"
         }
       ],
@@ -65,6 +66,10 @@
       {
         "command": "nexus.openSettings",
         "title": "Nexus: Open Settings"
+      },
+      {
+        "command": "nexus.openDashboard",
+        "title": "Nexus: Open Dashboard"
       },
       {
         "command": "nexus.createWorkflowAgent",
@@ -207,6 +212,36 @@
           "type": "boolean",
           "default": true,
           "description": "Copy bundled default skill prompts into .nexus/skills when missing."
+        },
+        "nexus.analytics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable analytics recording for AI coding tasks."
+        },
+        "nexus.analytics.retentionDays": {
+          "type": "number",
+          "default": 180,
+          "description": "Number of days to retain analytics records before pruning."
+        },
+        "nexus.analytics.costEstimationEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable estimated cost computation for each task run."
+        },
+        "nexus.analytics.storeWorkspacePath": {
+          "type": "boolean",
+          "default": false,
+          "description": "Store full workspace path in analytics records (hashed workspace ID is used when disabled)."
+        },
+        "nexus.analytics.storeConversationTitle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Store conversation titles in analytics records."
+        },
+        "nexus.analytics.allowExport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow exporting analytics data to JSON, CSV, or Markdown."
         }
       }
     }
@@ -214,12 +249,13 @@
   "scripts": {
     "compile:extension": "node esbuild.js",
     "compile:webview": "vite build",
-    "compile": "npm run compile:extension && npm run compile:webview",
+    "compile": "npm run compile:extension && npm run compile:webview && npm run build:cli",
     "typecheck": "tsc -p ./ --noEmit",
     "build:cli": "node esbuild.js --cli",
     "watch": "node esbuild.js --watch",
     "watch:webview": "vite build --watch",
-    "test:webview": "vitest run"
+    "test:webview": "vitest run",
+    "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
@@ -240,6 +276,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^12.1.0",
     "gpt-tokenizer": "^3.4.0",
+    "mermaid": "^11.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",

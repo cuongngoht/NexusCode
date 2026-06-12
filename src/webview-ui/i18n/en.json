@@ -6,7 +6,8 @@
     "more": "More",
     "settings": "Settings",
     "about": "About",
-    "switchLang": "Chuyển sang tiếng Việt"
+    "switchLang": "Chuyển sang tiếng Việt",
+    "chat": "Chat"
   },
   "provider": {
     "autoDetect": "Auto-detect",
@@ -293,5 +294,82 @@
     "providerNotAuthenticated": "{{provider}} is not authenticated.",
     "loginAction": "Login",
     "dismiss": "Dismiss"
+  },
+  "dashboard": {
+    "tab": "Dashboard",
+    "title": "Dashboard & Analytics",
+    "totalTokens": "Total Tokens",
+    "estimatedCost": "Estimated Cost",
+    "tasksCompleted": "Tasks Completed",
+    "timeSaved": "Time Saved",
+    "successRate": "Success Rate",
+    "acceptanceRate": "Acceptance Rate",
+    "providerReliability": "Provider Reliability",
+    "tokensByProvider": "Tokens by Provider",
+    "costByProvider": "Cost by Provider",
+    "productivity": "Productivity",
+    "quality": "Quality",
+    "mostExpensiveWorkflows": "Most Expensive Workflows",
+    "conversationUsage": "Usage by Conversation",
+    "export": "Export",
+    "clear": "Clear Analytics",
+    "clearConfirm": "Clear all analytics data? This cannot be undone.",
+    "confirmYes": "Delete",
+    "confirmNo": "Cancel",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "noData": "No analytics data yet. Run a task to start collecting.",
+    "confidenceLow": "Low data confidence (<5 runs)",
+    "filters": {
+      "all": "All",
+      "today": "Today",
+      "last7days": "Last 7 Days",
+      "last30days": "Last 30 Days",
+      "thisMonth": "This Month",
+      "allProviders": "All Providers",
+      "allModes": "All Modes",
+      "providerFilter": "Filter by provider",
+      "modeFilter": "Filter by mode"
+    },
+    "feedback": {
+      "good": "Good",
+      "bad": "Bad",
+      "submitGood": "Good response",
+      "submitBad": "Bad response"
+    },
+    "metrics": {
+      "filesChanged": "Files Changed",
+      "linesAdded": "Lines Added",
+      "linesDeleted": "Lines Deleted",
+      "testsGenerated": "Tests Generated",
+      "bugsFixed": "Bugs Fixed",
+      "timeSaved": "Time Saved",
+      "successful": "Successful",
+      "failed": "Failed",
+      "stopped": "Stopped"
+    },
+    "tableHeaders": {
+      "provider": "Provider",
+      "runs": "Runs",
+      "reliability": "Reliability",
+      "avgLatency": "Avg Latency",
+      "workflow": "Workflow",
+      "cost": "Cost",
+      "conversation": "Conversation",
+      "tokens": "Tokens"
+    }
+  },
+  "streaming": {
+    "queued": "Queued",
+    "planning": "Planning",
+    "researching": "Researching",
+    "reading": "Reading files",
+    "editing": "Editing",
+    "testing": "Testing",
+    "reviewing": "Reviewing",
+    "summarizing": "Summarizing",
+    "completed": "Done",
+    "failed": "Failed",
+    "stopped": "Stopped"
   }
 }

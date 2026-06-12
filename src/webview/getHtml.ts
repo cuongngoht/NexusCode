@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 export function getHtml(
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
+  surface: 'chat' | 'dashboard' = 'chat',
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
 
@@ -17,7 +18,7 @@ export function getHtml(
   const csp = [
     `default-src 'none'`,
     `style-src ${webview.cspSource} 'unsafe-inline'`,
-    `script-src 'nonce-${nonce}'`,
+    `script-src ${webview.cspSource} 'nonce-${nonce}'`,
   ].join('; ');
 
   return /* html */ `<!DOCTYPE html>
@@ -29,9 +30,9 @@ export function getHtml(
   <title>Nexus Chat</title>
   <link rel="stylesheet" href="${cssUri}" />
 </head>
-<body>
+<body data-nexus-surface="${surface}">
   <div id="root"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
 }

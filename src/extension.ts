@@ -14,7 +14,7 @@ import { NexusAgent } from './providers/nexus/NexusAgent';
 import { GrokAgent } from './providers/grok/GrokAgent';
 import { NexusOrchestrator } from './application/nexus/NexusOrchestrator';
 import { ChatViewProvider } from './webview/ChatViewProvider';
-import { LauncherViewProvider } from './webview/LauncherViewProvider';
+import { DashboardViewProvider } from './webview/DashboardViewProvider';
 import { BuildProjectMapUseCase } from './application/usecases/BuildProjectMapUseCase';
 import { SummarizeProjectMapUseCase } from './application/usecases/SummarizeProjectMapUseCase';
 import { NexusFileTreeScanner } from './context/project-map/NexusFileTreeScanner';
@@ -55,6 +55,11 @@ import {
   isWorkspaceAgentsDir,
   normalizeAgentId,
 } from './context/workflowAgentCreator';
+import { AnalyticsStore } from './analytics/AnalyticsStore';
+import { CostEstimator } from './analytics/CostEstimator';
+import { AnalyticsAggregator } from './analytics/AnalyticsAggregator';
+import { AnalyticsExporter } from './analytics/AnalyticsExporter';
+import { AnalyticsService } from './analytics/AnalyticsService';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = new AgentRegistry();
@@ -125,6 +130,21 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const compactor = new ConversationCompactor(registry, runner);
 
+  // Analytics
+  const analyticsStore = new AnalyticsStore(context.globalStorageUri);
+  const costEstimator = new CostEstimator();
+  const analyticsAggregator = new AnalyticsAggregator();
+  const analyticsExporter = new AnalyticsExporter();
+  const analyticsService = new AnalyticsService(
+    analyticsStore,
+    costEstimator,
+    analyticsAggregator,
+    analyticsExporter,
+    vscode.workspace.getConfiguration('nexus'),
+  );
+  // Prune old analytics on startup
+  void analyticsService.pruneOld();
+
   const provider = new ChatViewProvider(
     context.extensionUri,
     runAgent,
@@ -137,6 +157,8 @@ export function activate(context: vscode.ExtensionContext): void {
     context.workspaceState,
     subagentOrchestrator,
     compactor,
+    analyticsService,
+    context.globalStorageUri,
   );
 
   context.subscriptions.push(
@@ -147,7 +169,19 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  LauncherViewProvider.register(context);
+  const dashboardProvider = new DashboardViewProvider(
+    context.extensionUri,
+    analyticsService,
+    context.globalStorageUri,
+  );
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      DashboardViewProvider.viewType,
+      dashboardProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.openChat', () => {
@@ -163,6 +197,12 @@ export function activate(context: vscode.ExtensionContext): void {
         detector,
         () => { void provider.refreshProviders(); },
       );
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nexus.openDashboard', () => {
+      void vscode.commands.executeCommand('nexus.launcherView.focus');
     }),
   );
 

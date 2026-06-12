@@ -11,6 +11,7 @@ import { ConfigService } from '../config/ConfigService';
 import { ProviderDetector } from '../core/providerDetector';
 import type { SubagentOrchestrator } from '../application/subagents/SubagentOrchestrator';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
+import type { AnalyticsService } from '../analytics/AnalyticsService';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'nexus.chatView';
@@ -29,6 +30,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly workspaceState: vscode.Memento,
     private readonly subagentOrchestrator?: SubagentOrchestrator,
     private readonly compactor?: ConversationCompactor,
+    private readonly analyticsService?: AnalyticsService,
+    private readonly globalStorageUri?: vscode.Uri,
   ) { }
 
   resolveWebviewView(
@@ -60,6 +63,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.subagentOrchestrator,
       this.workspaceState,
       this.compactor,
+      this.analyticsService,
+      this.globalStorageUri,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {

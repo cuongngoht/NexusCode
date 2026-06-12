@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name('nexus')
   .description('Nexus CLI — project understanding engine')
-  .version('0.1.0');
+  .version('1.0.0-beta');
 
 program
   .command('map')

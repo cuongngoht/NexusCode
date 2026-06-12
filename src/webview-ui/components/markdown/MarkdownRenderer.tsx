@@ -5,12 +5,17 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { CopyButton } from './CopyButton';
 import { LinkRenderer } from './LinkRenderer';
+import { CodeBlock } from './CodeBlock';
+import { CodeBlockActionsContext } from './CodeBlockActionsContext';
+import { MermaidBlock } from './MermaidBlock';
+import type { CodeBlockActions } from './CodeBlockActionsContext';
 import type { Components, ExtraProps } from 'react-markdown';
 import type { Element } from 'hast';
 
 interface Props {
   content: string;
   className?: string;
+  codeBlockActions?: CodeBlockActions;
 }
 
 const rehypeSanitizeOptions = {
@@ -40,17 +45,11 @@ function CodeBlockRenderer({ className, children, node }: CodeProps) {
     return <code className={className}>{children}</code>;
   }
 
-  return (
-    <div className="nx-code-block">
-      <div className="nx-code-block-header">
-        <span className="nx-code-block-lang">{lang || 'text'}</span>
-        <CopyButton text={text} />
-      </div>
-      <pre className={`nx-code-pre${lang ? ` language-${lang}` : ''}`}>
-        <code className={className}>{children}</code>
-      </pre>
-    </div>
-  );
+  if (lang === 'mermaid') {
+    return <MermaidBlock diagram={text} />;
+  }
+
+  return <CodeBlock language={lang}>{text}</CodeBlock>;
 }
 
 const components: Components = {
@@ -58,21 +57,23 @@ const components: Components = {
   a: LinkRenderer as Components['a'],
 };
 
-export const MarkdownRenderer = memo(function MarkdownRenderer({ content, className }: Props) {
+export const MarkdownRenderer = memo(function MarkdownRenderer({ content, className, codeBlockActions }: Props) {
   const rehypePlugins = useMemo(() => [
     [rehypeSanitize, rehypeSanitizeOptions] as [typeof rehypeSanitize, typeof rehypeSanitizeOptions],
     rehypeHighlight,
   ] as const, []);
 
   return (
-    <div className={`nx-markdown ${className ?? ''}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={rehypePlugins}
-        components={components}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
+    <CodeBlockActionsContext.Provider value={codeBlockActions ?? {}}>
+      <div className={`nx-markdown ${className ?? ''}`}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={rehypePlugins}
+          components={components}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
+    </CodeBlockActionsContext.Provider>
   );
 });

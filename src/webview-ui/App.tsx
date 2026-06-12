@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
-import { reducer, createInitialState, serializeHistory, emptyTokenUsage, buildConversationContextForPrompt, serializeConversationMessagesForCompact, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState } from './messages';
+import { reducer, createInitialState, serializeHistory, emptyTokenUsage, buildConversationContextForPrompt, serializeConversationMessagesForCompact, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState, type MainView } from './messages';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -12,6 +12,11 @@ import { ErrorBanner } from './components/ErrorBanner';
 import { I18nContext, LOCALES, interp, type Locale, useT } from './i18n';
 import { NexusShell } from './components/layout/NexusShell';
 import { uiReducer, createInitialUiState } from './state/uiState';
+import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
+
+function getSurface(): MainView {
+  return document.body.dataset.nexusSurface === 'dashboard' ? 'dashboard' : 'chat';
+}
 
 function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
   const t = useT();
@@ -33,7 +38,9 @@ function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
 }
 
 export function App() {
-  const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
+  const surface = getSurface();
+  const isDashboardSurface = surface === 'dashboard';
+  const [state, dispatch] = useReducer(reducer, surface, createInitialState);
   const [uiState, dispatchUi] = useReducer(uiReducer, undefined, createInitialUiState);
   const [locale, setLocale] = useState<Locale>(() => {
     const saved = localStorage.getItem('nexus.locale');
@@ -204,6 +211,21 @@ export function App() {
   const handleFeedback = useCallback(
     (conversationId: string, messageId: string, rating: 'good' | 'bad' | null) => {
       dispatch({ type: 'setFeedback', conversationId, messageId, rating });
+      // Also submit to analytics service if there's a taskId on the message
+      if (rating !== null) {
+        const conv = stateRef.current.conversations.find(c => c.id === conversationId);
+        const msg = conv?.messages.find(m => m.id === messageId);
+        const taskId = msg && msg.role === 'assistant'
+          ? (msg as import('./messages').AssistantMessage).taskId
+          : undefined;
+        if (taskId) {
+          getVsCodeApi().postMessage({
+            type: 'submitRunFeedback',
+            taskId,
+            feedback: rating,
+          });
+        }
+      }
     },
     [],
   );
@@ -306,32 +328,42 @@ export function App() {
                 : ''}
           </div>
           <NexusShell uiState={uiState} onUiAction={dispatchUi}>
-          <AppToolbar
-            isRunning={state.isRunning}
-            showHistory={state.showHistory}
-            conversationCount={state.conversations.length}
-            locale={locale}
-            onNewConversation={() => dispatch({ type: 'newConversation' })}
-            onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
-            onLocaleChange={handleLocaleChange}
-            onOpenSettings={handleOpenSettings}
-            onAbout={handleAbout}
-          />
-
-          {state.showHistory && (
-            <ConversationHistory
-              conversations={state.conversations}
-              activeId={state.activeConvId}
-              onSelect={id => dispatch({ type: 'selectConversation', id })}
-              onDelete={id => dispatch({ type: 'deleteConversation', id })}
-              onClearAll={() => dispatch({ type: 'clearHistory' })}
+          {isDashboardSurface ? (
+            <AnalyticsDashboard
+              summary={state.analyticsSummary}
+              runs={state.analyticsRuns}
+              loading={state.analyticsLoading}
+              error={state.analyticsError}
+              dispatch={dispatch}
             />
-          )}
-
-          {state.needsSetup && !state.isDetecting ? (
-            <SetupBanner onOpenSettings={handleOpenSettings} />
           ) : (
-            <div className="nx-chat-area">
+            <>
+              <AppToolbar
+                isRunning={state.isRunning}
+                showHistory={state.showHistory}
+                conversationCount={state.conversations.length}
+                locale={locale}
+                onNewConversation={() => dispatch({ type: 'newConversation' })}
+                onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
+                onLocaleChange={handleLocaleChange}
+                onOpenSettings={handleOpenSettings}
+                onAbout={handleAbout}
+              />
+
+              {state.showHistory && (
+                <ConversationHistory
+                  conversations={state.conversations}
+                  activeId={state.activeConvId}
+                  onSelect={id => dispatch({ type: 'selectConversation', id })}
+                  onDelete={id => dispatch({ type: 'deleteConversation', id })}
+                  onClearAll={() => dispatch({ type: 'clearHistory' })}
+                />
+              )}
+
+              {state.needsSetup && !state.isDetecting ? (
+                <SetupBanner onOpenSettings={handleOpenSettings} />
+              ) : (
+                <div className="nx-chat-area">
               {!state.isDetecting && (
                 <div className="nx-mcp-chip">
                   {state.mcpEnabled
@@ -528,7 +560,9 @@ export function App() {
                   onCompactCommand={handleCompactCommand}
                 />
               )}
-            </div>
+                </div>
+              )}
+            </>
           )}
           </NexusShell>
         </div>

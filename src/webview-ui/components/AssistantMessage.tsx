@@ -1,12 +1,14 @@
 import { memo, useState } from 'react';
 import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
 import { MarkdownRenderer } from './markdown/MarkdownRenderer';
+import type { CodeBlockActions } from './markdown/CodeBlockActionsContext';
 import { IconSparkle } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import { getVsCodeApi } from '../vscodeApi';
 import { PlanReadyCard } from './PlanReadyCard';
 import { MessageActions } from './MessageActions';
 import { EnhancedPromptModal } from './EnhancedPromptModal';
+import { StreamingStatusBar } from './StreamingStatusBar';
 
 interface Props {
   message: AssistantMsg;
@@ -98,7 +100,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   message,
   providerDetection = [],
   availableProviders = [],
-  conversationId,
+  conversationId: _conversationId,
   userMessageId,
   onFeedback,
   onRetry,
@@ -106,21 +108,28 @@ export const AssistantMessage = memo(function AssistantMessage({
   const t = useT();
   const [showPromptModal, setShowPromptModal] = useState(false);
 
+  const codeBlockActions: CodeBlockActions = {
+    onInsertIntoFile: (code, language) => {
+      getVsCodeApi().postMessage({ type: 'insertCodeIntoActiveFile', code, language });
+    },
+    onCreateFile: (code, language) => {
+      getVsCodeApi().postMessage({ type: 'createFileFromCode', code, language });
+    },
+    onRunCommand: (command) => {
+      getVsCodeApi().postMessage({ type: 'runCodeBlockCommand', command });
+    },
+    onSaveAsArtifact: (code, language) => {
+      // Will be wired in Phase 4 — noop until artifact save handler is added
+      console.debug('[Nexus] Save artifact:', language, code.slice(0, 30));
+    },
+  };
+
   const agentLabel = (t.agent.modeLabel as Record<string, string>)[message.mode] ?? message.mode;
   const meta = [message.providerLabel, message.model].filter(Boolean).join(' · ');
 
   const handleCopy = () => {
     const text = message.lines.filter(l => l.kind === 'stdout').map(l => l.text).join('\n');
-    try {
-      navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
+    navigator.clipboard.writeText(text).catch(() => { /* clipboard unavailable */ });
   };
 
   const handleRetry = (useCurrentSettings: boolean) => {
@@ -161,7 +170,7 @@ export const AssistantMessage = memo(function AssistantMessage({
             return (
               <div className="fl-text-block">
                 {stdoutText && (
-                  <MarkdownRenderer content={stdoutText} />
+                  <MarkdownRenderer content={stdoutText} codeBlockActions={codeBlockActions} />
                 )}
                 {stderrLines.map((line, i) => (
                   <span key={i} className="nx-line-stderr nx-line-stderr--block">
@@ -185,7 +194,10 @@ export const AssistantMessage = memo(function AssistantMessage({
             </div>
           )}
 
-          <StatusPill message={message} />
+          {message.streamingStage != null
+            ? <StreamingStatusBar stage={message.streamingStage} label={message.streamingLabel} elapsed={message.elapsed} />
+            : <StatusPill message={message} />
+          }
         </div>
 
         {!message.isStreaming && (

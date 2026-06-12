@@ -9,6 +9,7 @@ import type { AgentPrompt } from '../context/agentPromptLibrary';
 import type { SkillPrompt } from '../context/skillPromptLibrary';
 import type { FileDiffSummary } from '../git/structuredDiff';
 import type { ArtifactRef } from '../artifacts/ArtifactTypes';
+import type { AnalyticsDashboardSummary, AnalyticsRunRecord, AnalyticsQuery, AnalyticsFeedback } from '../analytics/AnalyticsTypes';
 
 export type { PromptAttachment };
 
@@ -78,7 +79,12 @@ export type ExtensionMessage =
   | { type: 'artifactCreated'; artifact: ArtifactRef }
   | { type: 'artifactPreviewLoaded'; artifactId: string; content?: string; uri?: string; mimeType?: string; truncated?: boolean }
   | { type: 'artifactDeleted'; artifactId: string }
-  | { type: 'artifactError'; artifactId?: string; message: string };
+  | { type: 'artifactError'; artifactId?: string; message: string }
+  // Analytics messages
+  | { type: 'analyticsSummary'; summary: AnalyticsDashboardSummary }
+  | { type: 'analyticsRuns'; runs: AnalyticsRunRecord[] }
+  | { type: 'analyticsExported'; path: string }
+  | { type: 'analyticsError'; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -122,4 +128,14 @@ export type WebviewMessage =
   | { type: 'previewArtifact'; artifactId: string }
   | { type: 'revealArtifactInExplorer'; artifactId: string }
   | { type: 'deleteArtifact'; artifactId: string }
-  | { type: 'rescanArtifacts' };
+  | { type: 'rescanArtifacts' }
+  // Code block actions
+  | { type: 'insertCodeIntoActiveFile'; code: string; language?: string }
+  | { type: 'createFileFromCode'; code: string; language?: string; suggestedName?: string }
+  | { type: 'runCodeBlockCommand'; command: string }
+  // Analytics requests
+  | { type: 'getAnalyticsSummary'; query?: AnalyticsQuery }
+  | { type: 'getAnalyticsRuns'; query?: AnalyticsQuery }
+  | { type: 'submitRunFeedback'; taskId: string; feedback: AnalyticsFeedback; reason?: string }
+  | { type: 'exportAnalytics'; format: 'json' | 'csv' | 'markdown'; query?: AnalyticsQuery }
+  | { type: 'clearAnalytics' };

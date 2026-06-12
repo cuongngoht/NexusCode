@@ -22,7 +22,10 @@ import { ResearchCommandHandler } from './handlers/ResearchCommandHandler';
 import { CompactCommandHandler } from './handlers/CompactCommandHandler';
 import { DiffHandler } from './handlers/DiffHandler';
 import { ArtifactHandler } from './handlers/ArtifactHandler';
+import { CodeBlockHandler } from './handlers/CodeBlockHandler';
+import { AnalyticsHandler } from './handlers/AnalyticsHandler';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
+import type { AnalyticsService } from '../analytics/AnalyticsService';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -39,6 +42,8 @@ export class ChatController {
   private readonly compactCommandHandler: CompactCommandHandler;
   private readonly diffHandler: DiffHandler;
   private readonly artifactHandler: ArtifactHandler;
+  private readonly codeBlockHandler = new CodeBlockHandler();
+  private readonly analyticsHandler?: AnalyticsHandler;
 
   constructor(
     runAgent: RunAgentUseCase,
@@ -54,6 +59,8 @@ export class ChatController {
     subagentOrchestrator?: SubagentOrchestrator,
     workspaceState?: vscode.Memento,
     compactor?: ConversationCompactor,
+    analyticsService?: AnalyticsService,
+    globalStorageUri?: vscode.Uri,
   ) {
     this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
     this.historyHandler  = new HistoryHandler(post, historyStore);
@@ -69,8 +76,66 @@ export class ChatController {
     this.diffHandler             = new DiffHandler(post);
     this.artifactHandler         = new ArtifactHandler(post, workspaceState ?? globalState);
 
+    if (analyticsService && globalStorageUri) {
+      (this as unknown as { analyticsHandler?: AnalyticsHandler }).analyticsHandler = new AnalyticsHandler(
+        analyticsService,
+        post,
+        globalStorageUri,
+      );
+    }
+
     const forwarder = new EventForwarder(post);
     const busListener = (e: Parameters<typeof forwarder.forward>[0]) => forwarder.forward(e);
+
+    // Wire analytics lifecycle hooks into event bus
+    if (analyticsService) {
+      // Track final token usage per taskId so we can attach it at task_completed time
+      const tokenUsageByTask = new Map<string, import('../core/tokens/TokenUsage').TokenRunUsage>();
+
+      const analyticsListener = (event: import('../core/events/IEventBus').NexusEvent) => {
+        if (event.kind === 'task_started') {
+          analyticsService.recordRunStart({
+            taskId: event.task.id,
+            provider: event.task.agentId,
+            model: event.task.model,
+            mode: event.task.mode,
+            startedAt: event.task.startedAt,
+          });
+        } else if (event.kind === 'token_usage_updated' && event.phase === 'final') {
+          tokenUsageByTask.set(event.task.id, event.usage);
+        } else if (event.kind === 'task_completed') {
+          const usage = tokenUsageByTask.get(event.task.id);
+          tokenUsageByTask.delete(event.task.id);
+          void analyticsService.recordRunComplete(event.task.id, {
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+            originalPromptTokens: usage?.originalPromptTokens,
+            enhancedPromptTokens: usage?.enhancedPromptTokens,
+            contextOverheadTokens: usage?.contextOverheadTokens,
+            exitCode: event.result.exitCode,
+            workspaceRoot: event.task.cwd,
+          });
+        } else if (event.kind === 'task_error') {
+          const usage = tokenUsageByTask.get(event.task.id);
+          tokenUsageByTask.delete(event.task.id);
+          void analyticsService.recordRunFailed(event.task.id, {
+            errorMessage: event.error,
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+          });
+        } else if (event.kind === 'task_stopped') {
+          const usage = tokenUsageByTask.get(event.task.id);
+          tokenUsageByTask.delete(event.task.id);
+          void analyticsService.recordRunStopped(event.task.id, {
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+          });
+        }
+      };
+      this.eventBus.on('*', analyticsListener);
+      this.disposables.push({ dispose: () => this.eventBus.off('*', analyticsListener) });
+    }
+
     this.eventBus.on('*', busListener);
     this.disposables.push(
       { dispose: () => this.eventBus.off('*', busListener) },
@@ -139,6 +204,28 @@ export class ChatController {
       case 'deleteArtifact':
       case 'rescanArtifacts':
         await this.artifactHandler.handleMessage(msg);
+        break;
+      // Code block actions
+      case 'insertCodeIntoActiveFile':
+      case 'createFileFromCode':
+      case 'runCodeBlockCommand':
+        await this.codeBlockHandler.handleMessage(msg);
+        break;
+      // Analytics
+      case 'getAnalyticsSummary':
+        await this.analyticsHandler?.getSummary(msg.query);
+        break;
+      case 'getAnalyticsRuns':
+        await this.analyticsHandler?.getRuns(msg.query);
+        break;
+      case 'submitRunFeedback':
+        await this.analyticsHandler?.submitFeedback(msg.taskId, msg.feedback, msg.reason);
+        break;
+      case 'exportAnalytics':
+        await this.analyticsHandler?.export(msg.format, msg.query);
+        break;
+      case 'clearAnalytics':
+        await this.analyticsHandler?.clear();
         break;
     }
   }

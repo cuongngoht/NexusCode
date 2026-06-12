@@ -13,6 +13,146 @@ import type {
 
 export type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary };
 
+// Mirror of src/analytics/AnalyticsTypes — keep in sync (webview bundle cannot import from extension-side)
+export type AnalyticsRunStatus = 'success' | 'failed' | 'stopped';
+export type AnalyticsFeedback = 'good' | 'bad' | 'none';
+
+export interface AnalyticsRunRecord {
+  id: string;
+  taskId: string;
+  conversationId?: string;
+  conversationTitle?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  workspacePath?: string;
+  provider: string;
+  providerLabel?: string;
+  model?: string;
+  mode: string;
+  agentId?: string;
+  skillIds?: string[];
+  status: AnalyticsRunStatus;
+  exitCode?: number;
+  errorMessage?: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  originalPromptTokens: number;
+  enhancedPromptTokens: number;
+  contextOverheadTokens: number;
+  estimatedInputCostUsd: number;
+  estimatedOutputCostUsd: number;
+  estimatedTotalCostUsd: number;
+  filesChanged: number;
+  linesAdded: number;
+  linesDeleted: number;
+  testsGenerated: number;
+  bugsFixed: number;
+  estimatedTimeSavedMinutes: number;
+  startedAt: number;
+  completedAt?: number;
+  latencyMs?: number;
+  feedback: AnalyticsFeedback;
+  feedbackReason?: string;
+  workflowName?: string;
+  workflowKey?: string;
+  promptHash?: string;
+}
+
+export interface AnalyticsQuery {
+  from?: number;
+  to?: number;
+  provider?: string;
+  model?: string;
+  mode?: string;
+  conversationId?: string;
+  workspaceId?: string;
+  status?: AnalyticsRunStatus;
+}
+
+export interface ProviderSummary {
+  provider: string;
+  totalRuns: number;
+  successRuns: number;
+  failedRuns: number;
+  stoppedRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  reliability: number;
+  avgLatencyMs: number;
+  confidenceLow: boolean;
+}
+
+export interface ModeSummary {
+  mode: string;
+  totalRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface ConversationSummary {
+  conversationId: string;
+  conversationTitle?: string;
+  totalRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface WorkspaceSummary {
+  workspaceId: string;
+  workspaceName?: string;
+  totalRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface AgentSummary {
+  agentId: string;
+  totalRuns: number;
+}
+
+export interface SkillSummary {
+  skillId: string;
+  totalRuns: number;
+}
+
+export interface WorkflowSummary {
+  workflowKey: string;
+  workflowName?: string;
+  totalRuns: number;
+  estimatedCostUsd: number;
+}
+
+export interface AnalyticsDashboardSummary {
+  totalRuns: number;
+  successfulRuns: number;
+  failedRuns: number;
+  stoppedRuns: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalEstimatedCostUsd: number;
+  avgLatencyMs: number;
+  avgCostPerRun: number;
+  tasksCompleted: number;
+  filesChanged: number;
+  linesAdded: number;
+  linesDeleted: number;
+  testsGenerated: number;
+  bugsFixed: number;
+  estimatedTimeSavedMinutes: number;
+  acceptanceRate: number;
+  goodFeedbackCount: number;
+  badFeedbackCount: number;
+  byProvider: ProviderSummary[];
+  byMode: ModeSummary[];
+  byConversation: ConversationSummary[];
+  byWorkspace: WorkspaceSummary[];
+  mostUsedAgents: AgentSummary[];
+  mostUsedSkills: SkillSummary[];
+  mostExpensiveWorkflows: WorkflowSummary[];
+}
+
 // Mirror of src/git/structuredDiff types — keep in sync (no Node.js deps but kept local for bundle safety)
 export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'unknown';
 export interface DiffLine { type: 'context' | 'add' | 'remove'; oldLine?: number; newLine?: number; content: string; }
@@ -115,6 +255,11 @@ function deriveTitle(prompt: string): string {
 
 // ── Message types ─────────────────────────────────────────────────────────
 
+export type StreamingStage =
+  | 'queued' | 'planning' | 'researching' | 'reading'
+  | 'editing' | 'testing' | 'reviewing' | 'summarizing'
+  | 'completed' | 'failed' | 'stopped';
+
 export interface EnhancedPromptSection {
   title: string;
   content: string;
@@ -181,6 +326,8 @@ export interface AssistantMessage {
   feedback?: MessageFeedback;
   retrySourceMessageId?: string;
   elapsed?: number;
+  streamingStage?: StreamingStage;
+  streamingLabel?: string;
   // Optional metadata fields
   actualProvider?: string;
   fallbackChain?: string[];
@@ -296,6 +443,8 @@ export interface SkillMentionState {
   selectedIndex: number;
 }
 
+export type MainView = 'chat' | 'dashboard';
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -340,9 +489,15 @@ export interface AppState {
     sourceMessageId: string;
     useCurrentSettings: boolean;
   };
+  // Dashboard / analytics state
+  mainView: MainView;
+  analyticsSummary?: AnalyticsDashboardSummary;
+  analyticsRuns?: AnalyticsRunRecord[];
+  analyticsLoading: boolean;
+  analyticsError?: string;
 }
 
-export function createInitialState(): AppState {
+export function createInitialState(mainView: MainView = 'chat'): AppState {
   const conv = makeConversation();
   return {
     conversations: [conv],
@@ -381,6 +536,11 @@ export function createInitialState(): AppState {
     artifacts: [],
     artifactPreview: undefined,
     pendingRetry: undefined,
+    mainView,
+    analyticsSummary: undefined,
+    analyticsRuns: undefined,
+    analyticsLoading: false,
+    analyticsError: undefined,
   };
 }
 
@@ -471,7 +631,12 @@ export type ExtMsg =
   | { type: 'artifactCreated'; artifact: ArtifactRef }
   | { type: 'artifactPreviewLoaded'; artifactId: string; content?: string; uri?: string; mimeType?: string; truncated?: boolean }
   | { type: 'artifactDeleted'; artifactId: string }
-  | { type: 'artifactError'; artifactId?: string; message: string };
+  | { type: 'artifactError'; artifactId?: string; message: string }
+  // Analytics messages
+  | { type: 'analyticsSummary'; summary: AnalyticsDashboardSummary }
+  | { type: 'analyticsRuns'; runs: AnalyticsRunRecord[] }
+  | { type: 'analyticsExported'; path: string }
+  | { type: 'analyticsError'; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -508,7 +673,13 @@ export type AppAction =
   | { type: 'clearHistorySaveError' }
   | { type: 'clearHistoryTrimmed' }
   | { type: 'clearCompactError' }
-  | { type: 'appendOutputBatch'; chunks: Array<{ type: 'stdout' | 'stderr'; chunk: string }> };
+  | { type: 'appendOutputBatch'; chunks: Array<{ type: 'stdout' | 'stderr'; chunk: string }> }
+  | { type: 'setMainView'; view: MainView }
+  | { type: 'analyticsLoading' }
+  | { type: 'analyticsSummaryReceived'; summary: AnalyticsDashboardSummary }
+  | { type: 'analyticsRunsReceived'; runs: AnalyticsRunRecord[] }
+  | { type: 'analyticsErrorReceived'; message: string }
+  | { type: 'clearAnalyticsError' };
 
 // ── Conversation context (mirrors src/context/conversationContext.ts) ────────
 
@@ -812,6 +983,36 @@ function completeRunningActivities(conv: Conversation): Conversation {
   }));
 }
 
+// ── Streaming stage helpers ───────────────────────────────────────────────
+
+function stageFromActivityKind(kind: string, label: string): StreamingStage {
+  const TEST_RE = /\b(test|spec|vitest|jest|pytest|cargo\s+test|go\s+test)\b/i;
+  if (kind === 'read') return 'reading';
+  if (kind === 'search') return 'researching';
+  if (kind === 'write' || kind === 'edit') return 'editing';
+  if (kind === 'bash') return TEST_RE.test(label) ? 'testing' : 'editing';
+  return 'editing';
+}
+
+function stageFromStepLabel(label: string): StreamingStage {
+  const l = label.toLowerCase();
+  if (l.includes('research')) return 'researching';
+  if (l.includes('scan') || l.includes('read')) return 'reading';
+  if (l.includes('review')) return 'reviewing';
+  if (l.includes('summar')) return 'summarizing';
+  return 'planning';
+}
+
+function setStreamingStage(conv: Conversation, stage: StreamingStage, label?: string): Conversation {
+  const msgs = conv.messages.map(m => {
+    if (m.role === 'assistant' && (m as AssistantMessage).isStreaming) {
+      return { ...m, streamingStage: stage, streamingLabel: label } as AssistantMessage;
+    }
+    return m;
+  });
+  return { ...conv, messages: msgs };
+}
+
 // ── Reducer ───────────────────────────────────────────────────────────────
 
 const MAX_LINES = 2000;
@@ -825,6 +1026,24 @@ function truncateLines(lines: OutputLine[]): OutputLine[] {
     { kind: 'stdout' as const, text: `[... ${dropped} earlier lines hidden ...]` },
     ...lines.slice(lines.length - TRUNCATE_TO),
   ];
+}
+
+/**
+ * Split a raw chunk into clean OutputLines.
+ * Drops the trailing empty entry that split('\n') adds when chunk ends with \n.
+ * This prevents a spurious blank line at the end of every chunk while still
+ * preserving intentional internal blank lines (e.g. "a\n\nb").
+ */
+function splitChunkToLines(chunk: string, kind: 'stdout' | 'stderr'): OutputLine[] {
+  let parts = chunk.split('\n').map(stripAnsi);
+  if (parts.length > 1 && parts[parts.length - 1] === '') {
+    parts = parts.slice(0, -1);
+  }
+  if (kind === 'stderr') {
+    parts = parts.filter(l => l.trim());
+  }
+  // stdout: keep internal blanks for faithful console output
+  return parts.map(text => ({ kind, text }));
 }
 
 export function reducer(state: AppState, action: AppAction): AppState {
@@ -1022,9 +1241,8 @@ export function reducer(state: AppState, action: AppAction): AppState {
       if (!state.isRunning) return state;
       const allNewLines: OutputLine[] = [];
       for (const item of action.chunks) {
-        const rawLines = item.chunk.split('\n').map(stripAnsi);
-        const lines = item.type === 'stdout' ? rawLines : rawLines.filter(l => l.trim());
-        allNewLines.push(...lines.map(text => ({ kind: item.type as 'stdout' | 'stderr', text })));
+        const lines = splitChunkToLines(item.chunk, item.type);
+        allNewLines.push(...lines);
       }
       if (allNewLines.every(l => !l.text.trim())) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
@@ -1035,6 +1253,24 @@ export function reducer(state: AppState, action: AppAction): AppState {
       );
     }
 
+    case 'setMainView':
+      return { ...state, mainView: action.view };
+
+    case 'analyticsLoading':
+      return { ...state, analyticsLoading: true, analyticsError: undefined };
+
+    case 'analyticsSummaryReceived':
+      return { ...state, analyticsSummary: action.summary, analyticsLoading: false };
+
+    case 'analyticsRunsReceived':
+      return { ...state, analyticsRuns: action.runs, analyticsLoading: false };
+
+    case 'analyticsErrorReceived':
+      return { ...state, analyticsError: action.message, analyticsLoading: false };
+
+    case 'clearAnalyticsError':
+      return { ...state, analyticsError: undefined };
+
     case 'extMsg':
       return applyExtMsg(state, action.msg);
   }
@@ -1044,6 +1280,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
   switch (msg.type) {
     case 'stepStarted': {
       const newStep: PipelineStep = { label: msg.stepLabel, status: 'running', activities: [] };
+      const stepStage = stageFromStepLabel(msg.stepLabel);
       if (msg.stepIndex === 0) {
         // First step: create the AssistantMessage shell
         const assistantMsg: AssistantMessage = {
@@ -1056,6 +1293,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           isStreaming: true,
           timestamp: Date.now(),
           steps: [newStep],
+          streamingStage: stepStage,
         };
         return {
           ...updateConversationById(state, getRunConvId(state), conv => ({
@@ -1068,12 +1306,15 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           elapsed: 0,
         };
       }
-      // Subsequent steps: add to existing streaming message
+      // Subsequent steps: add to existing streaming message and update stage
       return updateConversationById(state, getRunConvId(state), conv =>
-        updateLastAssistant(conv, m => ({
-          ...m,
-          steps: [...m.steps, newStep],
-        })),
+        setStreamingStage(
+          updateLastAssistant(conv, m => ({
+            ...m,
+            steps: [...m.steps, newStep],
+          })),
+          stepStage,
+        ),
       );
     }
 
@@ -1121,15 +1362,19 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         };
       }
 
-      // Pipeline mode: AssistantMessage already created by stepStarted — update with snapshot
+      // Pipeline mode: AssistantMessage already created by stepStarted — update with snapshot + taskId
       if (lastMsg?.role === 'assistant' && (lastMsg as AssistantMessage).isStreaming) {
         return {
           ...updateConversationById(state, runConvId, conv =>
-            updateLastAssistant(conv, m => ({
-              ...m,
-              enhancedPrompt: msg.enhancedPrompt,
-              enhancedPromptSnapshot: snapshot,
-            })),
+            setStreamingStage(
+              updateLastAssistant(conv, m => ({
+                ...m,
+                taskId: msg.taskId,
+                enhancedPrompt: msg.enhancedPrompt,
+                enhancedPromptSnapshot: snapshot,
+              })),
+              'planning',
+            ),
           ),
           isRunning: true,
           elapsed: 0,
@@ -1146,8 +1391,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         isStreaming: true,
         timestamp: Date.now(),
         steps: [],
+        taskId: msg.taskId,
         enhancedPrompt: msg.enhancedPrompt,
         enhancedPromptSnapshot: snapshot,
+        streamingStage: 'planning',
       };
       return {
         ...updateConversationById(state, runConvId, conv => ({
@@ -1164,12 +1411,12 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'stdout': {
       // Drop chunks that arrive after the task has already ended (race condition on stop)
       if (!state.isRunning) return state;
-      const lines = msg.chunk.split('\n').map(stripAnsi);
-      if (lines.every(l => !l.trim())) return state;
+      const lines = splitChunkToLines(msg.chunk, 'stdout');
+      if (lines.every(l => !l.text.trim())) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
-          lines: truncateLines([...m.lines, ...lines.map(text => ({ kind: 'stdout' as const, text }))]),
+          lines: truncateLines([...m.lines, ...lines]),
         })),
       );
     }
@@ -1177,32 +1424,35 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'stderr': {
       // Drop chunks that arrive after the task has already ended (race condition on stop)
       if (!state.isRunning) return state;
-      const lines = msg.chunk.split('\n').map(stripAnsi).filter(l => l.trim());
+      const lines = splitChunkToLines(msg.chunk, 'stderr');
+      if (lines.length === 0) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
-          lines: truncateLines([...m.lines, ...lines.map(text => ({ kind: 'stderr' as const, text }))]),
+          lines: truncateLines([...m.lines, ...lines]),
         })),
       );
     }
 
-    case 'taskCompleted':
+    case 'taskCompleted': {
+      const completedStage: StreamingStage = msg.exitCode === 0 ? 'completed' : 'failed';
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode, elapsed: state.elapsed })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode, elapsed: state.elapsed, streamingStage: completedStage, streamingLabel: undefined })),
           )),
         ),
         isRunning: false,
         isStopping: false,
         saveKey: state.saveKey + 1,
       };
+    }
 
     case 'taskStopped':
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, elapsed: state.elapsed })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, elapsed: state.elapsed, streamingStage: 'stopped' as StreamingStage, streamingLabel: undefined })),
           )),
         ),
         isRunning: false,
@@ -1214,7 +1464,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message, elapsed: state.elapsed })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message, elapsed: state.elapsed, streamingStage: 'failed' as StreamingStage, streamingLabel: undefined })),
           )),
         ),
         isRunning: false,
@@ -1231,15 +1481,20 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'activityStarted': {
       const newActivity: Activity = { kind: msg.activityKind, status: 'running', label: msg.label };
+      const actStage = stageFromActivityKind(msg.activityKind, msg.label);
       return updateConversationById(state, getRunConvId(state), conv =>
-        updateLastAssistant(conv, m => {
-          const steps = m.steps.map((s, i) =>
-            i === m.steps.length - 1 && s.status === 'running'
-              ? { ...s, activities: [...s.activities, newActivity] }
-              : s,
-          );
-          return { ...m, steps };
-        }),
+        setStreamingStage(
+          updateLastAssistant(conv, m => {
+            const steps = m.steps.map((s, i) =>
+              i === m.steps.length - 1 && s.status === 'running'
+                ? { ...s, activities: [...s.activities, newActivity] }
+                : s,
+            );
+            return { ...m, steps };
+          }),
+          actStage,
+          msg.label,
+        ),
       );
     }
 
@@ -1406,6 +1661,19 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'gitDiffRefreshed':
     case 'artifactError':
       return state;
+
+    case 'analyticsSummary':
+      return { ...state, analyticsSummary: msg.summary, analyticsLoading: false };
+
+    case 'analyticsRuns':
+      return { ...state, analyticsRuns: msg.runs, analyticsLoading: false };
+
+    case 'analyticsExported':
+      // Path is shown via VS Code notification from the handler; no state change needed
+      return state;
+
+    case 'analyticsError':
+      return { ...state, analyticsError: msg.message, analyticsLoading: false };
   }
   return state;
 }

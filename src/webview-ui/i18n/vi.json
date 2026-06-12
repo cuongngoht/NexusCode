@@ -6,7 +6,8 @@
     "more": "Thêm",
     "settings": "Cài đặt",
     "about": "Giới thiệu",
-    "switchLang": "Switch to English"
+    "switchLang": "Switch to English",
+    "chat": "Chat"
   },
   "provider": {
     "autoDetect": "Tự động phát hiện",
@@ -293,5 +294,82 @@
     "providerNotAuthenticated": "{{provider}} chưa được xác thực.",
     "loginAction": "Đăng nhập",
     "dismiss": "Bỏ qua"
+  },
+  "dashboard": {
+    "tab": "Dashboard",
+    "title": "Dashboard & Phân tích",
+    "totalTokens": "Tổng Tokens",
+    "estimatedCost": "Chi phí ước tính",
+    "tasksCompleted": "Nhiệm vụ hoàn thành",
+    "timeSaved": "Thời gian tiết kiệm",
+    "successRate": "Tỷ lệ thành công",
+    "acceptanceRate": "Tỷ lệ chấp nhận",
+    "providerReliability": "Độ tin cậy provider",
+    "tokensByProvider": "Tokens theo provider",
+    "costByProvider": "Chi phí theo provider",
+    "productivity": "Năng suất",
+    "quality": "Chất lượng",
+    "mostExpensiveWorkflows": "Workflow tốn kém nhất",
+    "conversationUsage": "Sử dụng theo cuộc trò chuyện",
+    "export": "Xuất",
+    "clear": "Xóa phân tích",
+    "clearConfirm": "Xóa tất cả dữ liệu phân tích? Không thể hoàn tác.",
+    "confirmYes": "Xóa",
+    "confirmNo": "Hủy",
+    "retry": "Thử lại",
+    "loading": "Đang tải…",
+    "noData": "Chưa có dữ liệu phân tích. Chạy một task để bắt đầu.",
+    "confidenceLow": "Ít dữ liệu (<5 lần chạy)",
+    "filters": {
+      "all": "Tất cả",
+      "today": "Hôm nay",
+      "last7days": "7 ngày qua",
+      "last30days": "30 ngày qua",
+      "thisMonth": "Tháng này",
+      "allProviders": "Tất cả provider",
+      "allModes": "Tất cả chế độ",
+      "providerFilter": "Lọc theo provider",
+      "modeFilter": "Lọc theo chế độ"
+    },
+    "feedback": {
+      "good": "Tốt",
+      "bad": "Không tốt",
+      "submitGood": "Phản hồi tốt",
+      "submitBad": "Phản hồi không tốt"
+    },
+    "metrics": {
+      "filesChanged": "Files đã thay đổi",
+      "linesAdded": "Dòng đã thêm",
+      "linesDeleted": "Dòng đã xóa",
+      "testsGenerated": "Tests đã tạo",
+      "bugsFixed": "Lỗi đã sửa",
+      "timeSaved": "Thời gian tiết kiệm",
+      "successful": "Thành công",
+      "failed": "Thất bại",
+      "stopped": "Đã dừng"
+    },
+    "tableHeaders": {
+      "provider": "Provider",
+      "runs": "Lần chạy",
+      "reliability": "Độ tin cậy",
+      "avgLatency": "Latency TB",
+      "workflow": "Workflow",
+      "cost": "Chi phí",
+      "conversation": "Cuộc trò chuyện",
+      "tokens": "Tokens"
+    }
+  },
+  "streaming": {
+    "queued": "Đang chờ",
+    "planning": "Đang lên kế hoạch",
+    "researching": "Đang nghiên cứu",
+    "reading": "Đang đọc file",
+    "editing": "Đang chỉnh sửa",
+    "testing": "Đang kiểm thử",
+    "reviewing": "Đang review",
+    "summarizing": "Đang tóm tắt",
+    "completed": "Hoàn thành",
+    "failed": "Thất bại",
+    "stopped": "Đã dừng"
   }
 }
