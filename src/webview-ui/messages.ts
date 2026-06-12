@@ -66,6 +66,9 @@ export interface GitReviewContext {
   message?: string;
 }
 
+const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const stripAnsi = (s: string): string => s.replace(ANSI_RE, '');
+
 let _seqSuffix = 0;
 const uid = (): string => `${Date.now()}-${++_seqSuffix}`;
 
@@ -677,7 +680,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       } satisfies UserMessage;
     }
     const lines = m.content
-      ? m.content.split('\n').filter(l => l.trim()).map(text => ({ kind: 'stdout' as const, text }))
+      ? m.content.split('\n').map(stripAnsi).map(text => ({ kind: 'stdout' as const, text }))
       : [];
     return {
       id: m.id,
@@ -978,10 +981,11 @@ export function reducer(state: AppState, action: AppAction): AppState {
       if (!state.isRunning) return state;
       const allNewLines: OutputLine[] = [];
       for (const item of action.chunks) {
-        const lines = item.chunk.split('\n').filter(l => l.trim());
+        const rawLines = item.chunk.split('\n').map(stripAnsi);
+        const lines = item.type === 'stdout' ? rawLines : rawLines.filter(l => l.trim());
         allNewLines.push(...lines.map(text => ({ kind: item.type as 'stdout' | 'stderr', text })));
       }
-      if (allNewLines.length === 0) return state;
+      if (allNewLines.every(l => !l.text.trim())) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
@@ -1119,7 +1123,8 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'stdout': {
       // Drop chunks that arrive after the task has already ended (race condition on stop)
       if (!state.isRunning) return state;
-      const lines = msg.chunk.split('\n').filter(l => l.trim());
+      const lines = msg.chunk.split('\n').map(stripAnsi);
+      if (lines.every(l => !l.trim())) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
@@ -1131,7 +1136,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'stderr': {
       // Drop chunks that arrive after the task has already ended (race condition on stop)
       if (!state.isRunning) return state;
-      const lines = msg.chunk.split('\n').filter(l => l.trim());
+      const lines = msg.chunk.split('\n').map(stripAnsi).filter(l => l.trim());
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
