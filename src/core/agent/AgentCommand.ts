@@ -1,3 +1,5 @@
+export type AgentTransport = 'sse' | 'jsonl' | 'plain' | 'stdio';
+
 export class AgentCommand {
   constructor(
     readonly executable: string,
@@ -5,5 +7,6 @@ export class AgentCommand {
     readonly env?: Readonly<Record<string, string>>,
     readonly stdin?: string,
     readonly inputPrompt?: string,
+    readonly transport?: AgentTransport,
   ) { }
 }

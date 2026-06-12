@@ -6,6 +6,9 @@ import { AgentRouter } from '../AgentRouter';
 import { TokenMeter } from '../../tokens/TokenMeter';
 import type { McpToolUseCase } from '../../mcp/McpToolUseCase';
 import type { ConfigService } from '../../config/ConfigService';
+import { AgentStreamPipelineFactory } from '../stream/AgentStreamPipelineFactory';
+import type { AgentStreamPipeline } from '../stream/AgentStreamPipeline';
+import type { AgentStreamEvent } from '../../core/stream/AgentStreamEvent';
 
 export class RunAgentUseCase {
   private activeTask: AgentTask | null = null;
@@ -81,6 +84,7 @@ export class RunAgentUseCase {
   private async _run(task: AgentTask, agent: IAgent, onStdoutCollect?: (chunk: string) => void): Promise<AgentResult> {
     const command = agent.buildCommand(task);
     const parser = agent.outputParser;
+    const pipeline: AgentStreamPipeline | null = AgentStreamPipelineFactory.create(command);
 
     const inputPrompt = command.inputPrompt ?? task.enhancedPrompt;
 
@@ -98,6 +102,10 @@ export class RunAgentUseCase {
       const result = await this.runner.run(command, {
         onStdout: chunk => {
           onStdoutCollect?.(chunk);
+          if (pipeline) {
+            this._emitStreamEvents(task, pipeline.processChunk(chunk));
+            return;
+          }
           if (!parser) {
             this.eventBus.emit({ kind: 'stdout', task, chunk });
             return;
@@ -121,6 +129,10 @@ export class RunAgentUseCase {
         cwd: task.cwd,
       });
 
+      if (pipeline) {
+        this._emitStreamEvents(task, pipeline.flush());
+      }
+
       task.complete(result);
       this.activeTask = null;
       this.eventBus.emit({
@@ -136,6 +148,27 @@ export class RunAgentUseCase {
       this.activeTask = null;
       this.eventBus.emit({ kind: 'task_error', task, error: String(error) });
       throw error;
+    }
+  }
+
+  private _emitStreamEvents(task: AgentTask, events: AgentStreamEvent[]): void {
+    for (const event of events) {
+      switch (event.kind) {
+        case 'content_delta':
+          this.eventBus.emit({ kind: 'stdout', task, chunk: event.text });
+          break;
+        case 'tool_call':
+          this.eventBus.emit({ kind: 'activity_started', task, activityKind: 'tool_call', label: event.toolName });
+          break;
+        case 'tool_result':
+          this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: event.toolName, status: event.status });
+          break;
+        case 'stream_done':
+          break;
+        case 'stream_error':
+          this.eventBus.emit({ kind: 'stderr', task, chunk: `[stream] ${event.message}\n` });
+          break;
+      }
     }
   }
 
