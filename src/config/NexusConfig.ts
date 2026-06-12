@@ -30,6 +30,30 @@ export interface CompactConfig {
   maxCompactSummaryChars: number
 }
 
+export type RoutingStrategy = 'fastest' | 'cheapest' | 'quality' | 'balanced' | 'manual';
+
+export interface FallbackRoutingConfig {
+  enabled: boolean;
+  maxAttempts: number;
+  retrySameProvider: boolean;
+  fallbackOn: string[];
+  doNotFallbackOn: string[];
+}
+
+export interface RoutingConfig {
+  defaultProvider: string;
+  strategy: RoutingStrategy;
+  fallback: FallbackRoutingConfig;
+  modePreferences: Record<string, string[]>;
+  chains?: Record<string, string>;
+}
+
+export interface ModelCatalogConfig {
+  cacheTtlMs: number;
+  preferDynamicModels: boolean;
+  allowSeededFallback: boolean;
+}
+
 export interface NexusConfig {
   version: 1
   providers: {
@@ -42,4 +66,8 @@ export interface NexusConfig {
   }
   mcp: McpConfig
   compact: CompactConfig
+  /** Routing configuration — all fields optional for backward compatibility. */
+  routing?: Partial<RoutingConfig>
+  /** Model catalog configuration — all fields optional for backward compatibility. */
+  modelCatalog?: Partial<ModelCatalogConfig>
 }

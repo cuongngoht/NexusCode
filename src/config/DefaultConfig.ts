@@ -27,4 +27,28 @@ export const DEFAULT_CONFIG: NexusConfig = {
     recentMessagesAfterCompact: 6,
     maxCompactSummaryChars: 8_000,
   },
+  routing: {
+    defaultProvider: 'claude',
+    strategy: 'balanced',
+    fallback: {
+      enabled: true,
+      maxAttempts: 2,
+      retrySameProvider: false,
+      fallbackOn: [
+        'missing_cli',
+        'auth_error',
+        'rate_limit',
+        'timeout',
+        'non_zero_exit',
+        'empty_output',
+      ],
+      doNotFallbackOn: ['user_cancelled', 'permission_denied'],
+    },
+    modePreferences: {},
+  },
+  modelCatalog: {
+    cacheTtlMs: 300_000,
+    preferDynamicModels: false,
+    allowSeededFallback: true,
+  },
 };

@@ -3,10 +3,15 @@ import { AgentRouter } from '../../application/AgentRouter';
 import { RunAgentUseCase } from '../../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
 import type { NexusStage } from '../../application/nexus/NexusRoutingPolicy';
+import { ModelRouter } from '../../application/routing/ModelRouter';
+import { ProviderRouteExpressionParser } from '../../application/routing/ProviderRouteExpressionParser';
+import { FallbackPolicy, DEFAULT_FALLBACK_POLICY_CONFIG } from '../../application/routing/FallbackPolicy';
+import { ProviderFailureClassifier } from '../../application/routing/ProviderFailureClassifier';
 import { EventBus } from '../../core/eventBus';
 import type { NexusEvent } from '../../core/events/IEventBus';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
-import type { TaskMode } from '../../core/agent/AgentTask';
+import type { TaskMode, AgentId } from '../../core/agent/AgentTask';
+import { AgentTask } from '../../core/agent/AgentTask';
 import { ProcessRunner } from '../../runner/processRunner';
 import { ClaudeAgent } from '../../providers/claude/ClaudeAgent';
 import { CodexAgent } from '../../providers/codex/CodexAgent';
@@ -15,6 +20,7 @@ import { CopilotAgent } from '../../providers/copilot/CopilotAgent';
 import { AiderAgent } from '../../providers/aider/AiderAgent';
 import { CustomAgent } from '../../providers/custom/CustomAgent';
 import { NexusAgent } from '../../providers/nexus/NexusAgent';
+import { GrokAgent } from '../../providers/grok/GrokAgent';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -46,11 +52,7 @@ function buildCliCustomConfig(root: string) {
   }
 }
 
-export async function runCommand(options: RunOptions): Promise<void> {
-  const workspaceRoot = path.resolve(options.root);
-  const mode = options.mode as TaskMode;
-  const requestedStage = (options.stage as 'auto' | NexusStage) ?? 'auto';
-
+function buildRegistry(workspaceRoot: string): AgentRegistry {
   const registry = new AgentRegistry();
   registry.register(new ClaudeAgent());
   registry.register(new CodexAgent());
@@ -59,7 +61,16 @@ export async function runCommand(options: RunOptions): Promise<void> {
   registry.register(new AiderAgent());
   registry.register(new CustomAgent(buildCliCustomConfig(workspaceRoot)));
   registry.register(new NexusAgent());
+  registry.register(new GrokAgent());
+  return registry;
+}
 
+export async function runCommand(options: RunOptions): Promise<void> {
+  const workspaceRoot = path.resolve(options.root);
+  const mode = options.mode as TaskMode;
+  const requestedStage = (options.stage as 'auto' | NexusStage) ?? 'auto';
+
+  const registry = buildRegistry(workspaceRoot);
   const eventBus = new EventBus();
   const runner = new ProcessRunner();
   const router = new AgentRouter(registry);
@@ -94,22 +105,110 @@ export async function runCommand(options: RunOptions): Promise<void> {
     }
   });
 
-  const ctx: PipelineContext = {
-    workspaceRoot,
-    originalPrompt: options.prompt,
-    enhancedPrompt: options.prompt,
-    mode,
-    model: options.model,
-    providerId: 'nexus',
-    enableEnhancement: false,
-  };
-
   try {
-    await orchestrator.run(ctx, requestedStage);
+    if (options.provider === 'nexus') {
+      // Existing orchestrator flow
+      const ctx: PipelineContext = {
+        workspaceRoot,
+        originalPrompt: options.prompt,
+        enhancedPrompt: options.prompt,
+        mode,
+        model: options.model,
+        providerId: 'nexus',
+        enableEnhancement: false,
+      };
+      await orchestrator.run(ctx, requestedStage);
+    } else {
+      // Direct routing with fallback support
+      await runWithFallback(options, mode, workspaceRoot, registry, runUseCase);
+    }
   } catch (err) {
     process.stderr.write(`Nexus run failed: ${err}\n`);
     process.exit(1);
   }
 
   process.exit(exitCode);
+}
+
+async function runWithFallback(
+  options: RunOptions,
+  mode: TaskMode,
+  workspaceRoot: string,
+  registry: AgentRegistry,
+  runUseCase: RunAgentUseCase,
+): Promise<void> {
+  const modelRouter = new ModelRouter();
+  const fallbackPolicy = new FallbackPolicy(DEFAULT_FALLBACK_POLICY_CONFIG);
+
+  let plan;
+  if (options.provider === 'auto') {
+    plan = await modelRouter.resolvePlan('auto', mode, registry);
+  } else {
+    try {
+      plan = ProviderRouteExpressionParser.parse(options.provider);
+    } catch (err) {
+      process.stderr.write(`Invalid provider expression: ${err}\n`);
+      process.exit(1);
+      return;
+    }
+  }
+
+  const errors: string[] = [];
+
+  for (let i = 0; i < plan.steps.length; i++) {
+    const step = plan.steps[i];
+    const agentId = step.providerId as AgentId;
+    const model = step.model ?? options.model;
+
+    const task = new AgentTask(
+      options.prompt,
+      options.prompt,
+      agentId,
+      mode,
+      model,
+      workspaceRoot,
+    );
+
+    try {
+      const result = await runUseCase.execute(task);
+
+      // Check for non-zero exit or empty output — may want to fallback
+      if (result.exitCode !== 0 || result.stdout.trim() === '') {
+        const reason = ProviderFailureClassifier.classify(result);
+        const canFallback = fallbackPolicy.canFallback(reason, i + 1) && i + 1 < plan.steps.length;
+        if (canFallback) {
+          const nextProvider = plan.steps[i + 1]?.providerId ?? 'next';
+          process.stderr.write(`${agentId} failed: ${reason}\nFalling back to ${nextProvider}...\n`);
+          errors.push(`${agentId}: ${reason}`);
+          continue;
+        }
+        // No fallback — surface the result (non-zero exit is already handled by event bus)
+        return;
+      }
+
+      // Success
+      return;
+    } catch (err) {
+      const reason = ProviderFailureClassifier.classify(err);
+      const canFallback = fallbackPolicy.canFallback(reason, i + 1) && i + 1 < plan.steps.length;
+
+      if (canFallback) {
+        const nextProvider = plan.steps[i + 1]?.providerId ?? 'next';
+        process.stderr.write(`${agentId} failed: ${reason}\nFalling back to ${nextProvider}...\n`);
+        errors.push(`${agentId}: ${reason}`);
+        continue;
+      }
+
+      // Cannot fallback — rethrow with accumulated context
+      const message = errors.length > 0
+        ? `All providers failed: ${errors.join(', ')}; ${agentId}: ${err}`
+        : String(err);
+      throw new Error(message);
+    }
+  }
+
+  // All steps exhausted without success
+  if (errors.length > 0) {
+    throw new Error(`All providers failed: ${errors.join(', ')}`);
+  }
 }
