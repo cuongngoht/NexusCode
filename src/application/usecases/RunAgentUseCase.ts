@@ -12,7 +12,6 @@ import type { AgentStreamEvent } from '../../core/stream/AgentStreamEvent';
 
 export class RunAgentUseCase {
   private activeTask: AgentTask | null = null;
-  private readonly tokenMeter = new TokenMeter();
 
   constructor(
     private readonly router: AgentRouter,
@@ -20,6 +19,7 @@ export class RunAgentUseCase {
     private readonly eventBus: IEventBus,
     private readonly mcpToolUseCase?: McpToolUseCase,
     private readonly configService?: ConfigService,
+    private readonly tokenMeter: TokenMeter = new TokenMeter(),
   ) { }
 
   async execute(task: AgentTask): Promise<AgentResult> {
@@ -106,23 +106,32 @@ export class RunAgentUseCase {
             this._emitStreamEvents(task, pipeline.processChunk(chunk));
             return;
           }
+          // Always emit the raw chunk as stdout. This guarantees the agent's full output
+          // (the "result") reaches the UI message body, history, copy, and context builders
+          // regardless of how the (optional) outputParser classifies lines.
+          // Parser is used *only* as a side-channel to produce activity_* events for
+          // nice progress chips (see _emitStreamEvents for the stream/pipeline equivalent).
+          // This is the robust best practice: content fidelity is independent of activity extraction.
+          // Matches the design of PlainTextAdapter + content_delta, Claude/Antigravity/Codex parsers
+          // (which default prose to plain), and prevents the class of bug where review-style NL
+          // output (triggered by @agent/#skill prompts) gets entirely diverted to activities.
+          this.eventBus.emit({ kind: 'stdout', task, chunk });
+
           if (!parser) {
-            this.eventBus.emit({ kind: 'stdout', task, chunk });
             return;
           }
           const activities = parser.parse(chunk);
-          const plainLines: string[] = [];
           for (const act of activities) {
-            if (act.kind === 'plain') {
-              plainLines.push(act.raw);
-            } else if (act.status === 'running') {
-              this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
-            } else {
-              this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+            if (act.kind !== 'plain') {
+              if (act.status === 'running') {
+                this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
+              } else {
+                this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+              }
             }
-          }
-          if (plainLines.length > 0) {
-            this.eventBus.emit({ kind: 'stdout', task, chunk: plainLines.join('\n') });
+            // Note: we no longer collect/filter "plainLines" for a separate stdout emit.
+            // The raw chunk above already ensures all content (including what used to be plain)
+            // is present. Activities provide compact UI annotations on top.
           }
         },
         onStderr: chunk => this.eventBus.emit({ kind: 'stderr', task, chunk }),
@@ -131,6 +140,15 @@ export class RunAgentUseCase {
 
       if (pipeline) {
         this._emitStreamEvents(task, pipeline.flush());
+      } else if (parser?.flush) {
+        for (const act of parser.flush()) {
+          if (act.kind === 'plain') continue;
+          if (act.status === 'running') {
+            this.eventBus.emit({ kind: 'activity_started', task, activityKind: act.kind, label: act.label });
+          } else {
+            this.eventBus.emit({ kind: 'activity_done', task, activityKind: act.kind, label: act.label, status: act.status });
+          }
+        }
       }
 
       task.complete(result);

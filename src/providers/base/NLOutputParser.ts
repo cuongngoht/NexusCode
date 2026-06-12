@@ -6,7 +6,15 @@ const MD_LINK_RE = /\[([^\]]+)\]\([^)]+\)/g;
 
 // First-person NL: "I'll read..." / "I will edit..."
 const NL_I_RE = /^I(?:'ll| will)\s+(.+)/i;
-// Action-verb prefix: "Reading package.json...", "Applying edits to..."
+// Action-verb prefix (including review/eval style).
+// These are used to surface "what the Grok CLI is doing" (or Copilot/Aider) as activity chips
+// in the UI (e.g. "Reviewing the design patterns...", "Analyzing @software-architect...").
+// This is the mechanism to "show grok cli đang làm gì" live under the Nexus step.
+// Broad verbs are intentionally included so model self-narration during ask/review/research
+// becomes visible progress.
+// The full text (including these lines) is guaranteed to reach the markdown body because
+// RunAgentUseCase now always emits the raw chunk as stdout (decoupled from parser classification).
+// See also AssistantMessage (activities above the text block) and the raw-emit comment.
 const NL_VERB_RE = /^(Reading|Writing|Editing|Creating|Deleting|Removing|Running|Executing|Searching|Scanning|Analyzing|Checking|Looking|Examining|Installing|Building|Testing|Applying|Fixing|Updating|Fetching|Loading|Saving|Opening|Closing|Generating|Reviewing|Parsing|Processing)\b/i;
 // CLI ">" prefix: "> Applying edit to file.ts"
 const CLI_GT_RE = /^>\s+(.+)/;
@@ -33,9 +41,13 @@ function extractActivity(line: string): { kind: ActivityKind; label: string } | 
   let m: RegExpExecArray | null;
 
   m = NL_I_RE.exec(line);
-  if (m) return { kind: classifyKind(m[1]), label: formatLabel(m[1]) };
+  if (m) {
+    return { kind: classifyKind(m[1]), label: formatLabel(m[1]) };
+  }
 
-  if (NL_VERB_RE.test(line)) return { kind: classifyKind(line), label: formatLabel(line) };
+  if (NL_VERB_RE.test(line)) {
+    return { kind: classifyKind(line), label: formatLabel(line) };
+  }
 
   m = CLI_GT_RE.exec(line);
   if (m) return { kind: classifyKind(m[1]), label: formatLabel(m[1]) };
@@ -43,8 +55,16 @@ function extractActivity(line: string): { kind: ActivityKind; label: string } | 
   return null;
 }
 
-// Stateful parser: treats matched NL/action lines as running→done activity transitions.
-// Any line not matching an action pattern is emitted as plain text.
+// Stateful parser: extracts NL/action lines (including review/eval style like "Reviewing...",
+// "Analyzing @...") as running→done activity transitions.
+// Purpose: "show grok cli đang làm gì" (and similar for Copilot/Aider) as visible activity
+// chips under the step in the UI, so users see the internal progress/thoughts the CLI is
+// expressing.
+// Full narrative + final answer is always preserved in the stdout text block thanks to
+// RunAgentUseCase always emitting the raw chunk (independent of what the parser classifies).
+// This is the best practice for NL-based agents: use parser to surface "what it is doing",
+// rely on raw emit for the complete result text.
+// Follows the spirit of activity extraction in other parsers while leveraging the decoupling.
 export class NLOutputParser extends BaseOutputParser {
   private _pending: { kind: ActivityKind; label: string; raw: string } | null = null;
 
@@ -64,5 +84,15 @@ export class NLOutputParser extends BaseOutputParser {
       }
     }
     return out;
+  }
+
+  // Closes the last pending activity (which would otherwise stay "running" forever)
+  // and drains any partial line still in the buffer.
+  override flush(): ParsedActivity[] {
+    const base = super.flush(); // drains _lineBuffer via parseLines (may set a new _pending)
+    if (!this._pending) return base;
+    const act = this._pending;
+    this._pending = null;
+    return [...base, { kind: act.kind, status: 'done', label: act.label, raw: act.raw }];
   }
 }
