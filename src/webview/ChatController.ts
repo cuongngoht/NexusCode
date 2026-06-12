@@ -20,6 +20,8 @@ import { AgentPromptHandler } from './handlers/AgentPromptHandler';
 import { SkillPromptHandler } from './handlers/SkillPromptHandler';
 import { ResearchCommandHandler } from './handlers/ResearchCommandHandler';
 import { CompactCommandHandler } from './handlers/CompactCommandHandler';
+import { DiffHandler } from './handlers/DiffHandler';
+import { ArtifactHandler } from './handlers/ArtifactHandler';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
 
 export class ChatController {
@@ -35,6 +37,8 @@ export class ChatController {
   private readonly skillPromptHandler: SkillPromptHandler;
   private readonly researchCommandHandler: ResearchCommandHandler;
   private readonly compactCommandHandler: CompactCommandHandler;
+  private readonly diffHandler: DiffHandler;
+  private readonly artifactHandler: ArtifactHandler;
 
   constructor(
     runAgent: RunAgentUseCase,
@@ -62,6 +66,8 @@ export class ChatController {
     this.skillPromptHandler      = new SkillPromptHandler(extensionPath, post);
     this.researchCommandHandler  = new ResearchCommandHandler();
     this.compactCommandHandler   = new CompactCommandHandler(post, compactor);
+    this.diffHandler             = new DiffHandler(post);
+    this.artifactHandler         = new ArtifactHandler(post, workspaceState ?? globalState);
 
     const forwarder = new EventForwarder(post);
     const busListener = (e: Parameters<typeof forwarder.forward>[0]) => forwarder.forward(e);
@@ -105,6 +111,7 @@ export class ChatController {
       case 'openSourceControl':      await this.navigationHandler.openSourceControl(); break;
       case 'openSettings':           await this.navigationHandler.openSettings(); break;
       case 'openAbout':              await this.navigationHandler.openAbout(); break;
+      case 'openExternal':           await this.navigationHandler.openExternal(msg.url); break;
       case 'getAgentPrompts':        await this.agentPromptHandler.sendAgentPrompts(); break;
       case 'reloadAgents':           await this.agentPromptHandler.reload(); break;
       case 'getSkillPrompts':        await this.skillPromptHandler.sendSkillPrompts(); break;
@@ -114,6 +121,24 @@ export class ChatController {
         await this.compactCommandHandler.handle(
           msg.conversationId, msg.messages, msg.provider, msg.model,
         );
+        break;
+      // Diff viewer messages
+      case 'getFileDiff':
+      case 'getAllDiffs':
+      case 'openDiffEditor':
+      case 'openFileFromDiff':
+      case 'revertFileChange':
+      case 'refreshGitDiff':
+        await this.diffHandler.handleMessage(msg);
+        break;
+      // Artifact messages
+      case 'listArtifacts':
+      case 'openArtifact':
+      case 'previewArtifact':
+      case 'revealArtifactInExplorer':
+      case 'deleteArtifact':
+      case 'rescanArtifacts':
+        await this.artifactHandler.handleMessage(msg);
         break;
     }
   }

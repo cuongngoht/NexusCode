@@ -12,4 +12,12 @@ export class NavigationHandler {
   async openAbout(): Promise<void> {
     await vscode.commands.executeCommand('nexus.openAbout');
   }
+
+  async openExternal(url: string): Promise<void> {
+    try {
+      await vscode.env.openExternal(vscode.Uri.parse(url));
+    } catch {
+      // Ignore invalid URIs
+    }
+  }
 }

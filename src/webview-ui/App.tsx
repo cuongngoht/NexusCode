@@ -10,6 +10,8 @@ import { ConversationHistory } from './components/ConversationHistory';
 import { Composer, type ComposerRef } from './components/Composer';
 import { ErrorBanner } from './components/ErrorBanner';
 import { I18nContext, LOCALES, interp, type Locale, useT } from './i18n';
+import { NexusShell } from './components/layout/NexusShell';
+import { uiReducer, createInitialUiState } from './state/uiState';
 
 function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
   const t = useT();
@@ -32,6 +34,7 @@ function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
+  const [uiState, dispatchUi] = useReducer(uiReducer, undefined, createInitialUiState);
   const [locale, setLocale] = useState<Locale>(() => {
     const saved = localStorage.getItem('nexus.locale');
     return (saved === 'en' || saved === 'vi') ? saved : 'vi';
@@ -302,6 +305,7 @@ export function App() {
                 ? LOCALES[locale].composer.stopping
                 : ''}
           </div>
+          <NexusShell uiState={uiState} onUiAction={dispatchUi}>
           <AppToolbar
             isRunning={state.isRunning}
             showHistory={state.showHistory}
@@ -526,6 +530,7 @@ export function App() {
               )}
             </div>
           )}
+          </NexusShell>
         </div>
       </FluentProvider>
     </I18nContext.Provider>

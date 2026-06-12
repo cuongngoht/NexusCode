@@ -13,6 +13,22 @@ import type {
 
 export type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary };
 
+// Mirror of src/git/structuredDiff types — keep in sync (no Node.js deps but kept local for bundle safety)
+export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'unknown';
+export interface DiffLine { type: 'context' | 'add' | 'remove'; oldLine?: number; newLine?: number; content: string; }
+export interface DiffHunk { id: string; oldStart: number; oldLines: number; newStart: number; newLines: number; header: string; lines: DiffLine[]; }
+export interface FileDiffSummary { path: string; oldPath?: string; status: DiffFileStatus; additions: number; deletions: number; hunks: DiffHunk[]; isBinary?: boolean; isTooLarge?: boolean; rawDiff?: string; }
+
+// Mirror of src/artifacts/ArtifactTypes — keep in sync
+export type ArtifactKind = 'file' | 'image' | 'chart' | 'markdown' | 'html' | 'json' | 'patch' | 'plan' | 'test-report' | 'log' | 'unknown';
+export interface ArtifactRef {
+  id: string; kind: ArtifactKind; title: string; path?: string; uri?: string; mimeType?: string;
+  sizeBytes?: number; createdAt: number; updatedAt?: number; sourceTaskId?: string;
+  sourceMessageId?: string; sourceConversationId?: string; previewable: boolean;
+  description?: string; tags?: string[];
+}
+export interface ArtifactPreviewData { artifactId: string; content?: string; mimeType?: string; truncated?: boolean; }
+
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type ProviderId = 'nexus' | 'codex' | 'claude' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'grok' | 'auto';
 export type DirectProviderId = Exclude<ProviderId, 'nexus' | 'auto'>;
@@ -165,6 +181,16 @@ export interface AssistantMessage {
   feedback?: MessageFeedback;
   retrySourceMessageId?: string;
   elapsed?: number;
+  // Optional metadata fields
+  actualProvider?: string;
+  fallbackChain?: string[];
+  routingReason?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  estimatedCostUsd?: number;
+  elapsedMs?: number;
+  taskId?: string;
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -304,6 +330,8 @@ export interface AppState {
   compactError?: string;
   showCompactInfo: boolean;
   activeRunConversationId?: string;
+  artifacts: ArtifactRef[];
+  artifactPreview?: ArtifactPreviewData;
   pendingRetry?: {
     prompt: string;
     provider: ProviderId;
@@ -350,6 +378,8 @@ export function createInitialState(): AppState {
     compactError: undefined,
     showCompactInfo: false,
     activeRunConversationId: undefined,
+    artifacts: [],
+    artifactPreview: undefined,
     pendingRetry: undefined,
   };
 }
@@ -430,7 +460,18 @@ export type ExtMsg =
   | { type: 'skillPromptError'; message: string }
   | { type: 'compactStarted'; conversationId: string }
   | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
-  | { type: 'compactSummaryError'; conversationId: string; message: string };
+  | { type: 'compactSummaryError'; conversationId: string; message: string }
+  // Diff viewer messages
+  | { type: 'fileDiffLoaded'; path: string; diff: FileDiffSummary }
+  | { type: 'allDiffsLoaded'; diffs: FileDiffSummary[] }
+  | { type: 'fileDiffError'; path?: string; message: string }
+  | { type: 'gitDiffRefreshed'; changedFiles: GitFileChange[] }
+  // Artifact messages
+  | { type: 'artifactsListed'; artifacts: ArtifactRef[] }
+  | { type: 'artifactCreated'; artifact: ArtifactRef }
+  | { type: 'artifactPreviewLoaded'; artifactId: string; content?: string; uri?: string; mimeType?: string; truncated?: boolean }
+  | { type: 'artifactDeleted'; artifactId: string }
+  | { type: 'artifactError'; artifactId?: string; message: string };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -1337,6 +1378,34 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'compactSummaryError':
       return { ...state, isCompacting: false, compactError: msg.message };
+
+    case 'artifactsListed':
+      return { ...state, artifacts: msg.artifacts };
+
+    case 'artifactCreated':
+      return { ...state, artifacts: [msg.artifact, ...state.artifacts.filter(a => a.id !== msg.artifact.id)] };
+
+    case 'artifactDeleted':
+      return { ...state, artifacts: state.artifacts.filter(a => a.id !== msg.artifactId) };
+
+    case 'artifactPreviewLoaded':
+      return {
+        ...state,
+        artifactPreview: {
+          artifactId: msg.artifactId,
+          content: msg.content,
+          mimeType: msg.mimeType,
+          truncated: msg.truncated,
+        },
+      };
+
+    // Diff viewer messages — these are request/response, no state to update at top level
+    case 'fileDiffLoaded':
+    case 'allDiffsLoaded':
+    case 'fileDiffError':
+    case 'gitDiffRefreshed':
+    case 'artifactError':
+      return state;
   }
   return state;
 }

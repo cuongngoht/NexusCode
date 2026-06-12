@@ -8,12 +8,12 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-"categories": [
-  "Machine Learning",
-  "AI",
-  "Other",
-  "Programming Languages"
-],
+  "categories": [
+    "Machine Learning",
+    "AI",
+    "Other",
+    "Programming Languages"
+  ],
   "activationEvents": [
     "onView:nexus.chatView",
     "onCommand:nexus.createWorkflowAgent"
@@ -244,6 +244,7 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "zod": "^4.4.3"
   }

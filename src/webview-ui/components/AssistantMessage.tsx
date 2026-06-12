@@ -1,8 +1,6 @@
 import { memo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
+import { MarkdownRenderer } from './markdown/MarkdownRenderer';
 import { IconSparkle } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import { getVsCodeApi } from '../vscodeApi';
@@ -80,7 +78,7 @@ function StatusPill({ message }: { message: AssistantMsg }) {
   if (message.isStreaming) {
     return (
       <span className="fl-pill fl-pill-running">
-        <span className="fl-spinner" style={{ width: 10, height: 10 }} />
+        <span className="fl-spinner nx-spinner-sm" />
         {t.agent.statusRunning}
       </span>
     );
@@ -145,7 +143,7 @@ export const AssistantMessage = memo(function AssistantMessage({
             <span className="fl-asst-agent">· {agentLabel}</span>
           )}
           {meta && (
-            <span className="fl-asst-agent" style={{ marginLeft: 'auto', fontSize: '11px' }}>
+            <span className="fl-asst-agent nx-asst-meta">
               {meta}
             </span>
           )}
@@ -163,15 +161,10 @@ export const AssistantMessage = memo(function AssistantMessage({
             return (
               <div className="fl-text-block">
                 {stdoutText && (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeHighlight]}
-                  >
-                    {stdoutText}
-                  </ReactMarkdown>
+                  <MarkdownRenderer content={stdoutText} />
                 )}
                 {stderrLines.map((line, i) => (
-                  <span key={i} className="nx-line-stderr" style={{ display: 'block' }}>
+                  <span key={i} className="nx-line-stderr nx-line-stderr--block">
                     {line.text}
                   </span>
                 ))}
@@ -187,14 +180,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
 
           {message.errorText && (
-            <div style={{
-              marginTop: 6, padding: '7px 10px',
-              background: 'var(--colorPaletteRedBackground)',
-              border: '1px solid rgba(232,121,121,0.3)',
-              borderRadius: 'var(--borderRadiusLarge)',
-              color: 'var(--colorPaletteRedForeground1)',
-              fontSize: 12.5,
-            }}>
+            <div className="nx-asst-error-text">
               {message.errorText}
             </div>
           )}

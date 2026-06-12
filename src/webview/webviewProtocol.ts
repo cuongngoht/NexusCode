@@ -7,6 +7,8 @@ import type { AgentModeCapability, AgentRecommendation } from '../application/ne
 import type { McpPresetStatusView } from '../mcp/McpTypes';
 import type { AgentPrompt } from '../context/agentPromptLibrary';
 import type { SkillPrompt } from '../context/skillPromptLibrary';
+import type { FileDiffSummary } from '../git/structuredDiff';
+import type { ArtifactRef } from '../artifacts/ArtifactTypes';
 
 export type { PromptAttachment };
 
@@ -65,7 +67,18 @@ export type ExtensionMessage =
   | { type: 'skillPromptError'; message: string }
   | { type: 'compactStarted'; conversationId: string }
   | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
-  | { type: 'compactSummaryError'; conversationId: string; message: string };
+  | { type: 'compactSummaryError'; conversationId: string; message: string }
+  // Diff viewer messages
+  | { type: 'fileDiffLoaded'; path: string; diff: FileDiffSummary }
+  | { type: 'allDiffsLoaded'; diffs: FileDiffSummary[] }
+  | { type: 'fileDiffError'; path?: string; message: string }
+  | { type: 'gitDiffRefreshed'; changedFiles: GitFileChange[] }
+  // Artifact messages
+  | { type: 'artifactsListed'; artifacts: ArtifactRef[] }
+  | { type: 'artifactCreated'; artifact: ArtifactRef }
+  | { type: 'artifactPreviewLoaded'; artifactId: string; content?: string; uri?: string; mimeType?: string; truncated?: boolean }
+  | { type: 'artifactDeleted'; artifactId: string }
+  | { type: 'artifactError'; artifactId?: string; message: string };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -94,4 +107,19 @@ export type WebviewMessage =
   | { type: 'getSkillPrompts' }
   | { type: 'reloadSkills' }
   | { type: 'researchCommand'; action: 'done' | 'current' | 'next' | 'list' | 'reload' }
-  | { type: 'compactConversation'; conversationId: string; messages: SerializedChatMessage[]; provider: ProviderId; model?: string };
+  | { type: 'compactConversation'; conversationId: string; messages: SerializedChatMessage[]; provider: ProviderId; model?: string }
+  | { type: 'openExternal'; url: string }
+  // Diff viewer requests
+  | { type: 'getFileDiff'; path: string; baseRef?: string }
+  | { type: 'getAllDiffs'; baseRef?: string }
+  | { type: 'openDiffEditor'; path: string; baseRef?: string }
+  | { type: 'openFileFromDiff'; path: string; line?: number }
+  | { type: 'revertFileChange'; path: string }
+  | { type: 'refreshGitDiff' }
+  // Artifact requests
+  | { type: 'listArtifacts'; conversationId?: string; taskId?: string }
+  | { type: 'openArtifact'; artifactId: string }
+  | { type: 'previewArtifact'; artifactId: string }
+  | { type: 'revealArtifactInExplorer'; artifactId: string }
+  | { type: 'deleteArtifact'; artifactId: string }
+  | { type: 'rescanArtifacts' };
