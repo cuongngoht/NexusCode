@@ -88,6 +88,7 @@ export function App() {
         return;
       }
       if (msg.type === 'droppedFilesResolved') {
+        console.log('[App] droppedFilesResolved:', msg.attachments);
         setComposerAttachments(prev => {
           const existing = new Set(prev.map(a => a.path));
           return [...prev, ...msg.attachments.filter(a => !existing.has(a.path))];

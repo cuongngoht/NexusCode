@@ -18,12 +18,12 @@ export class GrokAgent extends BaseAgent {
   readonly displayName = 'Grok';
   readonly capabilities = new AgentCapabilities(true, true, true, true);
   readonly seededModels: ReadonlyArray<ProviderModel> = [
-    { id: 'grok-3',      label: 'Grok 3',      source: 'seeded' },
-    { id: 'grok-3-mini', label: 'Grok 3 Mini', source: 'seeded' },
-    { id: 'grok-2',      label: 'Grok 2',      source: 'seeded' },
-    { id: 'grok-2-mini', label: 'Grok 2 Mini', source: 'seeded' },
+    { id: 'grok-build',             label: 'Grok Build',         source: 'seeded' },
+    { id: 'grok-composer-2.5-fast', label: 'Grok Composer Fast', source: 'seeded' },
+    { id: 'grok-3',                 label: 'Grok 3',             source: 'seeded' },
+    { id: 'grok-3-mini',            label: 'Grok 3 Mini',        source: 'seeded' },
   ];
-  readonly defaultModel = 'grok-3';
+  readonly defaultModel = 'grok-build';
   protected readonly executableName = 'grok';
 
   override async isLoggedIn(): Promise<boolean> {
@@ -31,9 +31,13 @@ export class GrokAgent extends BaseAgent {
   }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
-    const args = task.model
-      ? ['--model', task.model, '--single', task.enhancedPrompt]
-      : ['--single', task.enhancedPrompt];
+    // --output-format streaming-json forces the CLI to flush one JSON line per token
+    // instead of buffering 4-8 KB in the OS pipe (the behaviour when stdout is not a TTY).
+    // Agent loop is kept intentionally so each thinking step (tool calls, file reads, etc.)
+    // streams through GrokStreamAdapter and appears as live activity chips in the UI.
+    const args: string[] = ['--output-format', 'streaming-json'];
+    if (task.model) args.push('--model', task.model);
+    args.push('--single', task.enhancedPrompt);
     return new AgentCommand('grok', args, undefined, undefined, task.enhancedPrompt, 'grok');
   }
 

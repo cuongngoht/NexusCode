@@ -104,7 +104,6 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [slashMention, setSlashMention] = useState<SlashMention | undefined>(undefined);
-  const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
 
@@ -431,12 +430,13 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
-    dragCounter.current++;
     setIsDragOver(true);
   };
 
-  const handleDragLeave = () => {
-    if (--dragCounter.current === 0) setIsDragOver(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    const next = (e.relatedTarget as Node) || null;
+    if (next && (e.currentTarget as Node).contains(next)) return;
+    setIsDragOver(false);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -446,9 +446,9 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    dragCounter.current = 0;
     setIsDragOver(false);
     const paths = extractDroppedPaths(e);
+    console.log('[Composer] handleDrop extracted paths:', paths);
     if (paths.length > 0) onResolveDroppedFiles(paths);
   };
 
@@ -838,21 +838,49 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
 function extractDroppedPaths(e: React.DragEvent): string[] {
   const paths: string[] = [];
-  // Electron File objects expose an absolute .path property
+
+  // 1. Electron File objects (when available) expose absolute .path
   for (const file of Array.from(e.dataTransfer.files)) {
     const p = (file as unknown as { path?: string }).path;
     if (p) paths.push(p);
   }
-  // Fallback: text/uri-list (VS Code Explorer drag or non-Electron)
-  if (paths.length === 0) {
-    const uriList = e.dataTransfer.getData('text/uri-list');
+
+  // 2. Always also harvest from text/uri-list (Explorer drags, Finder, non-Electron webviews, folders)
+  //    Merge with primary so we don't lose anything.
+  try {
+    const uriList = e.dataTransfer.getData('text/uri-list') || '';
     for (const line of uriList.split(/\r?\n/)) {
-      const uri = line.trim();
+      let uri = line.trim();
       if (!uri || uri.startsWith('#')) continue;
-      if (uri.startsWith('file://')) {
-        try { paths.push(decodeURIComponent(uri.replace(/^file:\/\//, ''))); } catch { /* ignore */ }
+
+      // Support file://, file:///, file://localhost/, and vscode-file: variants
+      if (/^file:\/\//i.test(uri) || /^vscode-file:\/\//i.test(uri)) {
+        // Strip scheme + optional authority
+        let p = uri.replace(/^(?:file|vscode-file):\/+/i, '/');
+        // On Windows the result may be /C:/... — keep the leading / for path.normalize later
+        try {
+          p = decodeURIComponent(p);
+        } catch {
+          /* keep original if decode fails */
+        }
+        if (p && !paths.includes(p)) paths.push(p);
+      } else if (uri && !paths.includes(uri)) {
+        // Rare: plain path in the list
+        paths.push(uri);
       }
     }
+  } catch {
+    /* ignore getData errors */
   }
-  return paths;
+
+  // Deduplicate while preserving order
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const p of paths) {
+    if (!seen.has(p)) {
+      seen.add(p);
+      unique.push(p);
+    }
+  }
+  return unique;
 }

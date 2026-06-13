@@ -5,35 +5,196 @@ import type { ActivityKind } from '../../core/agent/IOutputParser';
 
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
+// Map grok tool names → ActivityKind so the UI shows the right icon.
+const TOOL_KIND_MAP: Record<string, ActivityKind> = {
+  read_file:          'read',
+  view_file:          'read',
+  list_files:         'read',
+  list_dir:           'read',
+  search_files:       'search',
+  search_codebase:    'search',
+  grep:               'search',
+  web_search:         'search',
+  web_fetch:          'search',
+  write_file:         'write',
+  create_file:        'write',
+  edit_file:          'edit',
+  apply_patch:        'edit',
+  str_replace:        'edit',
+  run_terminal_cmd:   'bash',
+  execute_command:    'bash',
+  bash:               'bash',
+  shell:              'bash',
+  todo_write:         'todo',
+  todo_read:          'todo',
+};
+
+function toolKind(name: string): ActivityKind {
+  const lower = name.toLowerCase();
+  return TOOL_KIND_MAP[lower] ?? 'tool_call';
+}
+
+// Text phases detected from plain-text fallback or from narrative text inside JSON.
 const PHASES: Array<{ re: RegExp; name: string; kind: ActivityKind }> = [
-  { re: /\b(plan(ning)?|let me plan)\b/i,                                    name: 'Planning',        kind: 'todo'   },
-  { re: /\b(read(ing)?|load(ing)?|fetch(ing)?|open(ing)?|inspect(ing)?|view(ing)?)\b/i, name: 'Reading context', kind: 'read'   },
+  { re: /\b(plan(ning)?|let me plan)\b/i,                                                       name: 'Planning',        kind: 'todo'   },
+  { re: /\b(read(ing)?|load(ing)?|fetch(ing)?|open(ing)?|inspect(ing)?|view(ing)?)\b/i,         name: 'Reading context', kind: 'read'   },
   { re: /\b(edit(ing)?|writ(e|ing)|creat(e|ing)|modif(y|ying|ied)|apply|fix(ing)?|implement(ing)?)\b/i, name: 'Editing files', kind: 'edit' },
-  { re: /\b(run(ning)?|test(ing)?|build(ing)?|execut(e|ing)|compil(e|ing)|install(ing)?)\b/i, name: 'Running tests', kind: 'bash' },
-  { re: /\b(review(ing)?|analyz(e|ing)|evaluat(e|ing)|check(ing)?)\b/i,     name: 'Reviewing',       kind: 'search' },
-  { re: /\b(summar(y|iz(e|ing))|final|complet(e|ing|ed)|done|result)\b/i,   name: 'Final summary',   kind: 'plain' as ActivityKind },
+  { re: /\b(run(ning)?|test(ing)?|build(ing)?|execut(e|ing)|compil(e|ing)|install(ing)?)\b/i,   name: 'Running tests',   kind: 'bash'   },
+  { re: /\b(review(ing)?|analyz(e|ing)|evaluat(e|ing)|check(ing)?)\b/i,                         name: 'Reviewing',       kind: 'search' },
+  { re: /\b(summar(y|iz(e|ing))|final|complet(e|ing|ed)|done|result)\b/i,                       name: 'Final summary',   kind: 'plain' as ActivityKind },
 ];
+
+// Extract displayable text from a streaming-json event object.
+function extractText(obj: Record<string, unknown>): string | null {
+  if (typeof obj.text === 'string')    return obj.text;
+  if (typeof obj.content === 'string') return obj.content;
+  if (obj.delta && typeof obj.delta === 'object') {
+    const d = obj.delta as Record<string, unknown>;
+    if (typeof d.text === 'string')    return d.text;
+    if (typeof d.content === 'string') return d.content;
+  }
+  if (obj.type !== 'error' && typeof obj.message === 'string') return obj.message;
+  if (Array.isArray(obj.content)) {
+    const joined = (obj.content as Array<Record<string, unknown>>)
+      .filter(c => c.type === 'text' && typeof c.text === 'string')
+      .map(c => c.text as string)
+      .join('');
+    return joined || null;
+  }
+  if (obj.message && typeof obj.message === 'object') {
+    const m = obj.message as Record<string, unknown>;
+    if (Array.isArray(m.content)) {
+      const joined = (m.content as Array<Record<string, unknown>>)
+        .filter(c => c.type === 'text' && typeof c.text === 'string')
+        .map(c => c.text as string)
+        .join('');
+      return joined || null;
+    }
+  }
+  return null;
+}
+
+// Extract a tool name from a streaming-json tool_use / function_call event.
+function extractToolName(obj: Record<string, unknown>): string | null {
+  if (typeof obj.name === 'string')          return obj.name;
+  if (typeof obj.tool === 'string')          return obj.tool;
+  if (typeof obj.tool_name === 'string')     return obj.tool_name;
+  if (typeof obj.function_name === 'string') return obj.function_name;
+  if (obj.function && typeof obj.function === 'object') {
+    const f = obj.function as Record<string, unknown>;
+    if (typeof f.name === 'string') return f.name;
+  }
+  return null;
+}
+
+// Build a human-readable label for a tool call: "read_file src/foo.ts" etc.
+function toolLabel(name: string, obj: Record<string, unknown>): string {
+  const input: Record<string, unknown> =
+    (obj.input  as Record<string, unknown>) ??
+    (obj.args   as Record<string, unknown>) ??
+    (obj.arguments && typeof obj.arguments === 'string'
+      ? (() => { try { return JSON.parse(obj.arguments as string) as Record<string, unknown>; } catch { return {}; } })()
+      : (obj.arguments as Record<string, unknown>)) ??
+    {};
+
+  const hint =
+    (typeof input.path    === 'string' ? input.path    : null) ??
+    (typeof input.command === 'string' ? input.command : null) ??
+    (typeof input.query   === 'string' ? input.query   : null) ??
+    (typeof input.pattern === 'string' ? input.pattern : null) ??
+    '';
+
+  return hint ? `${name}: ${hint}` : name;
+}
 
 export class GrokStreamAdapter implements IProviderStreamAdapter {
   private _currentPhase: string | null = null;
 
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
     const rawText = frame.data;
-    const line = rawText.replace(ANSI_RE, '').trim();
+    const line = rawText.trim();
     if (!line) return rawText ? [{ kind: 'content_delta', text: rawText }] : [];
 
-    const events: AgentStreamEvent[] = [{ kind: 'content_delta', text: rawText }];
+    // ── Parse as streaming-json ──────────────────────────────────────────────
+    try {
+      const obj = JSON.parse(line) as Record<string, unknown>;
+      const type = typeof obj.type === 'string' ? obj.type : '';
 
-    const phase = PHASES.find(p => p.re.test(line));
-    if (phase && phase.name !== this._currentPhase) {
-      if (this._currentPhase) {
-        events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
+      // ── Error events ──────────────────────────────────────────────────────
+      if (type === 'error') {
+        const msg = typeof obj.message === 'string' ? obj.message : line;
+        return [{ kind: 'stream_error', message: msg }];
       }
-      this._currentPhase = phase.name;
-      events.push({ kind: 'tool_call', toolName: phase.name, toolArgs: '', toolKind: phase.kind });
-    }
 
-    return events;
+      // ── Terminal / no-op events ────────────────────────────────────────────
+      if (type === 'done' || type === 'complete' || type === 'end' || type === 'session_started') {
+        return [];
+      }
+
+      // ── Tool call start ────────────────────────────────────────────────────
+      // Covers: tool_use, function_call, tool_call, tool_invocation, and
+      // any event with a recognisable "name" field that looks like a tool.
+      const isToolCall =
+        type === 'tool_use' ||
+        type === 'function_call' ||
+        type === 'tool_call' ||
+        type === 'tool_invocation';
+
+      if (isToolCall) {
+        const name = extractToolName(obj);
+        if (name) {
+          const label = toolLabel(name, obj);
+          const kind  = toolKind(name);
+          const events: AgentStreamEvent[] = [];
+          if (this._currentPhase && this._currentPhase !== label) {
+            events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
+          }
+          this._currentPhase = label;
+          events.push({ kind: 'tool_call', toolName: label, toolArgs: '', toolKind: kind });
+          return events;
+        }
+      }
+
+      // ── Tool result / completion ───────────────────────────────────────────
+      const isToolResult =
+        type === 'tool_result' ||
+        type === 'function_call_output' ||
+        type === 'tool_output';
+
+      if (isToolResult && this._currentPhase) {
+        const events: AgentStreamEvent[] = [
+          { kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined },
+        ];
+        this._currentPhase = null;
+        return events;
+      }
+
+      // ── Thinking / reasoning tokens ────────────────────────────────────────
+      if (type === 'thinking' || type === 'reasoning') {
+        const text = extractText(obj);
+        if (!text) return [];
+        // Show as a "search" chip labelled "Thinking" so it's visually distinct.
+        const events: AgentStreamEvent[] = [{ kind: 'content_delta', text }];
+        if (this._currentPhase !== 'Thinking') {
+          if (this._currentPhase) {
+            events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
+          }
+          this._currentPhase = 'Thinking';
+          events.push({ kind: 'tool_call', toolName: 'Thinking', toolArgs: '', toolKind: 'search' });
+        }
+        return events;
+      }
+
+      // ── Regular text / assistant content ──────────────────────────────────
+      const text = extractText(obj);
+      if (text === null || text === '') return [];
+
+      return this._textEvents(text);
+
+    } catch {
+      // ── Not valid JSON — plain-text fallback (e.g. --output-format plain) ──
+      return this._textEvents(rawText);
+    }
   }
 
   flush(): AgentStreamEvent[] {
@@ -44,5 +205,20 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
       { kind: 'tool_result', toolName: name, status: 'done', toolKind: undefined },
       { kind: 'stream_done' },
     ];
+  }
+
+  // Emit a content_delta, plus a phase chip transition when the text matches a keyword.
+  private _textEvents(text: string): AgentStreamEvent[] {
+    const events: AgentStreamEvent[] = [{ kind: 'content_delta', text }];
+    const clean = text.replace(ANSI_RE, '').trim();
+    const phase = PHASES.find(p => p.re.test(clean));
+    if (phase && phase.name !== this._currentPhase) {
+      if (this._currentPhase) {
+        events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
+      }
+      this._currentPhase = phase.name;
+      events.push({ kind: 'tool_call', toolName: phase.name, toolArgs: '', toolKind: phase.kind });
+    }
+    return events;
   }
 }
