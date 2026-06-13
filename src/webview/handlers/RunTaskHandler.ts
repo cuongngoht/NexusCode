@@ -159,7 +159,6 @@ export class RunTaskHandler {
         await this.orchestrator.run(ctx, 'auto');
       } else {
         const preSteps = createPreSteps(mode, {
-          buildProjectMap: this.buildProjectMap,
           extensionPath: this.extensionPath,
         });
 

@@ -83,7 +83,7 @@ describe('loadModeInstruction', () => {
 
   it('returns bundled markdown for scan-project mode', () => {
     const result = loadModeInstruction('scan-project', { extensionRoot: EXTENSION_ROOT });
-    expect(result).toContain('Inspect the project');
+    expect(result).toContain('Project Discovery');
   });
 
   it('returns non-empty fallback when no extensionRoot provided', () => {
