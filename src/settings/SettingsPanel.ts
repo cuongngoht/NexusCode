@@ -59,7 +59,9 @@ export class SettingsPanel {
 
   private async _update(): Promise<void> {
     const config = await this.configService.loadConfig();
-    this.panel.webview.html = getSettingsHtml(this.panel.webview, config);
+    const vsCfg = vscode.workspace.getConfiguration('nexus');
+    const vsCodeConfig = { historyRagEnabled: vsCfg.get<boolean>('historyRag.enabled', true) };
+    this.panel.webview.html = getSettingsHtml(this.panel.webview, config, vsCodeConfig);
   }
 
   private async _handleMessage(msg: unknown): Promise<void> {
@@ -89,6 +91,13 @@ export class SettingsPanel {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.configService.saveConfig(payload as any);
+      // Sync historyRag.enabled to VS Code workspace settings so RunTaskHandler picks it up
+      const p = payload as Record<string, unknown>;
+      const historyRag = p['historyRag'] as Record<string, unknown> | undefined;
+      if (historyRag && typeof historyRag['enabled'] === 'boolean') {
+        const vsCfg = vscode.workspace.getConfiguration('nexus');
+        await vsCfg.update('historyRag.enabled', historyRag['enabled'], vscode.ConfigurationTarget.Workspace);
+      }
       await this.panel.webview.postMessage({ type: 'settings.saved' });
       vscode.window.showInformationMessage('Nexus settings saved.');
       this.onSaved?.();

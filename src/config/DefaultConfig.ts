@@ -51,4 +51,10 @@ export const DEFAULT_CONFIG: NexusConfig = {
     preferDynamicModels: false,
     allowSeededFallback: true,
   },
+  historyRag: {
+    enabled: true,
+    maxResults: 5,
+    maxChars: 6000,
+    minScore: 1.25,
+  },
 };

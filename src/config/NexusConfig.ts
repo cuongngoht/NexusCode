@@ -54,6 +54,13 @@ export interface ModelCatalogConfig {
   allowSeededFallback: boolean;
 }
 
+export interface HistoryRagConfig {
+  enabled: boolean
+  maxResults: number
+  maxChars: number
+  minScore: number
+}
+
 export interface NexusConfig {
   version: 1
   providers: {
@@ -70,4 +77,6 @@ export interface NexusConfig {
   routing?: Partial<RoutingConfig>
   /** Model catalog configuration — all fields optional for backward compatibility. */
   modelCatalog?: Partial<ModelCatalogConfig>
+  /** History RAG — optional for backward compatibility. */
+  historyRag?: Partial<HistoryRagConfig>
 }

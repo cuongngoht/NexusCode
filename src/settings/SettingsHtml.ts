@@ -15,6 +15,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 export function getSettingsHtml(
   webview: vscode.Webview,
   config: NexusConfig,
+  vsCodeConfig?: { historyRagEnabled?: boolean },
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
 
@@ -57,6 +58,7 @@ export function getSettingsHtml(
   const mcpContext7 = mergedConfig.mcp.presets.context7.enabled;
   const mcpMaxChars = mergedConfig.mcp.maxResultChars;
   const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
+  const historyRagEnabled = vsCodeConfig?.historyRagEnabled ?? mergedConfig.historyRag?.enabled ?? true;
 
   return /* html */`<!DOCTYPE html>
 <html lang="en">
@@ -310,6 +312,17 @@ export function getSettingsHtml(
     </label>
   </section>
 
+  <section class="settings-section">
+    <hr />
+    <h2>History RAG</h2>
+    <p class="section-desc">Automatically inject relevant past conversations as context before each task.</p>
+    <label class="toggle-row">
+      <input type="checkbox" id="history-rag-enabled" ${historyRagEnabled ? 'checked' : ''} />
+      <span>Enable History RAG</span>
+    </label>
+    <p class="description">When enabled, Nexus searches previous conversations and injects relevant snippets into every prompt automatically.</p>
+  </section>
+
   <button class="save-btn" id="saveBtn">Save Settings</button>
   <div class="status" id="status"></div>
 
@@ -427,7 +440,13 @@ export function getSettingsHtml(
             },
           },
         };
-        const config = Object.assign({}, base, { providers: providers, mcp: mcp });
+        const historyRag = {
+          enabled: document.getElementById('history-rag-enabled').checked,
+          maxResults: base.historyRag ? base.historyRag.maxResults : 5,
+          maxChars: base.historyRag ? base.historyRag.maxChars : 6000,
+          minScore: base.historyRag ? base.historyRag.minScore : 1.25,
+        };
+        const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag });
         vscode.postMessage({ type: 'settings.save', payload: config });
       });
 
