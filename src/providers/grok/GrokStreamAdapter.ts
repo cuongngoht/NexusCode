@@ -34,7 +34,7 @@ function toolKind(name: string): ActivityKind {
   return TOOL_KIND_MAP[lower] ?? 'tool_call';
 }
 
-// Text phases detected from plain-text fallback or from narrative text inside JSON.
+// Text phases detected from plain-text fallback (non-JSON lines).
 const PHASES: Array<{ re: RegExp; name: string; kind: ActivityKind }> = [
   { re: /\b(plan(ning)?|let me plan)\b/i,                                                       name: 'Planning',        kind: 'todo'   },
   { re: /\b(read(ing)?|load(ing)?|fetch(ing)?|open(ing)?|inspect(ing)?|view(ing)?)\b/i,         name: 'Reading context', kind: 'read'   },
@@ -45,12 +45,16 @@ const PHASES: Array<{ re: RegExp; name: string; kind: ActivityKind }> = [
 ];
 
 // Extract displayable text from a streaming-json event object.
+// Grok streaming-json uses "data" field; other providers use "text"/"content"/"delta.text".
 function extractText(obj: Record<string, unknown>): string | null {
-  if (typeof obj.text === 'string')    return obj.text;
+  // Grok native streaming-json format
+  if (typeof obj.data    === 'string') return obj.data;
+  // Generic / Anthropic-style
+  if (typeof obj.text    === 'string') return obj.text;
   if (typeof obj.content === 'string') return obj.content;
   if (obj.delta && typeof obj.delta === 'object') {
     const d = obj.delta as Record<string, unknown>;
-    if (typeof d.text === 'string')    return d.text;
+    if (typeof d.text    === 'string') return d.text;
     if (typeof d.content === 'string') return d.content;
   }
   if (obj.type !== 'error' && typeof obj.message === 'string') return obj.message;
@@ -76,9 +80,9 @@ function extractText(obj: Record<string, unknown>): string | null {
 
 // Extract a tool name from a streaming-json tool_use / function_call event.
 function extractToolName(obj: Record<string, unknown>): string | null {
-  if (typeof obj.name === 'string')          return obj.name;
-  if (typeof obj.tool === 'string')          return obj.tool;
-  if (typeof obj.tool_name === 'string')     return obj.tool_name;
+  if (typeof obj.name          === 'string') return obj.name;
+  if (typeof obj.tool          === 'string') return obj.tool;
+  if (typeof obj.tool_name     === 'string') return obj.tool_name;
   if (typeof obj.function_name === 'string') return obj.function_name;
   if (obj.function && typeof obj.function === 'object') {
     const f = obj.function as Record<string, unknown>;
@@ -87,7 +91,7 @@ function extractToolName(obj: Record<string, unknown>): string | null {
   return null;
 }
 
-// Build a human-readable label for a tool call: "read_file src/foo.ts" etc.
+// Build a human-readable label for a tool call: "read_file: src/foo.ts" etc.
 function toolLabel(name: string, obj: Record<string, unknown>): string {
   const input: Record<string, unknown> =
     (obj.input  as Record<string, unknown>) ??
@@ -108,7 +112,10 @@ function toolLabel(name: string, obj: Record<string, unknown>): string {
 }
 
 export class GrokStreamAdapter implements IProviderStreamAdapter {
+  // Track the active chip name so we can close it when the phase transitions.
   private _currentPhase: string | null = null;
+  // Track whether we've transitioned from thought → text phase (to close Thinking chip once).
+  private _inTextPhase = false;
 
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
     const rawText = frame.data;
@@ -132,8 +139,6 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
       }
 
       // ── Tool call start ────────────────────────────────────────────────────
-      // Covers: tool_use, function_call, tool_call, tool_invocation, and
-      // any event with a recognisable "name" field that looks like a tool.
       const isToolCall =
         type === 'tool_use' ||
         type === 'function_call' ||
@@ -150,6 +155,7 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
             events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
           }
           this._currentPhase = label;
+          this._inTextPhase = false;
           events.push({ kind: 'tool_call', toolName: label, toolArgs: '', toolKind: kind });
           return events;
         }
@@ -169,30 +175,52 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
         return events;
       }
 
-      // ── Thinking / reasoning tokens ────────────────────────────────────────
-      if (type === 'thinking' || type === 'reasoning') {
-        const text = extractText(obj);
-        if (!text) return [];
-        // Show as a "search" chip labelled "Thinking" so it's visually distinct.
-        const events: AgentStreamEvent[] = [{ kind: 'content_delta', text }];
+      // ── Grok thought tokens (streamed one token at a time) ─────────────────
+      // Grok streaming-json emits {"type":"thought","data":"word"} for each thinking token.
+      // We open a "Thinking" chip on the first token and stream all tokens as content.
+      if (type === 'thought' || type === 'thinking' || type === 'reasoning') {
+        const text = typeof obj.data === 'string' ? obj.data : extractText(obj);
+        if (text === null) return [];
+        const events: AgentStreamEvent[] = [];
         if (this._currentPhase !== 'Thinking') {
           if (this._currentPhase) {
             events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
           }
           this._currentPhase = 'Thinking';
+          this._inTextPhase = false;
           events.push({ kind: 'tool_call', toolName: 'Thinking', toolArgs: '', toolKind: 'search' });
         }
+        if (text) events.push({ kind: 'content_delta', text });
         return events;
       }
 
-      // ── Regular text / assistant content ──────────────────────────────────
+      // ── Grok final text tokens (streamed one token at a time) ──────────────
+      // Grok streaming-json emits {"type":"text","data":"word"} for each output token.
+      // Close the Thinking chip on the first text token (thought→text transition).
+      if (type === 'text') {
+        const text = typeof obj.data === 'string' ? obj.data : extractText(obj);
+        if (text === null) return [];
+        const events: AgentStreamEvent[] = [];
+        if (!this._inTextPhase) {
+          this._inTextPhase = true;
+          if (this._currentPhase) {
+            events.push({ kind: 'tool_result', toolName: this._currentPhase, status: 'done', toolKind: undefined });
+            this._currentPhase = null;
+          }
+        }
+        if (text) events.push({ kind: 'content_delta', text });
+        return events;
+      }
+
+      // ── Regular text / assistant content (other JSON formats) ─────────────
       const text = extractText(obj);
       if (text === null || text === '') return [];
-
-      return this._textEvents(text);
+      // Don't do phase detection on structured JSON text — grok emits explicit
+      // thought/text events; other providers emit explicit tool_use events.
+      return [{ kind: 'content_delta', text }];
 
     } catch {
-      // ── Not valid JSON — plain-text fallback (e.g. --output-format plain) ──
+      // ── Not valid JSON — plain-text fallback ──────────────────────────────
       return this._textEvents(rawText);
     }
   }
@@ -208,6 +236,7 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
   }
 
   // Emit a content_delta, plus a phase chip transition when the text matches a keyword.
+  // Only used for non-JSON plain-text fallback.
   private _textEvents(text: string): AgentStreamEvent[] {
     const events: AgentStreamEvent[] = [{ kind: 'content_delta', text }];
     const clean = text.replace(ANSI_RE, '').trim();

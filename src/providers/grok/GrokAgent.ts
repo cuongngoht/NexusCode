@@ -33,9 +33,13 @@ export class GrokAgent extends BaseAgent {
   protected doBuildCommand(task: AgentTask): AgentCommand {
     // --output-format streaming-json forces the CLI to flush one JSON line per token
     // instead of buffering 4-8 KB in the OS pipe (the behaviour when stdout is not a TTY).
-    // Agent loop is kept intentionally so each thinking step (tool calls, file reads, etc.)
-    // streams through GrokStreamAdapter and appears as live activity chips in the UI.
-    const args: string[] = ['--output-format', 'streaming-json'];
+    // --disallowed-tools run_terminal_cmd: grok-build has a param constraint where
+    // auto_background_on_timeout=true requires enabled_background=true, causing an
+    // "agent building failed" crash. Disabling the tool bypasses the constraint.
+    const args: string[] = [
+      '--output-format', 'streaming-json',
+      '--disallowed-tools', 'run_terminal_cmd',
+    ];
     if (task.model) args.push('--model', task.model);
     args.push('--single', task.enhancedPrompt);
     return new AgentCommand('grok', args, undefined, undefined, task.enhancedPrompt, 'grok');
