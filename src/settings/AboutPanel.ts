@@ -16,7 +16,7 @@ export class AboutPanel {
 
     const panel = vscode.window.createWebviewPanel(
       AboutPanel.viewType,
-      'About Nexus Code',
+      'About Nexus AI Code',
       vscode.ViewColumn.One,
       { enableScripts: true },
     );

@@ -100,7 +100,8 @@ export class RunAgentUseCase {
 
     try {
       const result = await this.runner.run(command, {
-        onStdout: chunk => {
+        onStdout: rawChunk => {
+          const chunk = agent.transformStdout ? agent.transformStdout(rawChunk) : rawChunk;
           onStdoutCollect?.(chunk);
           if (pipeline) {
             this._emitStreamEvents(task, pipeline.processChunk(chunk));

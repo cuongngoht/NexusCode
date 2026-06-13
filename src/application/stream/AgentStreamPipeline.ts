@@ -13,6 +13,8 @@ export class AgentStreamPipeline {
   }
 
   flush(): AgentStreamEvent[] {
-    return this.decoder.flush().flatMap(f => this.adapter.adapt(f));
+    const fromDecoder = this.decoder.flush().flatMap(f => this.adapter.adapt(f));
+    const fromAdapter = (this.adapter as { flush?(): AgentStreamEvent[] }).flush?.() ?? [];
+    return [...fromDecoder, ...fromAdapter];
   }
 }

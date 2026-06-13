@@ -28,19 +28,23 @@ describe('SubagentSummary', () => {
       expect(summary.buildInjectionBlock([])).toBe('');
     });
 
-    it('returns empty string when all results have errors', () => {
+    it('returns failed block when all results have errors', () => {
       const results = [
         { role: 'search', compactOutput: '', error: 'failed' },
         { role: 'planner', compactOutput: '', error: 'failed' },
       ];
-      expect(summary.buildInjectionBlock(results)).toBe('');
+      const block = summary.buildInjectionBlock(results);
+      expect(block).toContain('Failed Optional Subagents');
+      expect(block).toContain('search: failed');
+      expect(block).toContain('planner: failed');
     });
 
-    it('returns empty string when all results have empty output', () => {
+    it('returns summary header when results have no content', () => {
       const results = [
         { role: 'search', compactOutput: '   ' },
       ];
-      expect(summary.buildInjectionBlock(results)).toBe('');
+      const block = summary.buildInjectionBlock(results);
+      expect(block).toContain('# Subagent Intelligence Summary');
     });
 
     it('builds block with section headers for successful results', () => {
@@ -49,10 +53,10 @@ describe('SubagentSummary', () => {
         { role: 'planner', compactOutput: 'Step 1: do X\nStep 2: do Y' },
       ];
       const block = summary.buildInjectionBlock(results);
-      expect(block).toContain('# Subagent Context');
-      expect(block).toContain('## Search');
+      expect(block).toContain('# Subagent Intelligence Summary');
+      expect(block).toContain('### Search');
       expect(block).toContain('Found relevant APIs');
-      expect(block).toContain('## Planner');
+      expect(block).toContain('### Planner');
     });
 
     it('skips errored results and includes successful ones', () => {
@@ -61,8 +65,43 @@ describe('SubagentSummary', () => {
         { role: 'planner', compactOutput: '', error: 'failed' },
       ];
       const block = summary.buildInjectionBlock(results);
-      expect(block).toContain('## Search');
-      expect(block).not.toContain('## Planner');
+      expect(block).toContain('### Search');
+      expect(block).toContain('results here');
+      // planner error is reported in failed section, not as a successful role section
+      expect(block).not.toContain('### Planner\n');
+      expect(block).toContain('planner: failed');
+    });
+
+    it('respects maxChars option', () => {
+      const results = [
+        { role: 'search', compactOutput: 'a'.repeat(2000) },
+      ];
+      const block = summary.buildInjectionBlock(results, { maxChars: 500 });
+      expect(block.length).toBeLessThanOrEqual(500);
+      expect(block.endsWith('\n[truncated]')).toBe(true);
+    });
+
+    it('includes parsed findings when present', () => {
+      const results = [
+        {
+          role: 'security' as const,
+          agentId: 'claude',
+          compactOutput: '',
+          durationMs: 100,
+          parsedOutput: {
+            role: 'security',
+            confidence: 0.9,
+            findings: [{ severity: 'high' as const, title: 'SQL injection risk', recommendation: 'Use parameterized queries' }],
+            files: ['src/db.ts'],
+            nextActions: ['Fix query builder'],
+          },
+        },
+      ];
+      const block = summary.buildInjectionBlock(results);
+      expect(block).toContain('SQL injection risk');
+      expect(block).toContain('parameterized queries');
+      expect(block).toContain('src/db.ts');
+      expect(block).toContain('Fix query builder');
     });
   });
 });

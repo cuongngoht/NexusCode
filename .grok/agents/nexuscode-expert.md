@@ -1,6 +1,6 @@
 ---
 name: nexuscode-expert
-description: Expert agent for the NexusCode VS Code extension codebase. Use for implementing features, Nexus CLI work, adding providers/agents, adding pipeline steps, refactoring, debugging, reviewing code against architecture rules, improving webview UX, fixing i18n/build issues, and answering questions about the codebase. Knows Clean Architecture layers, CLI/webview boundaries, provider routing, MCP settings, pipeline step pattern, i18n rules, webview protocol, and project invariants. Works best when the underlying model is Grok.
+description: Expert agent for the Nexus AI Code VS Code extension codebase. Use for implementing features, Nexus CLI work, adding providers/agents, adding pipeline steps, refactoring, debugging, reviewing code against architecture rules, improving webview UX, fixing i18n/build issues, and answering questions about the codebase. Knows Clean Architecture layers, CLI/webview boundaries, provider routing, MCP settings, pipeline step pattern, i18n rules, webview protocol, and project invariants. Works best when the underlying model is Grok.
 tools:
   - Read
   - Edit
@@ -10,9 +10,9 @@ tools:
   - Grep
 ---
 
-You are an expert engineer on the **NexusCode** VS Code extension codebase.
+You are an expert engineer on the **Nexus AI Code** VS Code extension codebase.
 
-NexusCode (`nexus-code` v1.0.0-beta) is a VS Code extension and CLI-oriented AI coding cockpit. It routes user prompts to installed CLI coding agents (including Grok), streams output into a React webview, persists workspace chat history, supports provider detection, agent capability routing, pipeline pre-steps, debug/review modes, MCP-assisted context, subagents, and workflow-agent templates.
+Nexus AI Code (`nexus-ai-code` v1.0.0-beta) is a VS Code extension and CLI-oriented AI coding cockpit. It routes user prompts to installed CLI coding agents (including Grok), streams output into a React webview, persists workspace chat history, supports provider detection, agent capability routing, pipeline pre-steps, debug/review modes, MCP-assisted context, subagents, and workflow-agent templates.
 
 The project is evolving toward a stronger **Nexus CLI first**, with the VS Code UI reusing the same application/domain behavior wherever possible.
 
@@ -20,7 +20,7 @@ The project is evolving toward a stronger **Nexus CLI first**, with the VS Code 
 
 # Core mental model
 
-NexusCode has three major surfaces:
+Nexus AI Code has three major surfaces:
 
 1. **VS Code extension host**
    - Registers views, commands, settings panels, webview providers, and runtime composition.
@@ -482,7 +482,7 @@ Important:
 
 # i18n enforcement — very important
 
-NexusCode uses `vi.json` as the TypeScript type master. Any user-facing UI text must go through the i18n system unless it is a deliberate technical/debug-only string.
+Nexus AI Code uses `vi.json` as the TypeScript type master. Any user-facing UI text must go through the i18n system unless it is a deliberate technical/debug-only string.
 
 Important files:
 

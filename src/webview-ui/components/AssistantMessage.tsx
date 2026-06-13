@@ -1,14 +1,14 @@
 import { memo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
+import { MarkdownRenderer } from './markdown/MarkdownRenderer';
+import type { CodeBlockActions } from './markdown/CodeBlockActionsContext';
 import { IconSparkle } from '../NexusIcons';
 import { useT, interp } from '../i18n';
 import { getVsCodeApi } from '../vscodeApi';
 import { PlanReadyCard } from './PlanReadyCard';
 import { MessageActions } from './MessageActions';
 import { EnhancedPromptModal } from './EnhancedPromptModal';
+import { StreamingStatusBar } from './StreamingStatusBar';
 
 interface Props {
   message: AssistantMsg;
@@ -80,7 +80,7 @@ function StatusPill({ message }: { message: AssistantMsg }) {
   if (message.isStreaming) {
     return (
       <span className="fl-pill fl-pill-running">
-        <span className="fl-spinner" style={{ width: 10, height: 10 }} />
+        <span className="fl-spinner nx-spinner-sm" />
         {t.agent.statusRunning}
       </span>
     );
@@ -100,7 +100,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   message,
   providerDetection = [],
   availableProviders = [],
-  conversationId,
+  conversationId: _conversationId,
   userMessageId,
   onFeedback,
   onRetry,
@@ -108,21 +108,28 @@ export const AssistantMessage = memo(function AssistantMessage({
   const t = useT();
   const [showPromptModal, setShowPromptModal] = useState(false);
 
+  const codeBlockActions: CodeBlockActions = {
+    onInsertIntoFile: (code, language) => {
+      getVsCodeApi().postMessage({ type: 'insertCodeIntoActiveFile', code, language });
+    },
+    onCreateFile: (code, language) => {
+      getVsCodeApi().postMessage({ type: 'createFileFromCode', code, language });
+    },
+    onRunCommand: (command) => {
+      getVsCodeApi().postMessage({ type: 'runCodeBlockCommand', command });
+    },
+    onSaveAsArtifact: (code, language) => {
+      // Will be wired in Phase 4 — noop until artifact save handler is added
+      console.debug('[Nexus] Save artifact:', language, code.slice(0, 30));
+    },
+  };
+
   const agentLabel = (t.agent.modeLabel as Record<string, string>)[message.mode] ?? message.mode;
   const meta = [message.providerLabel, message.model].filter(Boolean).join(' · ');
 
   const handleCopy = () => {
     const text = message.lines.filter(l => l.kind === 'stdout').map(l => l.text).join('\n');
-    try {
-      navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
+    navigator.clipboard.writeText(text).catch(() => { /* clipboard unavailable */ });
   };
 
   const handleRetry = (useCurrentSettings: boolean) => {
@@ -145,7 +152,7 @@ export const AssistantMessage = memo(function AssistantMessage({
             <span className="fl-asst-agent">· {agentLabel}</span>
           )}
           {meta && (
-            <span className="fl-asst-agent" style={{ marginLeft: 'auto', fontSize: '11px' }}>
+            <span className="fl-asst-agent nx-asst-meta">
               {meta}
             </span>
           )}
@@ -163,15 +170,10 @@ export const AssistantMessage = memo(function AssistantMessage({
             return (
               <div className="fl-text-block">
                 {stdoutText && (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeHighlight]}
-                  >
-                    {stdoutText}
-                  </ReactMarkdown>
+                  <MarkdownRenderer content={stdoutText} codeBlockActions={codeBlockActions} />
                 )}
                 {stderrLines.map((line, i) => (
-                  <span key={i} className="nx-line-stderr" style={{ display: 'block' }}>
+                  <span key={i} className="nx-line-stderr nx-line-stderr--block">
                     {line.text}
                   </span>
                 ))}
@@ -187,20 +189,25 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
 
           {message.errorText && (
-            <div style={{
-              marginTop: 6, padding: '7px 10px',
-              background: 'var(--colorPaletteRedBackground)',
-              border: '1px solid rgba(232,121,121,0.3)',
-              borderRadius: 'var(--borderRadiusLarge)',
-              color: 'var(--colorPaletteRedForeground1)',
-              fontSize: 12.5,
-            }}>
+            <div className="nx-asst-error-text">
               {message.errorText}
             </div>
           )}
 
-          <StatusPill message={message} />
+          {message.streamingStage != null
+            ? <StreamingStatusBar stage={message.streamingStage} label={message.streamingLabel} elapsed={message.elapsed} />
+            : <StatusPill message={message} />
+          }
         </div>
+
+        {!message.isStreaming && message.ragSources && message.ragSources.length > 0 && (
+          <div
+            className="nx-rag-badge"
+            title={message.ragSources.map(s => s.conversationTitle).join(', ')}
+          >
+            {interp(t.historySearch.ragBadge, { count: String(message.ragSources.length) })}
+          </div>
+        )}
 
         {!message.isStreaming && (
           <MessageActions
@@ -212,13 +219,14 @@ export const AssistantMessage = memo(function AssistantMessage({
           />
         )}
 
-        {message.planSaved && !message.isStreaming && (
+        {(message.pendingPlanApproval || message.planSaved) && !message.isStreaming && !message.rejectedPlan && (
           <PlanReadyCard
             mode={message.mode as TaskMode}
             model={message.model}
             planPath={message.planPath}
             providerDetection={providerDetection}
             availableProviders={availableProviders}
+            pendingApproval={message.pendingPlanApproval}
             onApply={(provider, model) => getVsCodeApi().postMessage({
               type: 'applyPlan',
               mode: message.mode as TaskMode,
@@ -233,7 +241,16 @@ export const AssistantMessage = memo(function AssistantMessage({
             onOpenSavedPlans={() => getVsCodeApi().postMessage({
               type: 'openSavedPlans',
             })}
+            onReject={message.pendingPlanApproval ? () => getVsCodeApi().postMessage({
+              type: 'rejectPlan',
+              planPath: message.planPath,
+            }) : undefined}
           />
+        )}
+        {message.rejectedPlan && (
+          <div className="nx-plan-rejected">
+            {(t.nexus as Record<string, string>).planRejectedNotice ?? 'Plan rejected — no changes will be made.'}
+          </div>
         )}
       </div>
 

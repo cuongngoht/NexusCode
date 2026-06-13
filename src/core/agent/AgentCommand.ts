@@ -1,4 +1,4 @@
-export type AgentTransport = 'sse' | 'jsonl' | 'plain' | 'stdio';
+export type AgentTransport = 'sse' | 'jsonl' | 'plain' | 'stdio' | 'grok' | 'antigravity';
 
 export class AgentCommand {
   constructor(

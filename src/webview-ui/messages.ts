@@ -10,8 +10,190 @@ import type {
   ProviderTokenSummary,
   TokenUsageSource,
 } from '../core/tokens/TokenUsage';
+import type { NexusStreamEvent } from '../core/stream/NexusStreamEvent';
 
 export type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary };
+
+// Mirror of src/analytics/AnalyticsTypes — keep in sync (webview bundle cannot import from extension-side)
+export type AnalyticsRunStatus = 'success' | 'failed' | 'stopped';
+export type AnalyticsFeedback = 'good' | 'bad' | 'none';
+
+export interface AnalyticsRunRecord {
+  id: string;
+  taskId: string;
+  conversationId?: string;
+  conversationTitle?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  workspacePath?: string;
+  provider: string;
+  providerLabel?: string;
+  model?: string;
+  mode: string;
+  agentId?: string;
+  skillIds?: string[];
+  status: AnalyticsRunStatus;
+  exitCode?: number;
+  errorMessage?: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  originalPromptTokens: number;
+  enhancedPromptTokens: number;
+  contextOverheadTokens: number;
+  estimatedInputCostUsd: number;
+  estimatedOutputCostUsd: number;
+  estimatedTotalCostUsd: number;
+  filesChanged: number;
+  linesAdded: number;
+  linesDeleted: number;
+  testsGenerated: number;
+  bugsFixed: number;
+  estimatedTimeSavedMinutes: number;
+  startedAt: number;
+  completedAt?: number;
+  latencyMs?: number;
+  feedback: AnalyticsFeedback;
+  feedbackReason?: string;
+  workflowName?: string;
+  workflowKey?: string;
+  promptHash?: string;
+}
+
+export interface AnalyticsQuery {
+  from?: number;
+  to?: number;
+  provider?: string;
+  model?: string;
+  mode?: string;
+  conversationId?: string;
+  workspaceId?: string;
+  status?: AnalyticsRunStatus;
+}
+
+export interface ProviderSummary {
+  provider: string;
+  totalRuns: number;
+  successRuns: number;
+  failedRuns: number;
+  stoppedRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  reliability: number;
+  avgLatencyMs: number;
+  confidenceLow: boolean;
+}
+
+export interface ModeSummary {
+  mode: string;
+  totalRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface ConversationSummary {
+  conversationId: string;
+  conversationTitle?: string;
+  totalRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface WorkspaceSummary {
+  workspaceId: string;
+  workspaceName?: string;
+  totalRuns: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface AgentSummary {
+  agentId: string;
+  totalRuns: number;
+}
+
+export interface SkillSummary {
+  skillId: string;
+  totalRuns: number;
+}
+
+export interface WorkflowSummary {
+  workflowKey: string;
+  workflowName?: string;
+  totalRuns: number;
+  estimatedCostUsd: number;
+}
+
+export interface AnalyticsDashboardSummary {
+  totalRuns: number;
+  successfulRuns: number;
+  failedRuns: number;
+  stoppedRuns: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalEstimatedCostUsd: number;
+  avgLatencyMs: number;
+  avgCostPerRun: number;
+  tasksCompleted: number;
+  filesChanged: number;
+  linesAdded: number;
+  linesDeleted: number;
+  testsGenerated: number;
+  bugsFixed: number;
+  estimatedTimeSavedMinutes: number;
+  acceptanceRate: number;
+  goodFeedbackCount: number;
+  badFeedbackCount: number;
+  byProvider: ProviderSummary[];
+  byMode: ModeSummary[];
+  byConversation: ConversationSummary[];
+  byWorkspace: WorkspaceSummary[];
+  mostUsedAgents: AgentSummary[];
+  mostUsedSkills: SkillSummary[];
+  mostExpensiveWorkflows: WorkflowSummary[];
+}
+
+export interface HistoryRagSourceView {
+  conversationId: string;
+  conversationTitle: string;
+  role: 'user' | 'assistant';
+  score: number;
+}
+
+export interface SubagentTraceItem {
+  role: string;
+  displayName?: string;
+  agentId?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt?: number;
+  completedAt?: number;
+  durationMs?: number;
+  confidence?: number;
+  findingCount?: number;
+  error?: string;
+}
+
+export interface SubagentTraceState {
+  runId: string;
+  items: SubagentTraceItem[];
+}
+
+// Mirror of src/git/structuredDiff types — keep in sync (no Node.js deps but kept local for bundle safety)
+export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'unknown';
+export interface DiffLine { type: 'context' | 'add' | 'remove'; oldLine?: number; newLine?: number; content: string; }
+export interface DiffHunk { id: string; oldStart: number; oldLines: number; newStart: number; newLines: number; header: string; lines: DiffLine[]; }
+export interface FileDiffSummary { path: string; oldPath?: string; status: DiffFileStatus; additions: number; deletions: number; hunks: DiffHunk[]; isBinary?: boolean; isTooLarge?: boolean; rawDiff?: string; }
+
+// Mirror of src/artifacts/ArtifactTypes — keep in sync
+export type ArtifactKind = 'file' | 'image' | 'chart' | 'markdown' | 'html' | 'json' | 'patch' | 'plan' | 'test-report' | 'log' | 'unknown';
+export interface ArtifactRef {
+  id: string; kind: ArtifactKind; title: string; path?: string; uri?: string; mimeType?: string;
+  sizeBytes?: number; createdAt: number; updatedAt?: number; sourceTaskId?: string;
+  sourceMessageId?: string; sourceConversationId?: string; previewable: boolean;
+  description?: string; tags?: string[];
+}
+export interface ArtifactPreviewData { artifactId: string; content?: string; mimeType?: string; truncated?: boolean; }
 
 // Mirror of src/core/types.ts — keep in sync (webview bundle cannot import from core)
 export type ProviderId = 'nexus' | 'codex' | 'claude' | 'antigravity' | 'copilot' | 'aider' | 'custom' | 'grok' | 'auto';
@@ -66,6 +248,9 @@ export interface GitReviewContext {
   message?: string;
 }
 
+const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const stripAnsi = (s: string): string => s.replace(ANSI_RE, '');
+
 let _seqSuffix = 0;
 const uid = (): string => `${Date.now()}-${++_seqSuffix}`;
 
@@ -95,6 +280,11 @@ function deriveTitle(prompt: string): string {
 }
 
 // ── Message types ─────────────────────────────────────────────────────────
+
+export type StreamingStage =
+  | 'queued' | 'planning' | 'researching' | 'reading'
+  | 'editing' | 'testing' | 'reviewing' | 'summarizing'
+  | 'completed' | 'failed' | 'stopped';
 
 export interface EnhancedPromptSection {
   title: string;
@@ -159,9 +349,26 @@ export interface AssistantMessage {
   enhancedPromptSnapshot?: EnhancedPromptSnapshot;
   planSaved?: boolean;
   planPath?: string;
+  pendingPlanApproval?: boolean;
+  approvedPlan?: boolean;
+  rejectedPlan?: boolean;
+  planPreview?: string;
   feedback?: MessageFeedback;
   retrySourceMessageId?: string;
   elapsed?: number;
+  streamingStage?: StreamingStage;
+  streamingLabel?: string;
+  ragSources?: { conversationId: string; conversationTitle: string; role: string; score: number }[];
+  // Optional metadata fields
+  actualProvider?: string;
+  fallbackChain?: string[];
+  routingReason?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  estimatedCostUsd?: number;
+  elapsedMs?: number;
+  taskId?: string;
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -267,6 +474,8 @@ export interface SkillMentionState {
   selectedIndex: number;
 }
 
+export type MainView = 'chat' | 'dashboard';
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -301,6 +510,8 @@ export interface AppState {
   compactError?: string;
   showCompactInfo: boolean;
   activeRunConversationId?: string;
+  artifacts: ArtifactRef[];
+  artifactPreview?: ArtifactPreviewData;
   pendingRetry?: {
     prompt: string;
     provider: ProviderId;
@@ -309,9 +520,20 @@ export interface AppState {
     sourceMessageId: string;
     useCurrentSettings: boolean;
   };
+  // Dashboard / analytics state
+  mainView: MainView;
+  analyticsSummary?: AnalyticsDashboardSummary;
+  analyticsRuns?: AnalyticsRunRecord[];
+  analyticsLoading: boolean;
+  analyticsError?: string;
+  // Auto-RAG state
+  historyRagEnabled: boolean;
+  lastRagContext?: { resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
+  // Subagent trace state
+  subagentTrace: SubagentTraceState | null;
 }
 
-export function createInitialState(): AppState {
+export function createInitialState(mainView: MainView = 'chat'): AppState {
   const conv = makeConversation();
   return {
     conversations: [conv],
@@ -347,7 +569,17 @@ export function createInitialState(): AppState {
     compactError: undefined,
     showCompactInfo: false,
     activeRunConversationId: undefined,
+    artifacts: [],
+    artifactPreview: undefined,
     pendingRetry: undefined,
+    mainView,
+    analyticsSummary: undefined,
+    analyticsRuns: undefined,
+    analyticsLoading: false,
+    analyticsError: undefined,
+    historyRagEnabled: true,
+    lastRagContext: undefined,
+    subagentTrace: null,
   };
 }
 
@@ -415,6 +647,8 @@ export type ExtMsg =
       usage: TokenRunUsage;
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
+  | { type: 'planReadyForApproval'; taskId: string; planPath?: string; plan: string; mode: string; model?: string }
+  | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
@@ -427,7 +661,34 @@ export type ExtMsg =
   | { type: 'skillPromptError'; message: string }
   | { type: 'compactStarted'; conversationId: string }
   | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
-  | { type: 'compactSummaryError'; conversationId: string; message: string };
+  | { type: 'compactSummaryError'; conversationId: string; message: string }
+  // Diff viewer messages
+  | { type: 'fileDiffLoaded'; path: string; diff: FileDiffSummary }
+  | { type: 'allDiffsLoaded'; diffs: FileDiffSummary[] }
+  | { type: 'fileDiffError'; path?: string; message: string }
+  | { type: 'gitDiffRefreshed'; changedFiles: GitFileChange[] }
+  // Artifact messages
+  | { type: 'artifactsListed'; artifacts: ArtifactRef[] }
+  | { type: 'artifactCreated'; artifact: ArtifactRef }
+  | { type: 'artifactPreviewLoaded'; artifactId: string; content?: string; uri?: string; mimeType?: string; truncated?: boolean }
+  | { type: 'artifactDeleted'; artifactId: string }
+  | { type: 'artifactError'; artifactId?: string; message: string }
+  // Analytics messages
+  | { type: 'analyticsSummary'; summary: AnalyticsDashboardSummary }
+  | { type: 'analyticsRuns'; runs: AnalyticsRunRecord[] }
+  | { type: 'analyticsExported'; path: string }
+  | { type: 'analyticsError'; message: string }
+  // Nexus native streaming protocol
+  | { type: 'nexusStreamEvent'; event: NexusStreamEvent }
+  // History RAG messages
+  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] }
+  // Subagent trace messages
+  | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
+  | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
+  | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
+  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } };
+
+export type { NexusStreamEvent };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -464,7 +725,15 @@ export type AppAction =
   | { type: 'clearHistorySaveError' }
   | { type: 'clearHistoryTrimmed' }
   | { type: 'clearCompactError' }
-  | { type: 'appendOutputBatch'; chunks: Array<{ type: 'stdout' | 'stderr'; chunk: string }> };
+  | { type: 'appendOutputBatch'; chunks: Array<{ type: 'stdout' | 'stderr'; chunk: string }> }
+  | { type: 'setMainView'; view: MainView }
+  | { type: 'analyticsLoading' }
+  | { type: 'analyticsSummaryReceived'; summary: AnalyticsDashboardSummary }
+  | { type: 'analyticsRunsReceived'; runs: AnalyticsRunRecord[] }
+  | { type: 'analyticsErrorReceived'; message: string }
+  | { type: 'clearAnalyticsError' }
+  // History RAG actions
+  | { type: 'toggleHistoryRag' };
 
 // ── Conversation context (mirrors src/context/conversationContext.ts) ────────
 
@@ -677,7 +946,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       } satisfies UserMessage;
     }
     const lines = m.content
-      ? m.content.split('\n').filter(l => l.trim()).map(text => ({ kind: 'stdout' as const, text }))
+      ? m.content.split('\n').map(stripAnsi).map(text => ({ kind: 'stdout' as const, text }))
       : [];
     return {
       id: m.id,
@@ -768,6 +1037,36 @@ function completeRunningActivities(conv: Conversation): Conversation {
   }));
 }
 
+// ── Streaming stage helpers ───────────────────────────────────────────────
+
+function stageFromActivityKind(kind: string, label: string): StreamingStage {
+  const TEST_RE = /\b(test|spec|vitest|jest|pytest|cargo\s+test|go\s+test)\b/i;
+  if (kind === 'read') return 'reading';
+  if (kind === 'search') return 'researching';
+  if (kind === 'write' || kind === 'edit') return 'editing';
+  if (kind === 'bash') return TEST_RE.test(label) ? 'testing' : 'editing';
+  return 'editing';
+}
+
+function stageFromStepLabel(label: string): StreamingStage {
+  const l = label.toLowerCase();
+  if (l.includes('research')) return 'researching';
+  if (l.includes('scan') || l.includes('read')) return 'reading';
+  if (l.includes('review')) return 'reviewing';
+  if (l.includes('summar')) return 'summarizing';
+  return 'planning';
+}
+
+function setStreamingStage(conv: Conversation, stage: StreamingStage, label?: string): Conversation {
+  const msgs = conv.messages.map(m => {
+    if (m.role === 'assistant' && (m as AssistantMessage).isStreaming) {
+      return { ...m, streamingStage: stage, streamingLabel: label } as AssistantMessage;
+    }
+    return m;
+  });
+  return { ...conv, messages: msgs };
+}
+
 // ── Reducer ───────────────────────────────────────────────────────────────
 
 const MAX_LINES = 2000;
@@ -781,6 +1080,24 @@ function truncateLines(lines: OutputLine[]): OutputLine[] {
     { kind: 'stdout' as const, text: `[... ${dropped} earlier lines hidden ...]` },
     ...lines.slice(lines.length - TRUNCATE_TO),
   ];
+}
+
+/**
+ * Split a raw chunk into clean OutputLines.
+ * Drops the trailing empty entry that split('\n') adds when chunk ends with \n.
+ * This prevents a spurious blank line at the end of every chunk while still
+ * preserving intentional internal blank lines (e.g. "a\n\nb").
+ */
+function splitChunkToLines(chunk: string, kind: 'stdout' | 'stderr'): OutputLine[] {
+  let parts = chunk.split('\n').map(stripAnsi);
+  if (parts.length > 1 && parts[parts.length - 1] === '') {
+    parts = parts.slice(0, -1);
+  }
+  if (kind === 'stderr') {
+    parts = parts.filter(l => l.trim());
+  }
+  // stdout: keep internal blanks for faithful console output
+  return parts.map(text => ({ kind, text }));
 }
 
 export function reducer(state: AppState, action: AppAction): AppState {
@@ -978,10 +1295,10 @@ export function reducer(state: AppState, action: AppAction): AppState {
       if (!state.isRunning) return state;
       const allNewLines: OutputLine[] = [];
       for (const item of action.chunks) {
-        const lines = item.chunk.split('\n').filter(l => l.trim());
-        allNewLines.push(...lines.map(text => ({ kind: item.type as 'stdout' | 'stderr', text })));
+        const lines = splitChunkToLines(item.chunk, item.type);
+        allNewLines.push(...lines);
       }
-      if (allNewLines.length === 0) return state;
+      if (allNewLines.every(l => !l.text.trim())) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
@@ -989,6 +1306,28 @@ export function reducer(state: AppState, action: AppAction): AppState {
         })),
       );
     }
+
+    case 'setMainView':
+      return { ...state, mainView: action.view };
+
+    case 'analyticsLoading':
+      return { ...state, analyticsLoading: true, analyticsError: undefined };
+
+    case 'analyticsSummaryReceived':
+      return { ...state, analyticsSummary: action.summary, analyticsLoading: false };
+
+    case 'analyticsRunsReceived':
+      return { ...state, analyticsRuns: action.runs, analyticsLoading: false };
+
+    case 'analyticsErrorReceived':
+      return { ...state, analyticsError: action.message, analyticsLoading: false };
+
+    case 'clearAnalyticsError':
+      return { ...state, analyticsError: undefined };
+
+    // History RAG actions
+    case 'toggleHistoryRag':
+      return { ...state, historyRagEnabled: !state.historyRagEnabled };
 
     case 'extMsg':
       return applyExtMsg(state, action.msg);
@@ -999,6 +1338,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
   switch (msg.type) {
     case 'stepStarted': {
       const newStep: PipelineStep = { label: msg.stepLabel, status: 'running', activities: [] };
+      const stepStage = stageFromStepLabel(msg.stepLabel);
       if (msg.stepIndex === 0) {
         // First step: create the AssistantMessage shell
         const assistantMsg: AssistantMessage = {
@@ -1011,6 +1351,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           isStreaming: true,
           timestamp: Date.now(),
           steps: [newStep],
+          streamingStage: stepStage,
         };
         return {
           ...updateConversationById(state, getRunConvId(state), conv => ({
@@ -1023,12 +1364,15 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           elapsed: 0,
         };
       }
-      // Subsequent steps: add to existing streaming message
+      // Subsequent steps: add to existing streaming message and update stage
       return updateConversationById(state, getRunConvId(state), conv =>
-        updateLastAssistant(conv, m => ({
-          ...m,
-          steps: [...m.steps, newStep],
-        })),
+        setStreamingStage(
+          updateLastAssistant(conv, m => ({
+            ...m,
+            steps: [...m.steps, newStep],
+          })),
+          stepStage,
+        ),
       );
     }
 
@@ -1076,18 +1420,23 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         };
       }
 
-      // Pipeline mode: AssistantMessage already created by stepStarted — update with snapshot
+      // Pipeline mode: AssistantMessage already created by stepStarted — update with snapshot + taskId
       if (lastMsg?.role === 'assistant' && (lastMsg as AssistantMessage).isStreaming) {
         return {
           ...updateConversationById(state, runConvId, conv =>
-            updateLastAssistant(conv, m => ({
-              ...m,
-              enhancedPrompt: msg.enhancedPrompt,
-              enhancedPromptSnapshot: snapshot,
-            })),
+            setStreamingStage(
+              updateLastAssistant(conv, m => ({
+                ...m,
+                taskId: msg.taskId,
+                enhancedPrompt: msg.enhancedPrompt,
+                enhancedPromptSnapshot: snapshot,
+              })),
+              'planning',
+            ),
           ),
           isRunning: true,
           elapsed: 0,
+          subagentTrace: null,
         };
       }
       // Direct (non-pipeline) mode: create AssistantMessage now
@@ -1101,8 +1450,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         isStreaming: true,
         timestamp: Date.now(),
         steps: [],
+        taskId: msg.taskId,
         enhancedPrompt: msg.enhancedPrompt,
         enhancedPromptSnapshot: snapshot,
+        streamingStage: 'planning',
       };
       return {
         ...updateConversationById(state, runConvId, conv => ({
@@ -1113,17 +1464,19 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         })),
         isRunning: true,
         elapsed: 0,
+        subagentTrace: null,
       };
     }
 
     case 'stdout': {
       // Drop chunks that arrive after the task has already ended (race condition on stop)
       if (!state.isRunning) return state;
-      const lines = msg.chunk.split('\n').filter(l => l.trim());
+      const lines = splitChunkToLines(msg.chunk, 'stdout');
+      if (lines.every(l => !l.text.trim())) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
-          lines: truncateLines([...m.lines, ...lines.map(text => ({ kind: 'stdout' as const, text }))]),
+          lines: truncateLines([...m.lines, ...lines]),
         })),
       );
     }
@@ -1131,32 +1484,35 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'stderr': {
       // Drop chunks that arrive after the task has already ended (race condition on stop)
       if (!state.isRunning) return state;
-      const lines = msg.chunk.split('\n').filter(l => l.trim());
+      const lines = splitChunkToLines(msg.chunk, 'stderr');
+      if (lines.length === 0) return state;
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({
           ...m,
-          lines: truncateLines([...m.lines, ...lines.map(text => ({ kind: 'stderr' as const, text }))]),
+          lines: truncateLines([...m.lines, ...lines]),
         })),
       );
     }
 
-    case 'taskCompleted':
+    case 'taskCompleted': {
+      const completedStage: StreamingStage = msg.exitCode === 0 ? 'completed' : 'failed';
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode, elapsed: state.elapsed })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, exitCode: msg.exitCode, elapsed: state.elapsed, streamingStage: completedStage, streamingLabel: undefined })),
           )),
         ),
         isRunning: false,
         isStopping: false,
         saveKey: state.saveKey + 1,
       };
+    }
 
     case 'taskStopped':
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, elapsed: state.elapsed })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, elapsed: state.elapsed, streamingStage: 'stopped' as StreamingStage, streamingLabel: undefined })),
           )),
         ),
         isRunning: false,
@@ -1168,7 +1524,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return {
         ...updateConversationById(state, getRunConvId(state), conv =>
           touchConversation(completeRunningActivities(
-            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message, elapsed: state.elapsed })),
+            updateLastAssistant(conv, m => ({ ...m, isStreaming: false, errorText: msg.message, elapsed: state.elapsed, streamingStage: 'failed' as StreamingStage, streamingLabel: undefined })),
           )),
         ),
         isRunning: false,
@@ -1185,15 +1541,20 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'activityStarted': {
       const newActivity: Activity = { kind: msg.activityKind, status: 'running', label: msg.label };
+      const actStage = stageFromActivityKind(msg.activityKind, msg.label);
       return updateConversationById(state, getRunConvId(state), conv =>
-        updateLastAssistant(conv, m => {
-          const steps = m.steps.map((s, i) =>
-            i === m.steps.length - 1 && s.status === 'running'
-              ? { ...s, activities: [...s.activities, newActivity] }
-              : s,
-          );
-          return { ...m, steps };
-        }),
+        setStreamingStage(
+          updateLastAssistant(conv, m => {
+            const steps = m.steps.map((s, i) =>
+              i === m.steps.length - 1 && s.status === 'running'
+                ? { ...s, activities: [...s.activities, newActivity] }
+                : s,
+            );
+            return { ...m, steps };
+          }),
+          actStage,
+          msg.label,
+        ),
       );
     }
 
@@ -1283,6 +1644,30 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         updateLastAssistant(conv, m => ({ ...m, planSaved: true, planPath: msg.planPath })),
       );
 
+    case 'planReadyForApproval':
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          isStreaming: false,
+          planSaved: true,
+          planPath: msg.planPath,
+          pendingPlanApproval: true,
+          planPreview: msg.plan,
+          taskId: msg.taskId,
+          streamingStage: 'completed' as StreamingStage,
+          streamingLabel: undefined,
+        })),
+      );
+
+    case 'planRejected':
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          pendingPlanApproval: false,
+          rejectedPlan: true,
+        })),
+      );
+
     case 'mcpStatus':
       return {
         ...state,
@@ -1332,6 +1717,109 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'compactSummaryError':
       return { ...state, isCompacting: false, compactError: msg.message };
+
+    case 'artifactsListed':
+      return { ...state, artifacts: msg.artifacts };
+
+    case 'artifactCreated':
+      return { ...state, artifacts: [msg.artifact, ...state.artifacts.filter(a => a.id !== msg.artifact.id)] };
+
+    case 'artifactDeleted':
+      return { ...state, artifacts: state.artifacts.filter(a => a.id !== msg.artifactId) };
+
+    case 'artifactPreviewLoaded':
+      return {
+        ...state,
+        artifactPreview: {
+          artifactId: msg.artifactId,
+          content: msg.content,
+          mimeType: msg.mimeType,
+          truncated: msg.truncated,
+        },
+      };
+
+    // Diff viewer messages — these are request/response, no state to update at top level
+    case 'fileDiffLoaded':
+    case 'allDiffsLoaded':
+    case 'fileDiffError':
+    case 'gitDiffRefreshed':
+    case 'artifactError':
+      return state;
+
+    case 'analyticsSummary':
+      return { ...state, analyticsSummary: msg.summary, analyticsLoading: false };
+
+    case 'analyticsRuns':
+      return { ...state, analyticsRuns: msg.runs, analyticsLoading: false };
+
+    case 'analyticsExported':
+      // Path is shown via VS Code notification from the handler; no state change needed
+      return state;
+
+    case 'analyticsError':
+      return { ...state, analyticsError: msg.message, analyticsLoading: false };
+
+    case 'nexusStreamEvent':
+      // Handled directly in App.tsx via streamStore.dispatch() — reducer is a no-op
+      return state;
+
+    case 'historyRagContextUsed':
+      return {
+        ...state,
+        lastRagContext: { resultCount: msg.resultCount, totalChars: msg.totalChars, sources: msg.sources },
+        conversations: state.conversations.map(conv =>
+          conv.id !== state.activeConvId ? conv : {
+            ...conv,
+            messages: conv.messages.map((m, i) =>
+              i === conv.messages.length - 1 && m.role === 'assistant'
+                ? { ...m, ragSources: msg.sources }
+                : m
+            ),
+          }
+        ),
+      };
+
+    case 'subagentStarted': {
+      const { runId, role, agentId, displayName } = msg;
+      const existing = state.subagentTrace;
+      const newItem: SubagentTraceItem = {
+        role, displayName, agentId,
+        status: 'running', startedAt: Date.now(),
+      };
+      if (existing && existing.runId === runId) {
+        const items = [...existing.items];
+        const idx = items.findIndex(i => i.role === role);
+        if (idx >= 0) items[idx] = newItem; else items.push(newItem);
+        return { ...state, subagentTrace: { runId, items } };
+      }
+      return { ...state, subagentTrace: { runId, items: [newItem] } };
+    }
+
+    case 'subagentCompleted': {
+      const { runId, role, agentId, durationMs, confidence, findingCount } = msg;
+      if (!state.subagentTrace || state.subagentTrace.runId !== runId) return state;
+      const items = state.subagentTrace.items.map(item =>
+        item.role === role
+          ? { ...item, status: 'completed' as const, completedAt: Date.now(), durationMs, confidence, findingCount, agentId: agentId ?? item.agentId }
+          : item
+      );
+      return { ...state, subagentTrace: { runId, items } };
+    }
+
+    case 'subagentFailed': {
+      const { runId, role, error, durationMs } = msg;
+      if (!state.subagentTrace || state.subagentTrace.runId !== runId) return state;
+      const items = state.subagentTrace.items.map(item =>
+        item.role === role
+          ? { ...item, status: 'failed' as const, completedAt: Date.now(), durationMs, error }
+          : item
+      );
+      return { ...state, subagentTrace: { runId, items } };
+    }
+
+    case 'subagentSynthesis':
+      // Synthesis event updates the summary; trace state is already built from individual agent events.
+      return state;
   }
   return state;
 }

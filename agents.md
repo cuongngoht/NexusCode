@@ -1,6 +1,6 @@
-# NexusCode — Agent Architecture
+# Nexus AI Code — Agent Architecture
 
-> **Project**: `nexus-code` v0.1.5 — VS Code Extension (engine ≥ 1.85.0)
+> **Project**: `nexus-ai-code` v0.1.5 — VS Code Extension (engine ≥ 1.85.0)
 >
 > **What it does**: A chat panel inside VS Code that routes user prompts to any installed CLI coding agent (Claude Code, Codex CLI, Gemini CLI, Copilot CLI, Aider, Custom). The extension spawns the CLI as a child process, streams output back to the webview in real time, and persists conversation history per workspace.
 
@@ -854,7 +854,7 @@ npm run test:webview         # Vitest (reducer, parsers, domain)
 
 # Package for distribution:
 npx @vscode/vsce package --no-dependencies
-code --install-extension nexus-code-<version>.vsix
+code --install-extension nexus-ai-code-<version>.vsix
 ```
 
 **Before every commit**: `npm run compile` must exit zero errors.

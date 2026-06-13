@@ -33,8 +33,12 @@ import type { ChatHistoryState } from '../../core/chat/ChatHistory';
 import type { SubagentOrchestrator, SubagentRunConfig } from '../../application/subagents/SubagentOrchestrator';
 import type { SubagentPlanConfig } from '../../application/subagents/SubagentPlanner';
 import { SubagentSummary } from '../../application/subagents/SubagentSummary';
+import { classifySubagentIntent } from '../../application/subagents/SubagentIntentClassifier';
+import type { SubagentMode, SubagentPreset } from '../../config/NexusConfig';
 import { loadResearchContext } from '../../context/research/researchFolderLoader';
 import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
+import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
+import type { HistoryRagSourceView } from '../../context/history-search/types';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -55,6 +59,7 @@ export class RunTaskHandler {
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly extensionPath: string,
     private readonly subagentOrchestrator?: SubagentOrchestrator,
+    private readonly historyRagFacade?: HistoryRagFacade,
   ) {}
 
   hasActive(): boolean {
@@ -112,6 +117,41 @@ export class RunTaskHandler {
       }
     }
 
+    // Inject history RAG context if enabled
+    const ragCfg = vscode.workspace.getConfiguration('nexus');
+    const ragEnabled = ragCfg.get<boolean>('historyRag.enabled', true);
+    if (ragEnabled && this.historyRagFacade && latestHistory) {
+      try {
+        const { ragContext, results } = await this.historyRagFacade.buildRagForPrompt(
+          effectivePrompt,
+          latestHistory,
+          {
+            maxResults: ragCfg.get<number>('historyRag.maxResults', 5),
+            maxChars: ragCfg.get<number>('historyRag.maxChars', 6000),
+            minScore: ragCfg.get<number>('historyRag.minScore', 1.25),
+          },
+        );
+        if (ragContext) {
+          ctx.conversationContext = ragContext +
+            (ctx.conversationContext ? '\n\n' + ctx.conversationContext : '');
+          const ragSources: HistoryRagSourceView[] = results.map(r => ({
+            conversationId: r.document.conversationId,
+            conversationTitle: r.document.title,
+            role: r.document.role,
+            score: r.score,
+          }));
+          this.post({
+            type: 'historyRagContextUsed',
+            resultCount: results.length,
+            totalChars: ragContext.length,
+            sources: ragSources,
+          });
+        }
+      } catch {
+        // Non-blocking: RAG failure must not prevent the task from running
+      }
+    }
+
     this._pipelineActive = true;
     try {
       if (providerId === 'nexus') {
@@ -121,20 +161,39 @@ export class RunTaskHandler {
         await this.orchestrator.run(ctx, 'auto');
       } else {
         const preSteps = createPreSteps(mode, {
-          buildProjectMap: this.buildProjectMap,
           extensionPath: this.extensionPath,
         });
 
         const subagentCfg = vscode.workspace.getConfiguration('nexus');
+        const subagentMode = subagentCfg.get<SubagentMode>('subagents.mode', 'auto');
         const subagentsOn = subagentsEnabled
           && !!this.subagentOrchestrator
-          && subagentCfg.get<boolean>('subagents.enabled', false);
+          && subagentCfg.get<boolean>('subagents.enabled', false)
+          && subagentMode !== 'off';
+
+        const baseMaxRuns = subagentCfg.get<number>('subagents.maxRuns', 4);
+        const modeMaxRunsKey = `subagents.${mode}.maxRuns`;
+        const modeMaxRuns = subagentCfg.get<number | undefined>(modeMaxRunsKey, undefined);
+        const effectiveMaxRuns = modeMaxRuns ?? baseMaxRuns;
+
+        const intent = classifySubagentIntent({
+          prompt: effectivePrompt,
+          mode,
+        });
 
         const planCfg: SubagentPlanConfig = {
           mode,
-          maxRuns: subagentCfg.get<number>('subagents.maxRuns', 4),
+          subagentMode,
+          preset: subagentCfg.get<SubagentPreset>('subagents.preset', 'balanced'),
+          maxRuns: effectiveMaxRuns,
+          maxParallel: subagentCfg.get<number>('subagents.maxParallel', 2),
+          hardCap: subagentCfg.get<number>('subagents.hardCap', 6),
           includeSecurity: subagentCfg.get<boolean>('subagents.includeSecurity', false),
           includeDocs: subagentCfg.get<boolean>('subagents.includeDocs', false),
+          includeReviewer: subagentCfg.get<boolean>('subagents.includeReviewer', true),
+          includeTester: subagentCfg.get<boolean>('subagents.includeTester', true),
+          selectedRoles: subagentCfg.get<string[]>('subagents.selectedRoles', []),
+          intent,
         };
 
         const subagentCount = subagentsOn
@@ -148,8 +207,16 @@ export class RunTaskHandler {
 
         if (subagentsOn && subagentCount > 0) {
           const runCfg: SubagentRunConfig = {
-            ...planCfg,
+            mode,
+            maxRuns: effectiveMaxRuns,
+            includeSecurity: subagentCfg.get<boolean>('subagents.includeSecurity', false),
+            includeDocs: subagentCfg.get<boolean>('subagents.includeDocs', false),
             maxCharsPerResult: 6000,
+            maxParallel: subagentCfg.get<number>('subagents.maxParallel', 2),
+            failOpen: subagentCfg.get<boolean>('subagents.failOpen', true),
+            timeoutMs: subagentCfg.get<number>('subagents.timeoutMs', 30000),
+            injectMaxChars: subagentCfg.get<number>('subagents.injectMaxChars', 8000),
+            intent,
           };
           const subResults = await this.subagentOrchestrator!.run(
             ctx,
@@ -187,20 +254,7 @@ export class RunTaskHandler {
       return;
     }
 
-    const approvedPlanPrompt = [
-      'Apply the following approved implementation plan.',
-      '',
-      'Rules:',
-      '- Follow the plan as closely as possible.',
-      '- Do not introduce unrelated changes.',
-      '- Before editing, inspect the relevant files.',
-      '- If the plan is impossible or unsafe, stop and explain why.',
-      '- After editing, summarize changed files and verification steps.',
-      '',
-      '<approved_plan>',
-      plan,
-      '</approved_plan>',
-    ].join('\n');
+    const approvedPlanPrompt = NexusPlanStore.buildApprovedPlanPrompt(plan);
 
     const effectiveProvider: ProviderId = providerId ?? 'nexus';
 
@@ -282,6 +336,10 @@ export class RunTaskHandler {
     }
 
     await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(runsDir));
+  }
+
+  async rejectPlan(planPath?: string): Promise<void> {
+    this.post({ type: 'planRejected', planPath });
   }
 
   // ─── Private pipeline helpers ──────────────────────────────────────────────
@@ -389,7 +447,8 @@ export class RunTaskHandler {
     }
 
     if (ctx.subagentResults && ctx.subagentResults.length > 0) {
-      const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults);
+      const injectMaxChars = vscode.workspace.getConfiguration('nexus').get<number>('subagents.injectMaxChars', 8000);
+      const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults, { maxChars: injectMaxChars });
       if (block) prompt = `${prompt}\n\n${block}`;
     }
 

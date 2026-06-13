@@ -5,44 +5,100 @@ type Locale = 'vi' | 'en';
 
 const STRINGS = {
   vi: {
-    title: 'Giới thiệu Nexus Code',
-    desc: 'Giao diện chat định tuyến prompt đến các CLI coding agent đã cài.',
+    title: 'Giới thiệu Nexus AI Code',
+    desc: 'Giao diện chat mã nguồn mở, định tuyến prompt đến các CLI coding agent đã cài.',
+    repoLabel: 'Mã nguồn trên GitHub',
     sectionAuthor: 'Tác giả',
     sectionSponsors: 'Nhà tài trợ',
     sponsorBadge: 'Nhà tài trợ',
     sponsorKhamPhaDesc: 'Đồng hành và hỗ trợ phát triển dự án',
     sectionOss: 'Mã nguồn mở',
-    ossReact: 'Thư viện UI',
-    ossFluentUi: 'Hệ thống thiết kế của Microsoft',
-    ossVscodeApi: 'Nền tảng extension của Microsoft',
-    ossCommander: 'Framework CLI',
-    ossZod: 'Validation schema',
-    ossVite: 'Công cụ build frontend',
+    ossRuntime: 'runtime',
+    ossDevDependency: 'dev',
   },
   en: {
-    title: 'About Nexus Code',
-    desc: 'A chat cockpit that routes prompts to installed CLI coding agents.',
+    title: 'About Nexus AI Code',
+    desc: 'An open-source chat cockpit that routes prompts to installed CLI coding agents.',
+    repoLabel: 'View source on GitHub',
     sectionAuthor: 'Author',
     sectionSponsors: 'Sponsors',
     sponsorBadge: 'Sponsor',
     sponsorKhamPhaDesc: 'Supporting project development',
     sectionOss: 'Open Source',
-    ossReact: 'UI component library',
-    ossFluentUi: 'Microsoft design system',
-    ossVscodeApi: 'Extension platform by Microsoft',
-    ossCommander: 'CLI framework',
-    ossZod: 'Schema validation',
-    ossVite: 'Frontend build tool',
+    ossRuntime: 'runtime',
+    ossDevDependency: 'dev',
   },
 } satisfies Record<Locale, Record<string, string>>;
+
+type PackageKind = 'runtime' | 'dev';
+
+const OSS_PACKAGES: Array<{ name: string; kind: PackageKind }> = [
+  { name: '@fluentui/react-components', kind: 'runtime' },
+  { name: '@fluentui/react-icons', kind: 'runtime' },
+  { name: '@modelcontextprotocol/sdk', kind: 'runtime' },
+  { name: 'commander', kind: 'runtime' },
+  { name: 'gpt-tokenizer', kind: 'runtime' },
+  { name: 'mermaid', kind: 'runtime' },
+  { name: 'react', kind: 'runtime' },
+  { name: 'react-dom', kind: 'runtime' },
+  { name: 'react-markdown', kind: 'runtime' },
+  { name: 'rehype-highlight', kind: 'runtime' },
+  { name: 'rehype-sanitize', kind: 'runtime' },
+  { name: 'remark-gfm', kind: 'runtime' },
+  { name: 'zod', kind: 'runtime' },
+  { name: '@testing-library/react', kind: 'dev' },
+  { name: '@types/node', kind: 'dev' },
+  { name: '@types/react', kind: 'dev' },
+  { name: '@types/react-dom', kind: 'dev' },
+  { name: '@types/vscode', kind: 'dev' },
+  { name: '@vitejs/plugin-react', kind: 'dev' },
+  { name: 'esbuild', kind: 'dev' },
+  { name: 'jsdom', kind: 'dev' },
+  { name: 'typescript', kind: 'dev' },
+  { name: 'vite', kind: 'dev' },
+  { name: 'vitest', kind: 'dev' },
+];
 
 function resolveLocale(): Locale {
   return vscode.env.language.startsWith('vi') ? 'vi' : 'en';
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function getAboutHtml(webview: vscode.Webview): string {
   const nonce = crypto.randomBytes(16).toString('hex');
   const s = STRINGS[resolveLocale()];
+  const projectLicenseItem = /* html */`
+      <li class="oss-item oss-item-first">
+        <div class="oss-left">
+          <span class="oss-name">Nexus AI Code</span>
+          <a class="github-link" href="https://github.com/cuongngoht/NexusCode" target="_blank" rel="noopener">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            github.com/cuongngoht/NexusCode
+          </a>
+        </div>
+        <span class="oss-license">MIT</span>
+      </li>`;
+  const packageItems = OSS_PACKAGES
+    .map((pkg) => {
+      const label = pkg.kind === 'runtime' ? s.ossRuntime : s.ossDevDependency;
+      return /* html */`
+      <li class="oss-item">
+        <div class="oss-left">
+          <span class="oss-name">${escapeHtml(pkg.name)}</span>
+        </div>
+        <span class="oss-license">${escapeHtml(label)}</span>
+      </li>`;
+    })
+    .join('');
+  const ossItems = projectLicenseItem + packageItems;
 
   const csp = [
     `default-src 'none'`,
@@ -272,14 +328,31 @@ export function getAboutHtml(webview: vscode.Webview): string {
       letter-spacing: 0.03em;
       flex-shrink: 0;
     }
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8em;
+      color: var(--vscode-textLink-foreground);
+      text-decoration: none;
+      margin-top: 4px;
+    }
+    .github-link:hover { text-decoration: underline; }
+    .oss-item-first {
+      background: var(--vscode-list-hoverBackground, var(--vscode-sideBar-background, var(--vscode-editor-background)));
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <span class="logo">NEXUS CODE</span>
+    <span class="logo">NEXUS AI CODE</span>
     <span class="version">v1.0.8</span>
   </div>
   <p class="desc">${s.desc}</p>
+  <a class="github-link" href="https://github.com/cuongngoht/NexusCode" target="_blank" rel="noopener">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    ${s.repoLabel}
+  </a>
 
   <div class="section">
     <p class="section-label">${s.sectionAuthor}</p>
@@ -325,48 +398,7 @@ export function getAboutHtml(webview: vscode.Webview): string {
   <div class="section">
     <p class="section-label">${s.sectionOss}</p>
     <ul class="oss-list">
-      <li class="oss-item">
-        <div class="oss-left">
-          <span class="oss-name">React 19</span>
-          <span class="oss-desc">${s.ossReact}</span>
-        </div>
-        <span class="oss-license">MIT</span>
-      </li>
-      <li class="oss-item">
-        <div class="oss-left">
-          <span class="oss-name">Fluent UI React v9</span>
-          <span class="oss-desc">${s.ossFluentUi}</span>
-        </div>
-        <span class="oss-license">MIT</span>
-      </li>
-      <li class="oss-item">
-        <div class="oss-left">
-          <span class="oss-name">VS Code Extension API</span>
-          <span class="oss-desc">${s.ossVscodeApi}</span>
-        </div>
-        <span class="oss-license">MIT</span>
-      </li>
-      <li class="oss-item">
-        <div class="oss-left">
-          <span class="oss-name">Commander</span>
-          <span class="oss-desc">${s.ossCommander}</span>
-        </div>
-        <span class="oss-license">MIT</span>
-      </li>
-      <li class="oss-item">
-        <div class="oss-left">
-          <span class="oss-name">Zod</span>
-          <span class="oss-desc">${s.ossZod}</span>
-        </div>
-        <span class="oss-license">MIT</span>
-      </li>
-      <li class="oss-item">
-        <div class="oss-left">
-          <span class="oss-name">Vite</span>
-          <span class="oss-desc">${s.ossVite}</span>
-        </div>
-        <span class="oss-license">MIT</span>
-      </li>
+      ${ossItems}
     </ul>
   </div>
 

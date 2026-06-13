@@ -1,5 +1,6 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
 import type { PromptAttachment } from '../core/types';
+import type { NexusStreamEvent } from '../core/stream/NexusStreamEvent';
 import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
@@ -7,6 +8,10 @@ import type { AgentModeCapability, AgentRecommendation } from '../application/ne
 import type { McpPresetStatusView } from '../mcp/McpTypes';
 import type { AgentPrompt } from '../context/agentPromptLibrary';
 import type { SkillPrompt } from '../context/skillPromptLibrary';
+import type { FileDiffSummary } from '../git/structuredDiff';
+import type { ArtifactRef } from '../artifacts/ArtifactTypes';
+import type { AnalyticsDashboardSummary, AnalyticsRunRecord, AnalyticsQuery, AnalyticsFeedback } from '../analytics/AnalyticsTypes';
+import type { HistorySearchResultView, HistoryRagSourceView } from '../context/history-search/types';
 
 export type { PromptAttachment };
 
@@ -52,6 +57,8 @@ export type ExtensionMessage =
       usage: TokenRunUsage;
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
+  | { type: 'planReadyForApproval'; taskId: string; planPath?: string; plan: string; mode: string; model?: string }
+  | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
   | { type: 'workspaceFiles'; files: string[] }
@@ -65,7 +72,37 @@ export type ExtensionMessage =
   | { type: 'skillPromptError'; message: string }
   | { type: 'compactStarted'; conversationId: string }
   | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
-  | { type: 'compactSummaryError'; conversationId: string; message: string };
+  | { type: 'compactSummaryError'; conversationId: string; message: string }
+  // Diff viewer messages
+  | { type: 'fileDiffLoaded'; path: string; diff: FileDiffSummary }
+  | { type: 'allDiffsLoaded'; diffs: FileDiffSummary[] }
+  | { type: 'fileDiffError'; path?: string; message: string }
+  | { type: 'gitDiffRefreshed'; changedFiles: GitFileChange[] }
+  // Artifact messages
+  | { type: 'artifactsListed'; artifacts: ArtifactRef[] }
+  | { type: 'artifactCreated'; artifact: ArtifactRef }
+  | { type: 'artifactPreviewLoaded'; artifactId: string; content?: string; uri?: string; mimeType?: string; truncated?: boolean }
+  | { type: 'artifactDeleted'; artifactId: string }
+  | { type: 'artifactError'; artifactId?: string; message: string }
+  // Analytics messages
+  | { type: 'analyticsSummary'; summary: AnalyticsDashboardSummary }
+  | { type: 'analyticsRuns'; runs: AnalyticsRunRecord[] }
+  | { type: 'analyticsExported'; path: string }
+  | { type: 'analyticsError'; message: string }
+  // Nexus native streaming protocol
+  | { type: 'nexusStreamEvent'; event: NexusStreamEvent }
+  // History search messages (posted by HistorySearchHandler — received but not displayed by webview)
+  | { type: 'historySearchResults'; query: string; results: HistorySearchResultView[] }
+  | { type: 'historySearchIndexReady'; documentCount: number; builtAt: number }
+  | { type: 'historySearchIndexCleared' }
+  | { type: 'historySearchError'; message: string }
+  // History RAG messages
+  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] }
+  // Subagent trace messages
+  | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
+  | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
+  | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
+  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -82,6 +119,7 @@ export type WebviewMessage =
   | { type: 'getReviewContext'; baseBranch?: string }
   | { type: 'openReviewAgentFile' }
   | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string; provider?: ProviderId }
+  | { type: 'rejectPlan'; planPath?: string }
   | { type: 'openPlan'; planPath?: string }
   | { type: 'openSavedPlans' }
   | { type: 'refreshMcpStatus' }
@@ -94,4 +132,29 @@ export type WebviewMessage =
   | { type: 'getSkillPrompts' }
   | { type: 'reloadSkills' }
   | { type: 'researchCommand'; action: 'done' | 'current' | 'next' | 'list' | 'reload' }
-  | { type: 'compactConversation'; conversationId: string; messages: SerializedChatMessage[]; provider: ProviderId; model?: string };
+  | { type: 'compactConversation'; conversationId: string; messages: SerializedChatMessage[]; provider: ProviderId; model?: string }
+  | { type: 'openExternal'; url: string }
+  // Diff viewer requests
+  | { type: 'getFileDiff'; path: string; baseRef?: string }
+  | { type: 'getAllDiffs'; baseRef?: string }
+  | { type: 'openDiffEditor'; path: string; baseRef?: string }
+  | { type: 'openFileFromDiff'; path: string; line?: number }
+  | { type: 'revertFileChange'; path: string }
+  | { type: 'refreshGitDiff' }
+  // Artifact requests
+  | { type: 'listArtifacts'; conversationId?: string; taskId?: string }
+  | { type: 'openArtifact'; artifactId: string }
+  | { type: 'previewArtifact'; artifactId: string }
+  | { type: 'revealArtifactInExplorer'; artifactId: string }
+  | { type: 'deleteArtifact'; artifactId: string }
+  | { type: 'rescanArtifacts' }
+  // Code block actions
+  | { type: 'insertCodeIntoActiveFile'; code: string; language?: string }
+  | { type: 'createFileFromCode'; code: string; language?: string; suggestedName?: string }
+  | { type: 'runCodeBlockCommand'; command: string }
+  // Analytics requests
+  | { type: 'getAnalyticsSummary'; query?: AnalyticsQuery }
+  | { type: 'getAnalyticsRuns'; query?: AnalyticsQuery }
+  | { type: 'submitRunFeedback'; taskId: string; feedback: AnalyticsFeedback; reason?: string }
+  | { type: 'exportAnalytics'; format: 'json' | 'csv' | 'markdown'; query?: AnalyticsQuery }
+  | { type: 'clearAnalytics' }

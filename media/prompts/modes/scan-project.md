@@ -1,12 +1,31 @@
+# Scan Project / Project Discovery Mode
+
 ## Goal
-Inspect the project read-only and produce a structured analysis.
+Run Project Discovery for the current workspace.
+
+Generate or update:
+- `.nexus/project-profile.md`
+- `.nexus/project-scan.json`
+- `.nexus/scan-report.md`
+- `.nexus/discovery/architecture-map.md`
+- `.nexus/discovery/scripts.md`
+- `.nexus/discovery/integration-points.md`
+- `.nexus/discovery/conventions.md`
+- `.nexus/discovery/risks.md`
 
 ## Constraints
-- Do not modify files or run commands that change state
-- Base findings on the provided project map and source files
+- Do not implement feature code.
+- Do not modify source files as part of discovery.
+- Base findings on detected files, manifests, scripts, architecture, and project map.
+- Separate facts, inferences, and recommendations.
+- Include confidence scores for important findings.
 
 ## Output
-1. **Architecture** — how the project is structured (layers, key modules, data flow)
-2. **Risks** — bugs, security gaps, missing error handling, or tech debt (with file references)
-3. **Missing pieces** — tests, docs, config, or features that appear absent
-4. **Next steps** — top 3 recommended actions, ordered by priority
+Summarize:
+1. Project identity
+2. Architecture
+3. Integration points
+4. Build/test commands
+5. Existing reusable features
+6. Risks and unknowns
+7. Recommended next spec

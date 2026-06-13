@@ -20,7 +20,21 @@ import { AgentPromptHandler } from './handlers/AgentPromptHandler';
 import { SkillPromptHandler } from './handlers/SkillPromptHandler';
 import { ResearchCommandHandler } from './handlers/ResearchCommandHandler';
 import { CompactCommandHandler } from './handlers/CompactCommandHandler';
+import { DiffHandler } from './handlers/DiffHandler';
+import { ArtifactHandler } from './handlers/ArtifactHandler';
+import { CodeBlockHandler } from './handlers/CodeBlockHandler';
+import { AnalyticsHandler } from './handlers/AnalyticsHandler';
+import { HistorySearchHandler } from './handlers/HistorySearchHandler';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
+import type { AnalyticsService } from '../analytics/AnalyticsService';
+import { HistoryRagFacade } from '../context/history-search/HistoryRagFacade';
+import { HistorySearchService } from '../context/history-search/HistorySearchService';
+import { HistoryIndexBuilder } from '../context/history-search/index/HistoryIndexBuilder';
+import { MementoHistoryIndexRepository } from '../context/history-search/index/MementoHistoryIndexRepository';
+import { Bm25HistorySearchStrategy } from '../context/history-search/bm25/Bm25HistorySearchStrategy';
+import { InMemoryBm25Engine } from '../context/history-search/bm25/InMemoryBm25Engine';
+import { RagContextBuilder } from '../context/history-search/rag/RagContextBuilder';
+import { RagPromptInjector } from '../context/history-search/rag/RagPromptInjector';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -35,6 +49,12 @@ export class ChatController {
   private readonly skillPromptHandler: SkillPromptHandler;
   private readonly researchCommandHandler: ResearchCommandHandler;
   private readonly compactCommandHandler: CompactCommandHandler;
+  private readonly diffHandler: DiffHandler;
+  private readonly artifactHandler: ArtifactHandler;
+  private readonly codeBlockHandler = new CodeBlockHandler();
+  private readonly analyticsHandler?: AnalyticsHandler;
+  private readonly historySearchHandler: HistorySearchHandler;
+  readonly historyRagFacade: HistoryRagFacade;
 
   constructor(
     runAgent: RunAgentUseCase,
@@ -50,8 +70,25 @@ export class ChatController {
     subagentOrchestrator?: SubagentOrchestrator,
     workspaceState?: vscode.Memento,
     compactor?: ConversationCompactor,
+    analyticsService?: AnalyticsService,
+    globalStorageUri?: vscode.Uri,
   ) {
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
+    // Build history search / RAG infrastructure
+    const historyIndexRepo = new MementoHistoryIndexRepository(workspaceState ?? globalState);
+    const historyIndexBuilder = new HistoryIndexBuilder();
+    const bm25Engine = new InMemoryBm25Engine();
+    const bm25Strategy = new Bm25HistorySearchStrategy(bm25Engine);
+    const historySearchService = new HistorySearchService(bm25Strategy, historyIndexBuilder, historyIndexRepo);
+    const ragContextBuilder = new RagContextBuilder();
+    const ragPromptInjector = new RagPromptInjector();
+    this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder, ragPromptInjector);
+    this.historySearchHandler = new HistorySearchHandler(
+      this.historyRagFacade,
+      post,
+      () => this.historyHandler.latestHistory,
+    );
+
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler   = new ReviewHandler(post, extensionPath, workspaceState);
@@ -62,9 +99,69 @@ export class ChatController {
     this.skillPromptHandler      = new SkillPromptHandler(extensionPath, post);
     this.researchCommandHandler  = new ResearchCommandHandler();
     this.compactCommandHandler   = new CompactCommandHandler(post, compactor);
+    this.diffHandler             = new DiffHandler(post);
+    this.artifactHandler         = new ArtifactHandler(post, workspaceState ?? globalState);
+
+    if (analyticsService && globalStorageUri) {
+      (this as unknown as { analyticsHandler?: AnalyticsHandler }).analyticsHandler = new AnalyticsHandler(
+        analyticsService,
+        post,
+        globalStorageUri,
+      );
+    }
 
     const forwarder = new EventForwarder(post);
     const busListener = (e: Parameters<typeof forwarder.forward>[0]) => forwarder.forward(e);
+
+    // Wire analytics lifecycle hooks into event bus
+    if (analyticsService) {
+      // Track final token usage per taskId so we can attach it at task_completed time
+      const tokenUsageByTask = new Map<string, import('../core/tokens/TokenUsage').TokenRunUsage>();
+
+      const analyticsListener = (event: import('../core/events/IEventBus').NexusEvent) => {
+        if (event.kind === 'task_started') {
+          analyticsService.recordRunStart({
+            taskId: event.task.id,
+            provider: event.task.agentId,
+            model: event.task.model,
+            mode: event.task.mode,
+            startedAt: event.task.startedAt,
+          });
+        } else if (event.kind === 'token_usage_updated' && event.phase === 'final') {
+          tokenUsageByTask.set(event.task.id, event.usage);
+        } else if (event.kind === 'task_completed') {
+          const usage = tokenUsageByTask.get(event.task.id);
+          tokenUsageByTask.delete(event.task.id);
+          void analyticsService.recordRunComplete(event.task.id, {
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+            originalPromptTokens: usage?.originalPromptTokens,
+            enhancedPromptTokens: usage?.enhancedPromptTokens,
+            contextOverheadTokens: usage?.contextOverheadTokens,
+            exitCode: event.result.exitCode,
+            workspaceRoot: event.task.cwd,
+          });
+        } else if (event.kind === 'task_error') {
+          const usage = tokenUsageByTask.get(event.task.id);
+          tokenUsageByTask.delete(event.task.id);
+          void analyticsService.recordRunFailed(event.task.id, {
+            errorMessage: event.error,
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+          });
+        } else if (event.kind === 'task_stopped') {
+          const usage = tokenUsageByTask.get(event.task.id);
+          tokenUsageByTask.delete(event.task.id);
+          void analyticsService.recordRunStopped(event.task.id, {
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+          });
+        }
+      };
+      this.eventBus.on('*', analyticsListener);
+      this.disposables.push({ dispose: () => this.eventBus.off('*', analyticsListener) });
+    }
+
     this.eventBus.on('*', busListener);
     this.disposables.push(
       { dispose: () => this.eventBus.off('*', busListener) },
@@ -79,6 +176,7 @@ export class ChatController {
         await this.providerHandler.sendAvailable();
         await this.agentPromptHandler.sendAgentPrompts();
         await this.skillPromptHandler.sendSkillPrompts();
+        void this.historySearchHandler.ensureIndex();
         break;
       case 'runTask':
         await this.runTaskHandler.run(
@@ -90,9 +188,13 @@ export class ChatController {
         break;
       case 'stopTask':            await this.runTaskHandler.stop(); break;
       case 'applyPlan':           await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath, msg.provider); break;
+      case 'rejectPlan':          await this.runTaskHandler.rejectPlan(msg.planPath); break;
       case 'openPlan':            await this.runTaskHandler.openPlan(msg.planPath); break;
       case 'openSavedPlans':      await this.runTaskHandler.openSavedPlans(); break;
-      case 'saveHistory':         await this.historyHandler.save(msg.history); break;
+      case 'saveHistory':
+        await this.historyHandler.save(msg.history);
+        void this.historySearchHandler.ensureIndex();
+        break;
       case 'saveProvider':        await this.providerHandler.save(msg.provider); break;
       case 'getReviewContext':    await this.reviewHandler.getContext(msg.baseBranch); break;
       case 'openReviewAgentFile': await this.reviewHandler.openAgentFile(); break;
@@ -105,6 +207,7 @@ export class ChatController {
       case 'openSourceControl':      await this.navigationHandler.openSourceControl(); break;
       case 'openSettings':           await this.navigationHandler.openSettings(); break;
       case 'openAbout':              await this.navigationHandler.openAbout(); break;
+      case 'openExternal':           await this.navigationHandler.openExternal(msg.url); break;
       case 'getAgentPrompts':        await this.agentPromptHandler.sendAgentPrompts(); break;
       case 'reloadAgents':           await this.agentPromptHandler.reload(); break;
       case 'getSkillPrompts':        await this.skillPromptHandler.sendSkillPrompts(); break;
@@ -114,6 +217,46 @@ export class ChatController {
         await this.compactCommandHandler.handle(
           msg.conversationId, msg.messages, msg.provider, msg.model,
         );
+        break;
+      // Diff viewer messages
+      case 'getFileDiff':
+      case 'getAllDiffs':
+      case 'openDiffEditor':
+      case 'openFileFromDiff':
+      case 'revertFileChange':
+      case 'refreshGitDiff':
+        await this.diffHandler.handleMessage(msg);
+        break;
+      // Artifact messages
+      case 'listArtifacts':
+      case 'openArtifact':
+      case 'previewArtifact':
+      case 'revealArtifactInExplorer':
+      case 'deleteArtifact':
+      case 'rescanArtifacts':
+        await this.artifactHandler.handleMessage(msg);
+        break;
+      // Code block actions
+      case 'insertCodeIntoActiveFile':
+      case 'createFileFromCode':
+      case 'runCodeBlockCommand':
+        await this.codeBlockHandler.handleMessage(msg);
+        break;
+      // Analytics
+      case 'getAnalyticsSummary':
+        await this.analyticsHandler?.getSummary(msg.query);
+        break;
+      case 'getAnalyticsRuns':
+        await this.analyticsHandler?.getRuns(msg.query);
+        break;
+      case 'submitRunFeedback':
+        await this.analyticsHandler?.submitFeedback(msg.taskId, msg.feedback, msg.reason);
+        break;
+      case 'exportAnalytics':
+        await this.analyticsHandler?.export(msg.format, msg.query);
+        break;
+      case 'clearAnalytics':
+        await this.analyticsHandler?.clear();
         break;
     }
   }

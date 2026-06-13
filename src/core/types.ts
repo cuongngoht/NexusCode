@@ -11,7 +11,7 @@ export type TaskMode =
   | 'test'
   | 'review';
 
-export type ProviderModelSource = 'detected' | 'seeded';
+export type ProviderModelSource = 'detected' | 'seeded' | 'configured' | 'cached';
 
 export interface ProviderModel {
   id: string;

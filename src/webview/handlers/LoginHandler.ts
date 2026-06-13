@@ -15,11 +15,11 @@ export class LoginHandler implements vscode.Disposable {
     const command = this.detector.getLoginCommand(providerId as ProviderId);
     if (!command) return;
 
-    const terminal = vscode.window.createTerminal({ name: `NexusCode: Login ${providerId}` });
+    const terminal = vscode.window.createTerminal({ name: `Nexus AI Code: Login ${providerId}` });
     terminal.sendText(command, false);
     terminal.show();
     vscode.window.showInformationMessage(
-      'NexusCode opened the login command in a terminal. Review it and press Enter to run.',
+      'Nexus AI Code opened the login command in a terminal. Review it and press Enter to run.',
     );
 
     const listener = vscode.window.onDidCloseTerminal(t => {

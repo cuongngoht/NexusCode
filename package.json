@@ -1,21 +1,42 @@
 {
-  "name": "nexus-code",
-  "displayName": "Nexus Code",
-  "publisher": "NexusCode",
-  "description": "A chat cockpit that routes prompts to installed CLI coding agents",
-  "version": "1.0.0-beta",
+  "name": "nexus-ai-code",
+  "displayName": "Nexus AI Code",
+  "publisher": "NexusAiCode",
+  "description": "Nexus AI Code is a VS Code extension and companion CLI for orchestrating multiple AI coding agents, project context, planning, debugging, review workflows, and local automation from one workspace-aware cockpit.",
+  "version": "1.0.11",
   "icon": "media/extension-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cuongngoht/NexusCode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cuongngoht/NexusCode/issues"
+  },
+  "homepage": "https://github.com/cuongngoht/NexusCode#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
-"categories": [
-  "Machine Learning",
-  "AI",
-  "Other",
-  "Programming Languages"
-],
+  "categories": [
+    "Machine Learning",
+    "AI",
+    "Other",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "ai",
+    "coding",
+    "agent",
+    "orchestrator",
+    "vscode",
+    "claude",
+    "codex",
+    "copilot",
+    "debug",
+    "review"
+  ],
   "activationEvents": [
     "onView:nexus.chatView",
+    "onView:nexus.launcherView",
     "onCommand:nexus.createWorkflowAgent"
   ],
   "main": "./out/extension.js",
@@ -43,8 +64,8 @@
       "nexus": [
         {
           "id": "nexus.launcherView",
-          "name": "Nexus",
-          "type": "tree",
+          "name": "Dashboard",
+          "type": "webview",
           "visibility": "visible"
         }
       ],
@@ -67,6 +88,10 @@
         "title": "Nexus: Open Settings"
       },
       {
+        "command": "nexus.openDashboard",
+        "title": "Nexus: Open Dashboard"
+      },
+      {
         "command": "nexus.createWorkflowAgent",
         "title": "Nexus: Create Workflow Agent",
         "category": "Nexus"
@@ -82,7 +107,7 @@
       ]
     },
     "configuration": {
-      "title": "Nexus Code",
+      "title": "Nexus AI Code",
       "properties": {
         "nexus.defaultProvider": {
           "type": "string",
@@ -188,6 +213,112 @@
           "default": false,
           "description": "Include the docs subagent when applicable."
         },
+        "nexus.subagents.mode": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["off", "auto", "manual", "full"],
+          "description": "Controls how Nexus selects subagents. off: disabled. auto: selected by task intent. manual: use selectedRoles. full: broader chain within safety caps."
+        },
+        "nexus.subagents.preset": {
+          "type": "string",
+          "default": "balanced",
+          "enum": ["fast", "balanced", "full", "safe"],
+          "description": "Default subagent preset for auto mode."
+        },
+        "nexus.subagents.maxParallel": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Maximum number of subagents that may run concurrently."
+        },
+        "nexus.subagents.hardCap": {
+          "type": "number",
+          "default": 6,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Absolute maximum number of subagents allowed per task, regardless of planner output."
+        },
+        "nexus.subagents.includeReviewer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the reviewer subagent when applicable."
+        },
+        "nexus.subagents.includeTester": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the tester subagent when applicable."
+        },
+        "nexus.subagents.failOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Continue to the main agent when an optional subagent fails."
+        },
+        "nexus.subagents.injectMaxChars": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 1000,
+          "maximum": 30000,
+          "description": "Maximum characters from synthesized subagent results injected into the main agent prompt."
+        },
+        "nexus.subagents.timeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 5000,
+          "maximum": 120000,
+          "description": "Timeout in milliseconds for a single subagent run."
+        },
+        "nexus.subagents.selectedRoles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["search", "planner", "coder", "debugger", "tester", "reviewer", "security", "docs", "product", "research"]
+          },
+          "default": [],
+          "description": "Manual subagent roles used when nexus.subagents.mode is manual."
+        },
+        "nexus.subagents.debug.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for debug mode."
+        },
+        "nexus.subagents.edit.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for edit (Build Agent) mode."
+        },
+        "nexus.subagents.plan.maxRuns": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for plan mode."
+        },
+        "nexus.subagents.research.maxRuns": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for research mode."
+        },
+        "nexus.subagents.test.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for test mode."
+        },
+        "nexus.subagents.review.maxRuns": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for review mode."
+        },
         "nexus.agents.enabled": {
           "type": "boolean",
           "default": true,
@@ -207,6 +338,61 @@
           "type": "boolean",
           "default": true,
           "description": "Copy bundled default skill prompts into .nexus/skills when missing."
+        },
+        "nexus.analytics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable analytics recording for AI coding tasks."
+        },
+        "nexus.analytics.retentionDays": {
+          "type": "number",
+          "default": 180,
+          "description": "Number of days to retain analytics records before pruning."
+        },
+        "nexus.analytics.costEstimationEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable estimated cost computation for each task run."
+        },
+        "nexus.analytics.storeWorkspacePath": {
+          "type": "boolean",
+          "default": false,
+          "description": "Store full workspace path in analytics records (hashed workspace ID is used when disabled)."
+        },
+        "nexus.analytics.storeConversationTitle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Store conversation titles in analytics records."
+        },
+        "nexus.analytics.allowExport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow exporting analytics data to JSON, CSV, or Markdown."
+        },
+        "nexus.historySearch.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable BM25 full-text search over conversation history."
+        },
+        "nexus.historyRag.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically inject relevant history snippets as RAG context before each task."
+        },
+        "nexus.historyRag.maxResults": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum number of history results to inject as RAG context."
+        },
+        "nexus.historyRag.maxChars": {
+          "type": "number",
+          "default": 6000,
+          "description": "Maximum characters for the RAG context block injected into the prompt."
+        },
+        "nexus.historyRag.minScore": {
+          "type": "number",
+          "default": 1.25,
+          "description": "Minimum BM25 score threshold for a history result to be included in RAG context."
         }
       }
     }
@@ -214,12 +400,13 @@
   "scripts": {
     "compile:extension": "node esbuild.js",
     "compile:webview": "vite build",
-    "compile": "npm run compile:extension && npm run compile:webview",
+    "compile": "npm run compile:extension && npm run compile:webview && npm run build:cli",
     "typecheck": "tsc -p ./ --noEmit",
     "build:cli": "node esbuild.js --cli",
     "watch": "node esbuild.js --watch",
     "watch:webview": "vite build --watch",
-    "test:webview": "vitest run"
+    "test:webview": "vitest run",
+    "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
@@ -240,10 +427,12 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^12.1.0",
     "gpt-tokenizer": "^3.4.0",
+    "mermaid": "^11.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "zod": "^4.4.3"
   }

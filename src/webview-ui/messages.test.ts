@@ -559,6 +559,66 @@ describe('Test D — runtime events go to the conversation that started the run'
   });
 });
 
+// ── Approval gate reducer tests ───────────────────────────────────────────
+describe('approval gate — planReadyForApproval and planRejected', () => {
+  function withStreamingMsg(): AppState {
+    let state = act(s(), { type: 'extMsg', msg: { type: 'stepStarted', stepLabel: 'plan', stepIndex: 0, totalSteps: 2, provider: 'nexus', mode: 'edit' } });
+    state = act(state, { type: 'extMsg', msg: { type: 'stdout', chunk: 'plan content\n' } });
+    return state;
+  }
+
+  it('planReadyForApproval: sets pendingPlanApproval=true, planSaved=true, stops streaming', () => {
+    let state = withStreamingMsg();
+    state = act(state, {
+      type: 'extMsg',
+      msg: { type: 'planReadyForApproval', taskId: 'task-1', planPath: '/tmp/plan.md', plan: 'do x', mode: 'edit', model: 'sonnet' },
+    });
+
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    const msg = conv.messages[conv.messages.length - 1];
+    expect(msg.role).toBe('assistant');
+    if (msg.role === 'assistant') {
+      expect(msg.pendingPlanApproval).toBe(true);
+      expect(msg.planSaved).toBe(true);
+      expect(msg.planPath).toBe('/tmp/plan.md');
+      expect(msg.isStreaming).toBe(false);
+    }
+  });
+
+  it('planRejected: clears pendingPlanApproval, sets rejectedPlan=true', () => {
+    let state = withStreamingMsg();
+    state = act(state, {
+      type: 'extMsg',
+      msg: { type: 'planReadyForApproval', taskId: 'task-1', planPath: '/tmp/plan.md', plan: 'do x', mode: 'edit' },
+    });
+    state = act(state, {
+      type: 'extMsg',
+      msg: { type: 'planRejected', planPath: '/tmp/plan.md' },
+    });
+
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    const msg = conv.messages[conv.messages.length - 1];
+    if (msg.role === 'assistant') {
+      expect(msg.pendingPlanApproval).toBe(false);
+      expect(msg.rejectedPlan).toBe(true);
+    }
+  });
+
+  it('planReadyForApproval: planPreview stores plan content', () => {
+    let state = withStreamingMsg();
+    state = act(state, {
+      type: 'extMsg',
+      msg: { type: 'planReadyForApproval', taskId: 'task-1', plan: 'step 1\nstep 2', mode: 'edit' },
+    });
+
+    const conv = state.conversations.find(c => c.id === state.activeConvId)!;
+    const msg = conv.messages[conv.messages.length - 1];
+    if (msg.role === 'assistant') {
+      expect(msg.planPreview).toBe('step 1\nstep 2');
+    }
+  });
+});
+
 // ── Test E: assistant timestamp roundtrips through serialize/deserialize ──
 describe('Test E — assistant message timestamp survives serialize/deserialize', () => {
   it('timestamp on assistant message is preserved through history roundtrip', () => {

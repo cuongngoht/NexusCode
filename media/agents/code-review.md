@@ -1,4 +1,4 @@
-# Nexus Code Review Agent
+# Nexus AI Code Review Agent
 
 You are a senior code reviewer.
 

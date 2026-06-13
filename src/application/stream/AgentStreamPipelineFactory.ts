@@ -8,6 +8,8 @@ import { LineDecoder } from '../../infrastructure/stream/LineDecoder';
 import { PlainTextDecoder } from '../../infrastructure/stream/PlainTextDecoder';
 import { CodexSseAdapter } from '../../providers/codex/CodexSseAdapter';
 import { CodexJsonlAdapter } from '../../providers/codex/CodexJsonlAdapter';
+import { GrokStreamAdapter } from '../../providers/grok/GrokStreamAdapter';
+import { AntigravityStreamAdapter } from '../../providers/antigravity/AntigravityStreamAdapter';
 
 class PlainTextAdapter implements IProviderStreamAdapter {
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
@@ -28,6 +30,10 @@ export class AgentStreamPipelineFactory {
         return new AgentStreamPipeline(new PlainTextDecoder(), new PlainTextAdapter());
       case 'stdio':
         return new AgentStreamPipeline(new LineDecoder(), new PlainTextAdapter());
+      case 'grok':
+        return new AgentStreamPipeline(new LineDecoder(), new GrokStreamAdapter());
+      case 'antigravity':
+        return new AgentStreamPipeline(new LineDecoder(), new AntigravityStreamAdapter());
       case undefined:
         return null;
       default: {
