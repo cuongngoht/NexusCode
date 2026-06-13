@@ -5,7 +5,7 @@ type Locale = 'vi' | 'en';
 
 const STRINGS = {
   vi: {
-    title: 'Giới thiệu Nexus Code',
+    title: 'Giới thiệu Nexus AI Code',
     desc: 'Giao diện chat định tuyến prompt đến các CLI coding agent đã cài.',
     sectionAuthor: 'Tác giả',
     sectionSponsors: 'Nhà tài trợ',
@@ -20,7 +20,7 @@ const STRINGS = {
     ossVite: 'Công cụ build frontend',
   },
   en: {
-    title: 'About Nexus Code',
+    title: 'About Nexus AI Code',
     desc: 'A chat cockpit that routes prompts to installed CLI coding agents.',
     sectionAuthor: 'Author',
     sectionSponsors: 'Sponsors',

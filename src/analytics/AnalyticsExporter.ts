@@ -57,7 +57,7 @@ export class AnalyticsExporter {
   toMarkdown(summary: AnalyticsDashboardSummary, _runs: AnalyticsRunRecord[]): string {
     const lines: string[] = [];
 
-    lines.push('# NexusCode Analytics Report');
+    lines.push('# Nexus AI Code Analytics Report');
     lines.push('');
     lines.push(`Generated: ${new Date().toISOString()}`);
     lines.push('');

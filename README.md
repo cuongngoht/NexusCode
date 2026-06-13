@@ -1,8 +1,8 @@
-# Nexus Code
+# Nexus AI Code
 
-**Nexus Code** is a Visual Studio Code extension and companion CLI for coordinating local AI coding agents from one workspace-aware chat cockpit.
+**Nexus AI Code** is a Visual Studio Code extension and companion CLI for orchestrating multiple AI coding agents from one workspace-aware cockpit.
 
-It routes prompts to installed CLI providers such as **Claude Code**, **Codex**, **Antigravity**, **GitHub Copilot**, **Aider**, **Grok**, or a user-defined custom command. Nexus enriches prompts with project context, streams agent output back into VS Code, preserves conversations, tracks token usage, builds `.nexus/` project maps, supports reusable markdown agents and skills, and can optionally run MCP-assisted tool flows.
+It connects local and external coding providers such as **Claude Code**, **Codex**, **Antigravity**, **GitHub Copilot**, **Aider**, **Grok**, and custom commands. Nexus AI Code enriches prompts with project context, routes work through planning/debugging/review workflows, streams output back into VS Code, tracks token usage, builds `.nexus/` project maps, and supports reusable agents, skills, and MCP-assisted tool flows.
 
 ```text
 Understand the workspace -> choose the right agent -> enrich the prompt -> stream the result -> review changes
@@ -10,7 +10,7 @@ Understand the workspace -> choose the right agent -> enrich the prompt -> strea
 
 ---
 
-## What Nexus Code Solves
+## What Nexus AI Code Solves
 
 Modern AI coding workflows often involve several strong tools, but each tool has different strengths:
 
@@ -20,7 +20,7 @@ Modern AI coding workflows often involve several strong tools, but each tool has
 - some are better at web or documentation research;
 - some are better as custom local automations.
 
-Nexus Code provides one cockpit inside VS Code so the user can choose the right provider, mode, model, context, agent prompt, skill prompt, and review workflow without leaving the editor.
+Nexus AI Code provides one cockpit inside VS Code so the user can choose the right provider, mode, model, context, agent prompt, skill prompt, and review workflow without leaving the editor.
 
 ---
 
@@ -617,7 +617,7 @@ media/
 
 ## Architecture Principles
 
-Nexus Code follows a Clean Architecture-style separation:
+Nexus AI Code follows a Clean Architecture-style separation:
 
 ```text
 core -> application -> infrastructure/providers/webview

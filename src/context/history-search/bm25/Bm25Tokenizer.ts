@@ -1,5 +1,5 @@
 /**
- * BM25 tokenizer for NexusCode history search.
+ * BM25 tokenizer for Nexus AI Code history search.
  *
  * Tokenization strategy:
  * - NFKC normalize, then split on whitespace and most punctuation

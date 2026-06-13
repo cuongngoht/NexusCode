@@ -8,10 +8,10 @@ describe('buildAugmentedPrompt', () => {
       existingEnhancedPrompt: '# Workspace\nRoot: /app\n\n# Task\nimprove ChatController',
     });
     expect(result).toContain('# Workspace\nRoot: /app\n\n# Task\nimprove ChatController');
-    expect(result).toContain('You are running inside Nexus Code');
+    expect(result).toContain('You are running inside Nexus AI Code');
     // Enhanced prompt appears before progress instruction
     const taskPos = result.indexOf('# Task');
-    const nexusPos = result.indexOf('You are running inside Nexus Code');
+    const nexusPos = result.indexOf('You are running inside Nexus AI Code');
     expect(taskPos).toBeLessThan(nexusPos);
   });
 

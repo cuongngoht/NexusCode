@@ -121,12 +121,12 @@ export class SettingsPanel {
     }
 
     const terminal = vscode.window.createTerminal({
-      name: `NexusCode: ${action === 'install' ? 'Install' : 'Login'} ${providerId}`,
+      name: `Nexus AI Code: ${action === 'install' ? 'Install' : 'Login'} ${providerId}`,
     });
     terminal.sendText(command, false);
     terminal.show();
     vscode.window.showInformationMessage(
-      `NexusCode opened the ${action} command in a terminal. Review it and press Enter to run.`,
+      `Nexus AI Code opened the ${action} command in a terminal. Review it and press Enter to run.`,
     );
 
     const disposable = vscode.window.onDidCloseTerminal(t => {

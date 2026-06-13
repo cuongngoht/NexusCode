@@ -1,8 +1,8 @@
 {
-  "name": "nexus-code",
-  "displayName": "Nexus Code",
-  "publisher": "NexusCode",
-  "description": "A chat cockpit that routes prompts to installed CLI coding agents",
+  "name": "nexus-ai-code",
+  "displayName": "Nexus AI Code",
+  "publisher": "NexusAI",
+  "description": "Nexus AI Code is a VS Code extension and companion CLI for orchestrating multiple AI coding agents, project context, planning, debugging, review workflows, and local automation from one workspace-aware cockpit.",
   "version": "1.0.0-beta",
   "icon": "media/extension-icon.png",
   "engines": {
@@ -13,6 +13,18 @@
     "AI",
     "Other",
     "Programming Languages"
+  ],
+  "keywords": [
+    "ai",
+    "coding",
+    "agent",
+    "orchestrator",
+    "vscode",
+    "claude",
+    "codex",
+    "copilot",
+    "debug",
+    "review"
   ],
   "activationEvents": [
     "onView:nexus.chatView",
@@ -87,7 +99,7 @@
       ]
     },
     "configuration": {
-      "title": "Nexus Code",
+      "title": "Nexus AI Code",
       "properties": {
         "nexus.defaultProvider": {
           "type": "string",

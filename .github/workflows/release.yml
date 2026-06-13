@@ -62,15 +62,15 @@ jobs:
           "
 
       - name: Package VSIX
-        run: npx @vscode/vsce package --no-dependencies --out nexus-code-${{ steps.version.outputs.semver }}.vsix
+        run: npx @vscode/vsce package --no-dependencies --out nexus-ai-code-${{ steps.version.outputs.semver }}.vsix
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: "Nexus Code ${{ steps.version.outputs.tag }}"
+          name: "Nexus AI Code ${{ steps.version.outputs.tag }}"
           prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
           generate_release_notes: true
-          files: nexus-code-${{ steps.version.outputs.semver }}.vsix
+          files: nexus-ai-code-${{ steps.version.outputs.semver }}.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
