@@ -1,13 +1,63 @@
+# Version control / editor
+.git/**
+.github/**
 .vscode/**
-.vscode-test/**
+.idea/**
+.DS_Store
+**/.DS_Store
+__MACOSX/**
+**/._*
+
+# Archives / release artifacts
+*.vsix
+*.zip
+Archive.zip
+release/**
+dist/**
+coverage/**
+
+# Local AI agent / assistant configs
+.claude/**
+.gemini/**
+CLAUDE.md
+GEMINI.md
+agents.md
+
+# Source / tests (extension runs from out/)
 src/**
+test/**
+tests/**
+**/__tests__/**
+**/*.test.ts
+**/*.spec.ts
+
+# Build metadata / sourcemaps
+out/**/*.map
+media/webview/**/*.map
+*.tsbuildinfo
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*.crt
+*.cert
+
+# Node / package manager
+node_modules/**
+pnpm-lock.yaml
+yarn.lock
+
+# Build config (not needed at runtime)
+.vscode-test/**
 .gitignore
 tsconfig.json
 tsconfig.webview.json
 vite.config.ts
-**/*.map
-**/*.ts
-!out/**
-!media/webview/**
-node_modules/**
-.nexus/**
+esbuild.js
+package-lock.json
