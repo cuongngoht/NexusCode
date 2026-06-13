@@ -200,6 +200,15 @@ export const AssistantMessage = memo(function AssistantMessage({
           }
         </div>
 
+        {!message.isStreaming && message.ragSources && message.ragSources.length > 0 && (
+          <div
+            className="nx-rag-badge"
+            title={message.ragSources.map(s => s.conversationTitle).join(', ')}
+          >
+            {interp(t.historySearch.ragBadge, { count: String(message.ragSources.length) })}
+          </div>
+        )}
+
         {!message.isStreaming && (
           <MessageActions
             msg={message}

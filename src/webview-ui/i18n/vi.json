@@ -399,5 +399,10 @@
   "rawLog": {
     "toggle": "Output thô",
     "ariaLabel": "Output thô từ provider"
+  },
+  "historySearch": {
+    "ragBadge": "{{count}} nguồn lịch sử",
+    "ragOn": "Auto-RAG: Bật",
+    "ragOff": "Auto-RAG: Tắt"
   }
 }

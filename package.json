@@ -242,6 +242,31 @@
           "type": "boolean",
           "default": true,
           "description": "Allow exporting analytics data to JSON, CSV, or Markdown."
+        },
+        "nexus.historySearch.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable BM25 full-text search over conversation history."
+        },
+        "nexus.historyRag.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically inject relevant history snippets as RAG context before each task."
+        },
+        "nexus.historyRag.maxResults": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum number of history results to inject as RAG context."
+        },
+        "nexus.historyRag.maxChars": {
+          "type": "number",
+          "default": 6000,
+          "description": "Maximum characters for the RAG context block injected into the prompt."
+        },
+        "nexus.historyRag.minScore": {
+          "type": "number",
+          "default": 1.25,
+          "description": "Minimum BM25 score threshold for a history result to be included in RAG context."
         }
       }
     }

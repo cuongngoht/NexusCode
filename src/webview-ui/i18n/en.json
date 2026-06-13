@@ -399,5 +399,10 @@
   "rawLog": {
     "toggle": "Raw output",
     "ariaLabel": "Raw provider output"
+  },
+  "historySearch": {
+    "ragBadge": "{{count}} history sources",
+    "ragOn": "Auto-RAG: On",
+    "ragOff": "Auto-RAG: Off"
   }
 }

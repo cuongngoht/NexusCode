@@ -78,6 +78,7 @@ interface SlashMention {
 
 export interface ComposerRef {
   focus(): void;
+  insertText(text: string): void;
 }
 
 export const Composer = forwardRef<ComposerRef, Props>(function Composer({
@@ -109,6 +110,10 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
   useImperativeHandle(ref, () => ({
     focus: () => textareaRef.current?.focus(),
+    insertText: (text: string) => {
+      setPrompt(prev => prev ? prev + '\n\n' + text : text);
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    },
   }));
 
   // Sync selectedBase when reviewContext first loads or the server returns a different base branch

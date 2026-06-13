@@ -154,6 +154,13 @@ export interface AnalyticsDashboardSummary {
   mostExpensiveWorkflows: WorkflowSummary[];
 }
 
+export interface HistoryRagSourceView {
+  conversationId: string;
+  conversationTitle: string;
+  role: 'user' | 'assistant';
+  score: number;
+}
+
 // Mirror of src/git/structuredDiff types — keep in sync (no Node.js deps but kept local for bundle safety)
 export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'unknown';
 export interface DiffLine { type: 'context' | 'add' | 'remove'; oldLine?: number; newLine?: number; content: string; }
@@ -333,6 +340,7 @@ export interface AssistantMessage {
   elapsed?: number;
   streamingStage?: StreamingStage;
   streamingLabel?: string;
+  ragSources?: { conversationId: string; conversationTitle: string; role: string; score: number }[];
   // Optional metadata fields
   actualProvider?: string;
   fallbackChain?: string[];
@@ -500,6 +508,9 @@ export interface AppState {
   analyticsRuns?: AnalyticsRunRecord[];
   analyticsLoading: boolean;
   analyticsError?: string;
+  // Auto-RAG state
+  historyRagEnabled: boolean;
+  lastRagContext?: { resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
 }
 
 export function createInitialState(mainView: MainView = 'chat'): AppState {
@@ -546,6 +557,8 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     analyticsRuns: undefined,
     analyticsLoading: false,
     analyticsError: undefined,
+    historyRagEnabled: true,
+    lastRagContext: undefined,
   };
 }
 
@@ -645,7 +658,9 @@ export type ExtMsg =
   | { type: 'analyticsExported'; path: string }
   | { type: 'analyticsError'; message: string }
   // Nexus native streaming protocol
-  | { type: 'nexusStreamEvent'; event: NexusStreamEvent };
+  | { type: 'nexusStreamEvent'; event: NexusStreamEvent }
+  // History RAG messages
+  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
 
 export type { NexusStreamEvent };
 
@@ -690,7 +705,9 @@ export type AppAction =
   | { type: 'analyticsSummaryReceived'; summary: AnalyticsDashboardSummary }
   | { type: 'analyticsRunsReceived'; runs: AnalyticsRunRecord[] }
   | { type: 'analyticsErrorReceived'; message: string }
-  | { type: 'clearAnalyticsError' };
+  | { type: 'clearAnalyticsError' }
+  // History RAG actions
+  | { type: 'toggleHistoryRag' };
 
 // ── Conversation context (mirrors src/context/conversationContext.ts) ────────
 
@@ -1282,6 +1299,10 @@ export function reducer(state: AppState, action: AppAction): AppState {
     case 'clearAnalyticsError':
       return { ...state, analyticsError: undefined };
 
+    // History RAG actions
+    case 'toggleHistoryRag':
+      return { ...state, historyRagEnabled: !state.historyRagEnabled };
+
     case 'extMsg':
       return applyExtMsg(state, action.msg);
   }
@@ -1713,6 +1734,22 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'nexusStreamEvent':
       // Handled directly in App.tsx via streamStore.dispatch() — reducer is a no-op
       return state;
+
+    case 'historyRagContextUsed':
+      return {
+        ...state,
+        lastRagContext: { resultCount: msg.resultCount, totalChars: msg.totalChars, sources: msg.sources },
+        conversations: state.conversations.map(conv =>
+          conv.id !== state.activeConvId ? conv : {
+            ...conv,
+            messages: conv.messages.map((m, i) =>
+              i === conv.messages.length - 1 && m.role === 'assistant'
+                ? { ...m, ragSources: msg.sources }
+                : m
+            ),
+          }
+        ),
+      };
   }
   return state;
 }

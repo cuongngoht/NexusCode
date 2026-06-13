@@ -35,6 +35,8 @@ import type { SubagentPlanConfig } from '../../application/subagents/SubagentPla
 import { SubagentSummary } from '../../application/subagents/SubagentSummary';
 import { loadResearchContext } from '../../context/research/researchFolderLoader';
 import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
+import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
+import type { HistoryRagSourceView } from '../../context/history-search/types';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -55,6 +57,7 @@ export class RunTaskHandler {
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly extensionPath: string,
     private readonly subagentOrchestrator?: SubagentOrchestrator,
+    private readonly historyRagFacade?: HistoryRagFacade,
   ) {}
 
   hasActive(): boolean {
@@ -109,6 +112,41 @@ export class RunTaskHandler {
       if (attachmentContext) {
         ctx.promptAttachments = resolvedAttachments;
         ctx.attachmentContext = attachmentContext;
+      }
+    }
+
+    // Inject history RAG context if enabled
+    const ragCfg = vscode.workspace.getConfiguration('nexus');
+    const ragEnabled = ragCfg.get<boolean>('historyRag.enabled', true);
+    if (ragEnabled && this.historyRagFacade && latestHistory) {
+      try {
+        const { ragContext, results } = await this.historyRagFacade.buildRagForPrompt(
+          effectivePrompt,
+          latestHistory,
+          {
+            maxResults: ragCfg.get<number>('historyRag.maxResults', 5),
+            maxChars: ragCfg.get<number>('historyRag.maxChars', 6000),
+            minScore: ragCfg.get<number>('historyRag.minScore', 1.25),
+          },
+        );
+        if (ragContext) {
+          ctx.conversationContext = ragContext +
+            (ctx.conversationContext ? '\n\n' + ctx.conversationContext : '');
+          const ragSources: HistoryRagSourceView[] = results.map(r => ({
+            conversationId: r.document.conversationId,
+            conversationTitle: r.document.title,
+            role: r.document.role,
+            score: r.score,
+          }));
+          this.post({
+            type: 'historyRagContextUsed',
+            resultCount: results.length,
+            totalChars: ragContext.length,
+            sources: ragSources,
+          });
+        }
+      } catch {
+        // Non-blocking: RAG failure must not prevent the task from running
       }
     }
 

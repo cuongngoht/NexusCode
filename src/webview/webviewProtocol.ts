@@ -11,6 +11,7 @@ import type { SkillPrompt } from '../context/skillPromptLibrary';
 import type { FileDiffSummary } from '../git/structuredDiff';
 import type { ArtifactRef } from '../artifacts/ArtifactTypes';
 import type { AnalyticsDashboardSummary, AnalyticsRunRecord, AnalyticsQuery, AnalyticsFeedback } from '../analytics/AnalyticsTypes';
+import type { HistorySearchResultView, HistoryRagSourceView } from '../context/history-search/types';
 
 export type { PromptAttachment };
 
@@ -89,7 +90,14 @@ export type ExtensionMessage =
   | { type: 'analyticsExported'; path: string }
   | { type: 'analyticsError'; message: string }
   // Nexus native streaming protocol
-  | { type: 'nexusStreamEvent'; event: NexusStreamEvent };
+  | { type: 'nexusStreamEvent'; event: NexusStreamEvent }
+  // History search messages (posted by HistorySearchHandler — received but not displayed by webview)
+  | { type: 'historySearchResults'; query: string; results: HistorySearchResultView[] }
+  | { type: 'historySearchIndexReady'; documentCount: number; builtAt: number }
+  | { type: 'historySearchIndexCleared' }
+  | { type: 'historySearchError'; message: string }
+  // History RAG messages
+  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -144,4 +152,4 @@ export type WebviewMessage =
   | { type: 'getAnalyticsRuns'; query?: AnalyticsQuery }
   | { type: 'submitRunFeedback'; taskId: string; feedback: AnalyticsFeedback; reason?: string }
   | { type: 'exportAnalytics'; format: 'json' | 'csv' | 'markdown'; query?: AnalyticsQuery }
-  | { type: 'clearAnalytics' };
+  | { type: 'clearAnalytics' }

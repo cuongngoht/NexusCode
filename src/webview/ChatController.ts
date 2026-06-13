@@ -24,8 +24,17 @@ import { DiffHandler } from './handlers/DiffHandler';
 import { ArtifactHandler } from './handlers/ArtifactHandler';
 import { CodeBlockHandler } from './handlers/CodeBlockHandler';
 import { AnalyticsHandler } from './handlers/AnalyticsHandler';
+import { HistorySearchHandler } from './handlers/HistorySearchHandler';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
+import { HistoryRagFacade } from '../context/history-search/HistoryRagFacade';
+import { HistorySearchService } from '../context/history-search/HistorySearchService';
+import { HistoryIndexBuilder } from '../context/history-search/index/HistoryIndexBuilder';
+import { MementoHistoryIndexRepository } from '../context/history-search/index/MementoHistoryIndexRepository';
+import { Bm25HistorySearchStrategy } from '../context/history-search/bm25/Bm25HistorySearchStrategy';
+import { InMemoryBm25Engine } from '../context/history-search/bm25/InMemoryBm25Engine';
+import { RagContextBuilder } from '../context/history-search/rag/RagContextBuilder';
+import { RagPromptInjector } from '../context/history-search/rag/RagPromptInjector';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -44,6 +53,8 @@ export class ChatController {
   private readonly artifactHandler: ArtifactHandler;
   private readonly codeBlockHandler = new CodeBlockHandler();
   private readonly analyticsHandler?: AnalyticsHandler;
+  private readonly historySearchHandler: HistorySearchHandler;
+  readonly historyRagFacade: HistoryRagFacade;
 
   constructor(
     runAgent: RunAgentUseCase,
@@ -62,7 +73,22 @@ export class ChatController {
     analyticsService?: AnalyticsService,
     globalStorageUri?: vscode.Uri,
   ) {
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator);
+    // Build history search / RAG infrastructure
+    const historyIndexRepo = new MementoHistoryIndexRepository(workspaceState ?? globalState);
+    const historyIndexBuilder = new HistoryIndexBuilder();
+    const bm25Engine = new InMemoryBm25Engine();
+    const bm25Strategy = new Bm25HistorySearchStrategy(bm25Engine);
+    const historySearchService = new HistorySearchService(bm25Strategy, historyIndexBuilder, historyIndexRepo);
+    const ragContextBuilder = new RagContextBuilder();
+    const ragPromptInjector = new RagPromptInjector();
+    this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder, ragPromptInjector);
+    this.historySearchHandler = new HistorySearchHandler(
+      this.historyRagFacade,
+      post,
+      () => this.historyHandler.latestHistory,
+    );
+
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler   = new ReviewHandler(post, extensionPath, workspaceState);
@@ -150,6 +176,7 @@ export class ChatController {
         await this.providerHandler.sendAvailable();
         await this.agentPromptHandler.sendAgentPrompts();
         await this.skillPromptHandler.sendSkillPrompts();
+        void this.historySearchHandler.ensureIndex();
         break;
       case 'runTask':
         await this.runTaskHandler.run(
@@ -164,7 +191,10 @@ export class ChatController {
       case 'rejectPlan':          await this.runTaskHandler.rejectPlan(msg.planPath); break;
       case 'openPlan':            await this.runTaskHandler.openPlan(msg.planPath); break;
       case 'openSavedPlans':      await this.runTaskHandler.openSavedPlans(); break;
-      case 'saveHistory':         await this.historyHandler.save(msg.history); break;
+      case 'saveHistory':
+        await this.historyHandler.save(msg.history);
+        void this.historySearchHandler.ensureIndex();
+        break;
       case 'saveProvider':        await this.providerHandler.save(msg.provider); break;
       case 'getReviewContext':    await this.reviewHandler.getContext(msg.baseBranch); break;
       case 'openReviewAgentFile': await this.reviewHandler.openAgentFile(); break;
