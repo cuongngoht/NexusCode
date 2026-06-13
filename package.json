@@ -5,6 +5,14 @@
   "description": "Nexus AI Code is a VS Code extension and companion CLI for orchestrating multiple AI coding agents, project context, planning, debugging, review workflows, and local automation from one workspace-aware cockpit.",
   "version": "1.0.0-beta",
   "icon": "media/extension-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cuongngoht/NexusCode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cuongngoht/NexusCode/issues"
+  },
+  "homepage": "https://github.com/cuongngoht/NexusCode#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
