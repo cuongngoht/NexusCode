@@ -371,5 +371,27 @@
     "completed": "Done",
     "failed": "Failed",
     "stopped": "Stopped"
+  },
+  "streamStatus": {
+    "running": "Running",
+    "complete": "Complete",
+    "failed": "Failed",
+    "phase": "Phase: {{phase}}"
+  },
+  "stepTimeline": {
+    "ariaLabel": "Execution timeline",
+    "stepRunning": "Running",
+    "stepDone": "Done",
+    "stepError": "Error"
+  },
+  "fileChange": {
+    "modified": "Modified",
+    "added": "Added",
+    "deleted": "Deleted",
+    "openDiff": "View diff"
+  },
+  "rawLog": {
+    "toggle": "Raw output",
+    "ariaLabel": "Raw provider output"
   }
 }

@@ -371,5 +371,27 @@
     "completed": "Hoàn thành",
     "failed": "Thất bại",
     "stopped": "Đã dừng"
+  },
+  "streamStatus": {
+    "running": "Đang chạy",
+    "complete": "Hoàn thành",
+    "failed": "Thất bại",
+    "phase": "Giai đoạn: {{phase}}"
+  },
+  "stepTimeline": {
+    "ariaLabel": "Tiến trình thực thi",
+    "stepRunning": "Đang chạy",
+    "stepDone": "Hoàn thành",
+    "stepError": "Lỗi"
+  },
+  "fileChange": {
+    "modified": "Đã sửa",
+    "added": "Thêm mới",
+    "deleted": "Đã xóa",
+    "openDiff": "Xem diff"
+  },
+  "rawLog": {
+    "toggle": "Output thô",
+    "ariaLabel": "Output thô từ provider"
   }
 }

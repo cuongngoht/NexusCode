@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { getBaseTheme } from './theme';
 import { reducer, createInitialState, serializeHistory, emptyTokenUsage, buildConversationContextForPrompt, serializeConversationMessagesForCompact, type AppAction, type ExtMsg, type PromptAttachment, type AgentMentionState, type SkillMentionState, type MainView } from './messages';
+import { streamStore } from './streamStore';
 import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
@@ -99,6 +100,11 @@ export function App() {
       }
       if (msg.type === 'agentsReloaded') {
         dispatch({ type: 'extMsg', msg } satisfies AppAction);
+        return;
+      }
+      // Dispatch nexusStreamEvent directly to streamStore — not to the reducer
+      if (msg.type === 'nexusStreamEvent') {
+        streamStore.dispatch(msg.event);
         return;
       }
       // Batch stdout/stderr for performance — flush via rAF to reduce re-renders

@@ -2,12 +2,17 @@ import { describe, it, expect } from 'vitest';
 import { buildAugmentedPrompt } from '../promptAugmentationBuilder';
 
 describe('buildAugmentedPrompt', () => {
-  it('returns enhanced prompt unchanged when no agents or skills', () => {
+  it('returns enhanced prompt with nexus progress instruction appended when no agents or skills', () => {
     const result = buildAugmentedPrompt({
       userPrompt: 'improve ChatController',
       existingEnhancedPrompt: '# Workspace\nRoot: /app\n\n# Task\nimprove ChatController',
     });
-    expect(result).toBe('# Workspace\nRoot: /app\n\n# Task\nimprove ChatController');
+    expect(result).toContain('# Workspace\nRoot: /app\n\n# Task\nimprove ChatController');
+    expect(result).toContain('You are running inside Nexus Code');
+    // Enhanced prompt appears before progress instruction
+    const taskPos = result.indexOf('# Task');
+    const nexusPos = result.indexOf('You are running inside Nexus Code');
+    expect(taskPos).toBeLessThan(nexusPos);
   });
 
   it('prepends agent bundle before enhanced prompt', () => {

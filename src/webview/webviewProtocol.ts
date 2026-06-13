@@ -1,5 +1,6 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
 import type { PromptAttachment } from '../core/types';
+import type { NexusStreamEvent } from '../core/stream/NexusStreamEvent';
 import type { ProviderDetectionResult } from '../core/providerDetector';
 import type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
@@ -84,7 +85,9 @@ export type ExtensionMessage =
   | { type: 'analyticsSummary'; summary: AnalyticsDashboardSummary }
   | { type: 'analyticsRuns'; runs: AnalyticsRunRecord[] }
   | { type: 'analyticsExported'; path: string }
-  | { type: 'analyticsError'; message: string };
+  | { type: 'analyticsError'; message: string }
+  // Nexus native streaming protocol
+  | { type: 'nexusStreamEvent'; event: NexusStreamEvent };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =

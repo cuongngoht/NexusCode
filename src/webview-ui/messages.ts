@@ -10,6 +10,7 @@ import type {
   ProviderTokenSummary,
   TokenUsageSource,
 } from '../core/tokens/TokenUsage';
+import type { NexusStreamEvent } from '../core/stream/NexusStreamEvent';
 
 export type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary };
 
@@ -636,7 +637,11 @@ export type ExtMsg =
   | { type: 'analyticsSummary'; summary: AnalyticsDashboardSummary }
   | { type: 'analyticsRuns'; runs: AnalyticsRunRecord[] }
   | { type: 'analyticsExported'; path: string }
-  | { type: 'analyticsError'; message: string };
+  | { type: 'analyticsError'; message: string }
+  // Nexus native streaming protocol
+  | { type: 'nexusStreamEvent'; event: NexusStreamEvent };
+
+export type { NexusStreamEvent };
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -1674,6 +1679,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'analyticsError':
       return { ...state, analyticsError: msg.message, analyticsLoading: false };
+
+    case 'nexusStreamEvent':
+      // Handled directly in App.tsx via streamStore.dispatch() — reducer is a no-op
+      return state;
   }
   return state;
 }
