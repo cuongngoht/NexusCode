@@ -16,4 +16,5 @@ export interface IAgent {
   isLoggedIn?(): Promise<boolean>;
   buildCommand(task: AgentTask): AgentCommand;
   parseOutput(raw: string): AgentOutput;
+  transformStdout?(chunk: string): string;
 }
