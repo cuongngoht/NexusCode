@@ -177,7 +177,8 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
 
       // ── Grok thought tokens (streamed one token at a time) ─────────────────
       // Grok streaming-json emits {"type":"thought","data":"word"} for each thinking token.
-      // We open a "Thinking" chip on the first token and stream all tokens as content.
+      // We open a "Thinking" chip on the first token and stream tokens via reasoning_delta
+      // (separate channel so they do not pollute the final visible answer).
       if (type === 'thought' || type === 'thinking' || type === 'reasoning') {
         const text = typeof obj.data === 'string' ? obj.data : extractText(obj);
         if (text === null) return [];
@@ -190,7 +191,7 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
           this._inTextPhase = false;
           events.push({ kind: 'tool_call', toolName: 'Thinking', toolArgs: '', toolKind: 'search' });
         }
-        if (text) events.push({ kind: 'content_delta', text });
+        if (text) events.push({ kind: 'reasoning_delta', text });
         return events;
       }
 

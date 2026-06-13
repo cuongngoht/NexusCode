@@ -161,6 +161,17 @@ export const AssistantMessage = memo(function AssistantMessage({
         <div className="fl-blocks">
           <PipelineSteps steps={message.steps} />
 
+          {message.reasoning && message.reasoning.trim() && (
+            <details className="nx-reasoning" open={!!message.isStreaming}>
+              <summary className="nx-reasoning-summary">
+                🧠 { (message.providerLabel || '').toLowerCase().includes('grok') ? t.reasoning.titleGrok : t.reasoning.title }
+              </summary>
+              <div className="nx-reasoning-body">
+                <MarkdownRenderer content={message.reasoning} codeBlockActions={codeBlockActions} />
+              </div>
+            </details>
+          )}
+
           {message.lines.length > 0 && (() => {
             const stdoutText = message.lines
               .filter(l => l.kind === 'stdout')

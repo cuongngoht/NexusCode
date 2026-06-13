@@ -1,7 +1,7 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
 import type { PromptAttachment } from '../core/types';
 import type { NexusStreamEvent } from '../core/stream/NexusStreamEvent';
-import type { ProviderDetectionResult } from '../core/providerDetector';
+import type { ProviderDetectionResult } from '../provider-hub/ProviderTypes';
 import type { ChatHistoryState, SerializedChatMessage, SerializedConversationCompactSummary } from '../core/chat/ChatHistory';
 import type { TokenRunUsage } from '../core/tokens/TokenUsage';
 import type { AgentModeCapability, AgentRecommendation } from '../application/nexus/AgentCapabilityMatrix';
@@ -25,6 +25,7 @@ export type { SkillPrompt };
 export type ExtensionMessage =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
+  | { type: 'reasoning'; chunk: string }
   | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }

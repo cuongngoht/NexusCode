@@ -339,6 +339,7 @@ export interface AssistantMessage {
   mode: string;
   model?: string;
   lines: OutputLine[];
+  reasoning?: string;
   isStreaming: boolean;
   timestamp?: number;
   exitCode?: number;
@@ -591,7 +592,7 @@ export interface PromptAttachment {
   path: string;
 }
 
-// Structural mirror of ProviderDetectionResult from src/core/providerDetector.ts —
+// Structural mirror of ProviderDetectionResult from src/provider-hub/ProviderTypes.ts —
 // keep in sync (webview bundle cannot import from extension-side modules).
 // id is typed as string here because the webview does not import ProviderId from core.
 export interface ProviderInfo {
@@ -615,6 +616,7 @@ export interface ProviderInfo {
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
+  | { type: 'reasoning'; chunk: string }
   | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
@@ -891,6 +893,7 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
         mode: a.mode,
         model: a.model,
         content,
+        reasoning: a.reasoning || undefined,
         exitCode: a.exitCode,
         errorText: a.errorText,
         timestamp: a.timestamp ?? now,
@@ -955,6 +958,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       mode: m.mode,
       model: m.model,
       lines,
+      reasoning: m.reasoning,
       isStreaming: false,
       exitCode: m.exitCode,
       errorText: m.errorText,
@@ -1348,6 +1352,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           mode: msg.mode,
           model: msg.model,
           lines: [],
+          reasoning: '',
           isStreaming: true,
           timestamp: Date.now(),
           steps: [newStep],
@@ -1447,6 +1452,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         mode: msg.mode,
         model: msg.model,
         lines: [],
+        reasoning: '',
         isStreaming: true,
         timestamp: Date.now(),
         steps: [],
@@ -1477,6 +1483,18 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         updateLastAssistant(conv, m => ({
           ...m,
           lines: truncateLines([...m.lines, ...lines]),
+        })),
+      );
+    }
+
+    case 'reasoning': {
+      if (!state.isRunning) return state;
+      const chunk = msg.chunk;
+      if (!chunk || !chunk.trim()) return state;
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          reasoning: (m.reasoning ?? '') + chunk,
         })),
       );
     }

@@ -4,7 +4,7 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import { ConfigService } from '../config/ConfigService';
 import type { IChatHistoryStore } from './IChatHistoryStore';
 import { RunTaskHandler } from './handlers/RunTaskHandler';

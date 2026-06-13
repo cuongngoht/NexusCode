@@ -31,6 +31,19 @@ describe('NexusStreamNormalizer', () => {
     expect(typeof result[0].timestamp).toBe('number');
   });
 
+  it('maps reasoning_delta to step.reasoning', () => {
+    const event: AgentStreamEvent = { kind: 'reasoning_delta', text: 'thinking step' };
+    const result = normalizer.normalize(event, CTX);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      kind: 'step.reasoning',
+      taskId: CTX.taskId,
+      provider: CTX.provider,
+      mode: CTX.mode,
+      text: 'thinking step',
+    });
+  });
+
   it('maps tool_call to tool.started', () => {
     const event: AgentStreamEvent = {
       kind: 'tool_call',

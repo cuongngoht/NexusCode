@@ -1,4 +1,9 @@
-# Nexus AI Code — Agent Architecture
+# Nexus AI Code — Agent Architecture (Historical / Simplified)
+
+> **Note**: This document describes an earlier (v0.1.5) view of the architecture.
+> For the current accurate picture (layers, stream pipeline registry, NexusOrchestrator, subagents, provider-hub migration, composition helpers, etc.), see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
+
+---
 
 > **Project**: `nexus-ai-code` v0.1.5 — VS Code Extension (engine ≥ 1.85.0)
 >
@@ -581,6 +586,27 @@ export class ClaudeAgent extends BaseAgent {
 `RunAgentUseCase` checks `agent.outputParser` and, if present, pipes each stdout chunk through it. Parsed activities are emitted as `activity_started` / `activity_done` events, which the webview renders as sub-steps.
 
 ---
+
+### Per-Agent Response Formatting & Channels (Design Pattern)
+
+Different agents produce very different outputs (Grok emits explicit `thought`/`text` JSON; Codex has `reasoning` items; others are plain prose or tool logs). The **Stream Interpretation Strategy** (via `IProviderStreamAdapter`, chosen by `AgentCommand.transport` in `AgentStreamPipelineFactory`) + legacy `IOutputParser` lets each agent control the *shape* of its response.
+
+Key extension:
+- `AgentStreamEvent` now includes `reasoning_delta` (alongside `content_delta` for final answer).
+- Adapters decide what is "visible answer" vs auxiliary reasoning/trace (Grok routes thoughts to `reasoning_delta` + "Thinking" chip; Codex intentionally drops its reasoning items).
+- `RunAgentUseCase._emitStreamEvents` + `NexusStreamNormalizer` + `EventForwarder` propagate the channels.
+- `AssistantMessage` (legacy chat) and `StreamState` carry optional `reasoning`.
+- UI renders a provider-aware collapsible "Reasoning" block (using `details` + `MarkdownRenderer`) for agents that surface it (see `AssistantMessage.tsx`). This keeps the main answer clean while allowing rich per-agent presentation.
+- `transformStdout` on `IAgent` remains the hook for early wire normalization (e.g. Grok's markdown delimiter fix).
+- `parseOutput` handles final non-stream result shaping.
+- Raw provider output is always preserved (via `provider.raw` → `ProviderRawLog`).
+
+When adding a new streaming agent:
+- Implement (or pick) a transport + adapter that emits `content_delta` (answer) and optionally `reasoning_delta` / tool events.
+- The UI and history automatically get differentiated formatting (collapsible reasoning, separate accumulation) without changes elsewhere.
+- Update docs/tests for the adapter.
+
+This formalizes the previous ad-hoc per-provider logic into an explicit, documented pattern for "different responses per Agent".
 
 ## Adding a New Agent
 

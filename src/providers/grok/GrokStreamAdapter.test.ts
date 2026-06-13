@@ -13,19 +13,19 @@ describe('GrokStreamAdapter — grok native format (thought/text/end)', () => {
   it('opens Thinking chip on first thought token', () => {
     const evs = a.adapt(jsonFrame({ type: 'thought', data: 'The' }));
     expect(evs[0]).toMatchObject({ kind: 'tool_call', toolName: 'Thinking', toolKind: 'search' });
-    expect(evs[1]).toEqual({ kind: 'content_delta', text: 'The' });
+    expect(evs[1]).toEqual({ kind: 'reasoning_delta', text: 'The' });
   });
   it('no duplicate Thinking chip on subsequent thought tokens', () => {
     a.adapt(jsonFrame({ type: 'thought', data: 'The' }));
     const evs = a.adapt(jsonFrame({ type: 'thought', data: ' user' }));
     expect(evs).toHaveLength(1);
-    expect(evs[0]).toEqual({ kind: 'content_delta', text: ' user' });
+    expect(evs[0]).toEqual({ kind: 'reasoning_delta', text: ' user' });
   });
-  it('streams thought tokens as content_delta', () => {
+  it('streams thought tokens as reasoning_delta', () => {
     a.adapt(jsonFrame({ type: 'thought', data: 'The' }));
     a.adapt(jsonFrame({ type: 'thought', data: ' user' }));
     const evs = a.adapt(jsonFrame({ type: 'thought', data: ' wants' }));
-    expect(evs).toEqual([{ kind: 'content_delta', text: ' wants' }]);
+    expect(evs).toEqual([{ kind: 'reasoning_delta', text: ' wants' }]);
   });
   it('closes Thinking chip on first text token', () => {
     a.adapt(jsonFrame({ type: 'thought', data: 'thinking...' }));
@@ -63,7 +63,7 @@ describe('GrokStreamAdapter — grok native format (thought/text/end)', () => {
     // thought phase
     const t1 = a.adapt(jsonFrame({ type: 'thought', data: 'planning' }));
     expect(t1[0]).toMatchObject({ kind: 'tool_call', toolName: 'Thinking' });
-    expect(t1[1]).toEqual({ kind: 'content_delta', text: 'planning' });
+    expect(t1[1]).toEqual({ kind: 'reasoning_delta', text: 'planning' });
     // transition to text
     const tx1 = a.adapt(jsonFrame({ type: 'text', data: 'Done' }));
     expect(tx1[0]).toMatchObject({ kind: 'tool_result', toolName: 'Thinking' });
@@ -113,10 +113,10 @@ describe('GrokStreamAdapter — thinking/reasoning events (generic)', () => {
   let a: GrokStreamAdapter;
   beforeEach(() => { a = new GrokStreamAdapter(); });
 
-  it('thinking type with text field emits chip + content_delta', () => {
+  it('thinking type with text field emits chip + reasoning_delta', () => {
     const evs = a.adapt(jsonFrame({ type: 'thinking', text: 'analyzing' }));
     expect(evs[0]).toMatchObject({ kind: 'tool_call', toolName: 'Thinking', toolKind: 'search' });
-    expect(evs[1]).toEqual({ kind: 'content_delta', text: 'analyzing' });
+    expect(evs[1]).toEqual({ kind: 'reasoning_delta', text: 'analyzing' });
   });
   it('reasoning type also treated as Thinking', () => {
     const evs = a.adapt(jsonFrame({ type: 'reasoning', text: 'reasoning...' }));
@@ -126,7 +126,7 @@ describe('GrokStreamAdapter — thinking/reasoning events (generic)', () => {
     a.adapt(jsonFrame({ type: 'thinking', text: 'step 1' }));
     const evs = a.adapt(jsonFrame({ type: 'thinking', text: 'step 2' }));
     expect(evs).toHaveLength(1);
-    expect(evs[0].kind).toBe('content_delta');
+    expect(evs[0].kind).toBe('reasoning_delta');
   });
 });
 

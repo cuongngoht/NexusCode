@@ -4,6 +4,7 @@ export type NexusStreamEvent =
   | { kind: 'task.failed';    taskId: string; timestamp: number; provider: string; mode: string; model?: string; error: string }
   | { kind: 'step.started';   taskId: string; timestamp: number; provider: string; mode: string; model?: string; label: string; index: number; total: number }
   | { kind: 'step.delta';     taskId: string; timestamp: number; provider: string; mode: string; model?: string; text: string }
+  | { kind: 'step.reasoning'; taskId: string; timestamp: number; provider: string; mode: string; model?: string; text: string }
   | { kind: 'step.completed'; taskId: string; timestamp: number; provider: string; mode: string; model?: string; label: string }
   | { kind: 'tool.started';   taskId: string; timestamp: number; provider: string; mode: string; model?: string; toolName: string; toolKind?: string }
   | { kind: 'tool.completed'; taskId: string; timestamp: number; provider: string; mode: string; model?: string; toolName: string; status: 'done' | 'error' }

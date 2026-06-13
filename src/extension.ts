@@ -30,7 +30,7 @@ import { ProjectMapMarkdownRenderer } from './context/project-map/summary/Projec
 import { ProjectMapSummaryWriter } from './context/project-map/summary/ProjectMapSummaryWriter';
 import type { AgentId } from './core/agent/AgentTask';
 import { ConfigService } from './config/ConfigService';
-import { ProviderDetector } from './core/providerDetector';
+import { ProviderDetector } from './provider-hub/ProviderDetector';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { AboutPanel } from './settings/AboutPanel';
 import { McpPresetRegistry } from './mcp/McpPresetRegistry';
@@ -62,86 +62,28 @@ import { AnalyticsExporter } from './analytics/AnalyticsExporter';
 import { AnalyticsService } from './analytics/AnalyticsService';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const registry = new AgentRegistry();
-  registry.register(new ClaudeAgent());
-  registry.register(new CodexAgent());
-  registry.register(new AntigravityAgent());
-  registry.register(new CopilotAgent());
-  registry.register(new AiderAgent());
-  registry.register(new CustomAgent({
-    getCommand: () => vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? '',
-    getArgs: () => vscode.workspace.getConfiguration('nexus').get<string[]>('customProvider.args') ?? ['{{prompt}}'],
-  }));
-  registry.register(new GrokAgent());
-  registry.register(new NexusAgent());
+  const registry = createAgentRegistry();
 
   const eventBus = new EventBus();
   const runner = new ProcessRunner();
   const router = new AgentRouter(registry);
   const configService = new ConfigService();
 
-  const mcpPresetRegistry = new McpPresetRegistry();
-  const mcpPresetSelectionPolicy = new McpPresetSelectionPolicy();
-  const mcpToolRouter = new McpToolRouter();
-  const mcpIntentParser = new McpIntentParser();
-  const mcpExecutionPolicy = new McpExecutionPolicy();
-  const mcpResultCompressor = new McpResultCompressor();
-  const stdioMcpAdapter = new StdioMcpClientAdapter();
-  const httpMcpAdapter = new StreamableHttpMcpClientAdapter();
-  const mcpBroker = new McpBroker(stdioMcpAdapter, httpMcpAdapter);
-  const mcpToolUseCase = new McpToolUseCase(
-    mcpPresetRegistry,
-    mcpPresetSelectionPolicy,
-    mcpToolRouter,
-    mcpIntentParser,
-    mcpExecutionPolicy,
-    mcpBroker,
-    mcpResultCompressor,
-  );
+  const mcpToolUseCase = createMcpToolUseCase();
 
   const runAgent = new RunAgentUseCase(router, runner, eventBus, mcpToolUseCase, configService);
   const orchestrator = new NexusOrchestrator(registry, runAgent, eventBus);
 
-  const subagentRegistry = new SubagentRegistry();
-  DEFAULT_SUBAGENTS.forEach(d => subagentRegistry.register(d));
-  const subagentRouter = new SubagentRouter(registry);
-  const subagentPlanner = new SubagentPlanner(subagentRegistry);
-  const subagentExecutor = new SubagentExecutor(runner, context.extensionPath);
-  const subagentOrchestrator = new SubagentOrchestrator(subagentPlanner, subagentRouter, subagentExecutor);
+  const subagentOrchestrator = createSubagentOrchestrator(registry, runner, context.extensionPath);
 
-  const buildProjectMap = new BuildProjectMapUseCase(
-    new NexusFileTreeScanner(),
-    new NexusMarkerDetector(),
-    new NexusProjectUnitDetector(),
-    new NexusProjectMapBuilder(),
-    new NexusProjectMapWriter(),
-  );
-
-  const summarizeProjectMap = new SummarizeProjectMapUseCase(
-    new ProjectMapSummaryPromptBuilder(),
-    new ProjectMapAiRunner(registry, runner),
-    new AiJsonExtractor(),
-    new ProjectMapSummaryValidator(),
-    new ProjectMapMarkdownRenderer(),
-    new ProjectMapSummaryWriter(),
-  );
+  const { buildProjectMap, summarizeProjectMap } = createProjectMapUseCases(registry, runner);
 
   const detector = new ProviderDetector();
 
   const compactor = new ConversationCompactor(registry, runner);
 
   // Analytics
-  const analyticsStore = new AnalyticsStore(context.globalStorageUri);
-  const costEstimator = new CostEstimator();
-  const analyticsAggregator = new AnalyticsAggregator();
-  const analyticsExporter = new AnalyticsExporter();
-  const analyticsService = new AnalyticsService(
-    analyticsStore,
-    costEstimator,
-    analyticsAggregator,
-    analyticsExporter,
-    vscode.workspace.getConfiguration('nexus'),
-  );
+  const analyticsService = createAnalyticsService(context.globalStorageUri);
   // Prune old analytics on startup
   void analyticsService.pruneOld();
 
@@ -306,6 +248,98 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showErrorMessage(`Create workflow agent failed: ${message}`);
       }
     }),
+  );
+}
+
+// ── Composition helpers (keeps activate() readable and groups wiring) ──────
+
+function createAgentRegistry(): AgentRegistry {
+  const registry = new AgentRegistry();
+  registry.register(new ClaudeAgent());
+  registry.register(new CodexAgent());
+  registry.register(new AntigravityAgent());
+  registry.register(new CopilotAgent());
+  registry.register(new AiderAgent());
+  registry.register(
+    new CustomAgent({
+      getCommand: () =>
+        vscode.workspace.getConfiguration('nexus').get<string>('customProvider.command') ?? '',
+      getArgs: () =>
+        vscode.workspace.getConfiguration('nexus').get<string[]>('customProvider.args') ?? ['{{prompt}}'],
+    }),
+  );
+  registry.register(new GrokAgent());
+  registry.register(new NexusAgent());
+  return registry;
+}
+
+function createMcpToolUseCase(): McpToolUseCase {
+  const mcpPresetRegistry = new McpPresetRegistry();
+  const mcpPresetSelectionPolicy = new McpPresetSelectionPolicy();
+  const mcpToolRouter = new McpToolRouter();
+  const mcpIntentParser = new McpIntentParser();
+  const mcpExecutionPolicy = new McpExecutionPolicy();
+  const mcpResultCompressor = new McpResultCompressor();
+  const stdioMcpAdapter = new StdioMcpClientAdapter();
+  const httpMcpAdapter = new StreamableHttpMcpClientAdapter();
+  const mcpBroker = new McpBroker(stdioMcpAdapter, httpMcpAdapter);
+
+  return new McpToolUseCase(
+    mcpPresetRegistry,
+    mcpPresetSelectionPolicy,
+    mcpToolRouter,
+    mcpIntentParser,
+    mcpExecutionPolicy,
+    mcpBroker,
+    mcpResultCompressor,
+  );
+}
+
+function createProjectMapUseCases(registry: AgentRegistry, runner: ProcessRunner) {
+  const buildProjectMap = new BuildProjectMapUseCase(
+    new NexusFileTreeScanner(),
+    new NexusMarkerDetector(),
+    new NexusProjectUnitDetector(),
+    new NexusProjectMapBuilder(),
+    new NexusProjectMapWriter(),
+  );
+
+  const summarizeProjectMap = new SummarizeProjectMapUseCase(
+    new ProjectMapSummaryPromptBuilder(),
+    new ProjectMapAiRunner(registry, runner),
+    new AiJsonExtractor(),
+    new ProjectMapSummaryValidator(),
+    new ProjectMapMarkdownRenderer(),
+    new ProjectMapSummaryWriter(),
+  );
+
+  return { buildProjectMap, summarizeProjectMap };
+}
+
+function createSubagentOrchestrator(
+  agentRegistry: AgentRegistry,
+  runner: ProcessRunner,
+  extensionPath: string,
+): SubagentOrchestrator {
+  const subagentRegistry = new SubagentRegistry();
+  DEFAULT_SUBAGENTS.forEach((d) => subagentRegistry.register(d));
+  const subagentRouter = new SubagentRouter(agentRegistry);
+  const subagentPlanner = new SubagentPlanner(subagentRegistry);
+  const subagentExecutor = new SubagentExecutor(runner, extensionPath);
+  return new SubagentOrchestrator(subagentPlanner, subagentRouter, subagentExecutor);
+}
+
+function createAnalyticsService(globalStorageUri: vscode.Uri): AnalyticsService {
+  const analyticsStore = new AnalyticsStore(globalStorageUri);
+  const costEstimator = new CostEstimator();
+  const analyticsAggregator = new AnalyticsAggregator();
+  const analyticsExporter = new AnalyticsExporter();
+  return new AnalyticsService(
+    analyticsStore,
+    costEstimator,
+    analyticsAggregator,
+    analyticsExporter,
+    vscode.workspace.getConfiguration('nexus'),
   );
 }
 

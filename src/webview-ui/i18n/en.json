@@ -410,6 +410,11 @@
     "toggle": "Raw output",
     "ariaLabel": "Raw provider output"
   },
+  "reasoning": {
+    "title": "Reasoning trace",
+    "titleGrok": "Grok reasoning",
+    "toggle": "Toggle reasoning"
+  },
   "historySearch": {
     "ragBadge": "{{count}} history sources",
     "ragOn": "Auto-RAG: On",

@@ -110,12 +110,19 @@ export class RunAgentUseCase {
           // Always emit the raw chunk as stdout. This guarantees the agent's full output
           // (the "result") reaches the UI message body, history, copy, and context builders
           // regardless of how the (optional) outputParser classifies lines.
-          // Parser is used *only* as a side-channel to produce activity_* events for
-          // nice progress chips (see _emitStreamEvents for the stream/pipeline equivalent).
-          // This is the robust best practice: content fidelity is independent of activity extraction.
-          // Matches the design of PlainTextAdapter + content_delta, Claude/Antigravity/Codex parsers
-          // (which default prose to plain), and prevents the class of bug where review-style NL
-          // output (triggered by @agent/#skill prompts) gets entirely diverted to activities.
+          //
+          // Dual-path design (intentional):
+          //  - New primary path: AgentStreamPipeline + IProviderStreamAdapter (per-provider)
+          //    → emits rich typed events (content_delta, reasoning_delta, tool_call/result, etc.).
+          //    Adapters live in providers/*/ and are selected via transport in AgentCommand.
+          //    See AgentStreamPipelineFactory (now registry-based for OCP) and IProviderStreamAdapter.
+          //  - Legacy side-channel: IOutputParser (optional on IAgent) → only produces
+          //    activity_* events for UI "progress chips" (read/edit/bash/todo...).
+          //    Never used to filter or replace the actual answer content.
+          //
+          // This separation keeps content fidelity independent of activity extraction.
+          // It matches PlainTextAdapter + the original Claude/Codex parsers and prevents
+          // review-style or @-mention prose from being diverted entirely into chips.
           this.eventBus.emit({ kind: 'stdout', task, chunk });
 
           if (!parser) {
@@ -175,6 +182,9 @@ export class RunAgentUseCase {
       switch (event.kind) {
         case 'content_delta':
           this.eventBus.emit({ kind: 'stdout', task, chunk: event.text });
+          break;
+        case 'reasoning_delta':
+          this.eventBus.emit({ kind: 'reasoning', task, chunk: event.text });
           break;
         case 'tool_call':
           this.eventBus.emit({ kind: 'activity_started', task, activityKind: event.toolKind ?? 'tool_call', label: event.toolName });

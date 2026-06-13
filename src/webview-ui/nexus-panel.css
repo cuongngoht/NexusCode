@@ -1845,6 +1845,47 @@ html, body, #root {
   max-width: 260px;
 }
 
+/* Per-agent differentiated response: reasoning / thought trace (collapsible) */
+.nx-reasoning {
+  margin: 6px 0 8px;
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: 6px;
+  background: var(--colorNeutralBackground2);
+  font-size: 12.5px;
+}
+.nx-reasoning[open] {
+  background: var(--colorNeutralBackground1);
+}
+.nx-reasoning-summary {
+  cursor: pointer;
+  padding: 4px 8px;
+  user-select: none;
+  font-weight: 500;
+  color: var(--colorNeutralForeground2);
+  list-style: none;
+}
+.nx-reasoning-summary::-webkit-details-marker {
+  display: none;
+}
+.nx-reasoning-summary::before {
+  content: '▸ ';
+  display: inline-block;
+  width: 1em;
+  transition: transform 0.1s ease;
+}
+.nx-reasoning[open] .nx-reasoning-summary::before {
+  transform: rotate(90deg);
+}
+.nx-reasoning-body {
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--colorNeutralStroke1);
+  max-height: 320px;
+  overflow: auto;
+}
+.nx-reasoning-body .nx-markdown {
+  font-size: 12.5px;
+}
+
 /* ============================================================
    SETUP BANNER (first-run / no CLI configured)
    ============================================================ */

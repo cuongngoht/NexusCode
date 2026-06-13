@@ -410,6 +410,11 @@
     "toggle": "Output thô",
     "ariaLabel": "Output thô từ provider"
   },
+  "reasoning": {
+    "title": "Quá trình suy luận",
+    "titleGrok": "Suy luận của Grok",
+    "toggle": "Hiện/ẩn suy luận"
+  },
   "historySearch": {
     "ragBadge": "{{count}} nguồn lịch sử",
     "ragOn": "Auto-RAG: Bật",

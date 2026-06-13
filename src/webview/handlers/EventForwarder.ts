@@ -43,6 +43,29 @@ export class EventForwarder {
           stream: 'stdout',
         });
         break;
+      case 'reasoning':
+        this.post({ type: 'reasoning', chunk: event.chunk });
+        this._postNexus({
+          kind: 'step.reasoning',
+          taskId: event.task.id,
+          timestamp: Date.now(),
+          provider: event.task.agentId,
+          mode: event.task.mode,
+          model: event.task.model,
+          text: event.chunk,
+        });
+        // Also surface in raw log for full fidelity (extracted reasoning tokens)
+        this._postNexus({
+          kind: 'provider.raw',
+          taskId: event.task.id,
+          timestamp: Date.now(),
+          provider: event.task.agentId,
+          mode: event.task.mode,
+          model: event.task.model,
+          chunk: event.chunk,
+          stream: 'stdout',
+        });
+        break;
       case 'stderr':
         this.post({ type: 'stderr', chunk: event.chunk });
         this._postNexus({

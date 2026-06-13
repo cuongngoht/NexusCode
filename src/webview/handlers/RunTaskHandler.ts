@@ -44,6 +44,23 @@ import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrat
 
 const RUN_STEP_LABEL = 'analyze';
 
+/**
+ * RunTaskHandler
+ *
+ * Central coordinator for a user-initiated task from the webview.
+ * Responsibilities:
+ *  - Build rich PipelineContext (project map, conversation/RAG context, attachments, research, git, rules, debug signals, etc.)
+ *  - Run pre-steps (via createPreSteps) + subagent orchestration when enabled
+ *  - Delegate the "heavy lifting" to:
+ *      • NexusOrchestrator (for multi-stage plan/code flows)
+ *      • RunAgentUseCase (single-shot or final code execution + MCP)
+ *      • DebugOrchestrator (special debug mode)
+ *  - Stream events back and manage cancellation state.
+ *
+ * It has grown to touch many context builders — further extraction of mode-specific
+ * "ContextAssembler" strategies would be a natural future cleanup.
+ */
+
 const SCAN_PROJECT_DEFAULT =
   "Summarize this project's architecture, detected units, tech stack, and suggest next steps.";
 

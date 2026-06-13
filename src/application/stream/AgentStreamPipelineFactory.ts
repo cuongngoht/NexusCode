@@ -1,6 +1,6 @@
 import type { AgentCommand } from '../../core/agent/AgentCommand';
 import type { AgentStreamEvent } from '../../core/stream/AgentStreamEvent';
-import type { DecodedFrame } from '../../core/stream/IStreamDecoder';
+import type { DecodedFrame, IStreamDecoder } from '../../core/stream/IStreamDecoder';
 import type { IProviderStreamAdapter } from '../../core/stream/IProviderStreamAdapter';
 import { AgentStreamPipeline } from './AgentStreamPipeline';
 import { SseDecoder } from '../../infrastructure/stream/SseDecoder';
@@ -19,32 +19,50 @@ class PlainTextAdapter implements IProviderStreamAdapter {
   }
 }
 
+type AdapterFactory = (command: AgentCommand) => { decoder: IStreamDecoder; adapter: IProviderStreamAdapter };
+
+const adapterFactories = new Map<string, AdapterFactory>();
+
+function seedBuiltins() {
+  const builtins: Array<[string, AdapterFactory]> = [
+    ['sse', () => ({ decoder: new SseDecoder(), adapter: new CodexSseAdapter() })],
+    ['jsonl', (cmd) => ({
+      decoder: new LineDecoder(),
+      adapter: cmd.executable === 'codex' ? new CodexJsonlAdapter() : new PlainTextAdapter(),
+    })],
+    ['plain', () => ({ decoder: new PlainTextDecoder(), adapter: new PlainTextAdapter() })],
+    ['stdio', () => ({ decoder: new LineDecoder(), adapter: new PlainTextAdapter() })],
+    ['grok', () => ({ decoder: new LineDecoder(), adapter: new GrokStreamAdapter() })],
+    ['antigravity', () => ({ decoder: new LineDecoder(), adapter: new AntigravityStreamAdapter() })],
+  ];
+  for (const [t, f] of builtins) {
+    if (!adapterFactories.has(t)) adapterFactories.set(t, f);
+  }
+}
+seedBuiltins();
+
 export class AgentStreamPipelineFactory {
-  static create(command: AgentCommand): AgentStreamPipeline | null {
-    switch (command.transport) {
-      case 'sse':
-        return new AgentStreamPipeline(new SseDecoder(), new CodexSseAdapter());
-      case 'jsonl':
-        return new AgentStreamPipeline(new LineDecoder(), AgentStreamPipelineFactory._pickJsonlAdapter(command.executable));
-      case 'plain':
-        return new AgentStreamPipeline(new PlainTextDecoder(), new PlainTextAdapter());
-      case 'stdio':
-        return new AgentStreamPipeline(new LineDecoder(), new PlainTextAdapter());
-      case 'grok':
-        return new AgentStreamPipeline(new LineDecoder(), new GrokStreamAdapter());
-      case 'antigravity':
-        return new AgentStreamPipeline(new LineDecoder(), new AntigravityStreamAdapter());
-      case undefined:
-        return null;
-      default: {
-        const _exhaustive: never = command.transport;
-        void _exhaustive;
-        return null;
-      }
-    }
+  /**
+   * Register (or override) a transport → (decoder + adapter) factory.
+   * This enables Open/Closed Principle: new providers can extend streaming support
+   * without modifying this factory's source.
+   *
+   * Call once early (top of the provider module or in composition root).
+   */
+  static register(transport: string, factory: AdapterFactory): void {
+    adapterFactories.set(transport, factory);
   }
 
-  private static _pickJsonlAdapter(executable: string): IProviderStreamAdapter {
-    return executable === 'codex' ? new CodexJsonlAdapter() : new PlainTextAdapter();
+  static create(command: AgentCommand): AgentStreamPipeline | null {
+    if (!command.transport) return null;
+
+    const factory = adapterFactories.get(command.transport);
+    if (!factory) {
+      // Unknown transport — caller will still receive raw 'stdout' events.
+      return null;
+    }
+
+    const { decoder, adapter } = factory(command);
+    return new AgentStreamPipeline(decoder, adapter);
   }
 }

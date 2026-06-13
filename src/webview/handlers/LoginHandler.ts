@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ProviderId } from '../../core/types';
-import type { ProviderDetector } from '../../core/providerDetector';
+import type { ProviderDetector } from '../../provider-hub/ProviderDetector';
 import type { ProviderHandler } from './ProviderHandler';
 
 export class LoginHandler implements vscode.Disposable {

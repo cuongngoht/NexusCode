@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { ProviderId } from '../../core/types';
-import { ProviderDetector } from '../../core/providerDetector';
+import { ProviderDetector } from '../../provider-hub/ProviderDetector';
 import { ConfigService } from '../../config/ConfigService';
 import {
   buildAgentCapabilityMatrix,

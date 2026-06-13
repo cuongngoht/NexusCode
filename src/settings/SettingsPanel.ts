@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigService } from '../config/ConfigService';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import type { ProviderId } from '../core/types';
 import { getSettingsHtml } from './SettingsHtml';
 
