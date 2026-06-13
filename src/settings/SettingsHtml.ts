@@ -60,6 +60,21 @@ export function getSettingsHtml(
   const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
   const historyRagEnabled = vsCodeConfig?.historyRagEnabled ?? mergedConfig.historyRag?.enabled ?? true;
 
+  const safeSubagents = { ...(DEFAULT_CONFIG.subagents ?? {}), ...(mergedConfig.subagents ?? {}) };
+  const subagentsEnabled = safeSubagents.enabled ?? false;
+  const subagentsMode = safeSubagents.mode ?? 'auto';
+  const subagentsPreset = safeSubagents.preset ?? 'balanced';
+  const subagentsMaxRuns = safeSubagents.maxRuns ?? 4;
+  const subagentsMaxParallel = safeSubagents.maxParallel ?? 2;
+  const subagentsHardCap = safeSubagents.hardCap ?? 6;
+  const subagentsIncludeReviewer = safeSubagents.includeReviewer ?? true;
+  const subagentsIncludeTester = safeSubagents.includeTester ?? true;
+  const subagentsIncludeSecurity = safeSubagents.includeSecurity ?? false;
+  const subagentsIncludeDocs = safeSubagents.includeDocs ?? false;
+  const subagentsFailOpen = safeSubagents.failOpen ?? true;
+  const subagentsInjectMaxChars = safeSubagents.injectMaxChars ?? 8000;
+  const subagentsTimeoutMs = safeSubagents.timeoutMs ?? 30000;
+
   return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -257,6 +272,50 @@ export function getSettingsHtml(
     }
     .status.ok  { color: var(--vscode-testing-iconPassed); }
     .status.err { color: var(--vscode-errorForeground); }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .setting-row label,
+    .setting-row > span:first-child {
+      min-width: 120px;
+    }
+    .setting-row select,
+    .setting-row input[type="number"] {
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 0.9em;
+      font-family: var(--vscode-font-family);
+    }
+    .setting-row input[type="number"] {
+      width: 80px;
+    }
+    .setting-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .setting-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .setting-hint {
+      font-size: 0.8em;
+      color: var(--vscode-descriptionForeground);
+    }
+    .section-description {
+      font-size: 0.875em;
+      color: var(--vscode-descriptionForeground);
+      margin: 0 0 12px;
+    }
     hr {
       border: none;
       border-top: 1px solid var(--vscode-panel-border);
@@ -321,6 +380,108 @@ export function getSettingsHtml(
       <span>Enable History RAG</span>
     </label>
     <p class="description">When enabled, Nexus searches previous conversations and injects relevant snippets into every prompt automatically.</p>
+  </section>
+
+  <section class="settings-section" id="subagents-section">
+    <hr />
+    <h2>Subagents</h2>
+    <p class="section-description">Focused pre-agents that run before the main agent and produce compact findings to improve context quality.</p>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="subagents-enabled" ${subagentsEnabled ? 'checked' : ''} />
+        Enable Subagents
+      </label>
+      <span class="setting-hint">Run focused pre-agents before the main agent.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Mode</label>
+      <select id="subagents-mode">
+        <option value="off" ${subagentsMode === 'off' ? 'selected' : ''}>Off</option>
+        <option value="auto" ${subagentsMode === 'auto' ? 'selected' : ''}>Auto</option>
+        <option value="manual" ${subagentsMode === 'manual' ? 'selected' : ''}>Manual</option>
+        <option value="full" ${subagentsMode === 'full' ? 'selected' : ''}>Full</option>
+      </select>
+      <span class="setting-hint">off: disabled · auto: selected by intent · manual: use selected roles · full: broader chain</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Preset</label>
+      <select id="subagents-preset">
+        <option value="fast" ${subagentsPreset === 'fast' ? 'selected' : ''}>Fast (2 subagents)</option>
+        <option value="balanced" ${subagentsPreset === 'balanced' ? 'selected' : ''}>Balanced (4 subagents) — Recommended</option>
+        <option value="full" ${subagentsPreset === 'full' ? 'selected' : ''}>Full (5 subagents)</option>
+        <option value="safe" ${subagentsPreset === 'safe' ? 'selected' : ''}>Safe (6 subagents)</option>
+      </select>
+      <span class="setting-hint">Balanced is recommended for most coding and debugging tasks.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Max Runs</label>
+      <input type="number" id="subagents-maxRuns" min="0" max="8" value="${subagentsMaxRuns}" />
+      <span class="setting-hint">Maximum subagents per task (before hard cap).</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Max Parallel</label>
+      <input type="number" id="subagents-maxParallel" min="1" max="4" value="${subagentsMaxParallel}" />
+      <span class="setting-hint">Maximum subagents running concurrently.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Hard Cap</label>
+      <input type="number" id="subagents-hardCap" min="1" max="8" value="${subagentsHardCap}" />
+      <span class="setting-hint">Absolute maximum. Nexus clamps all runs to this cap. Running more than 6 can increase latency and token usage.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="subagents-includeReviewer" ${subagentsIncludeReviewer ? 'checked' : ''} />
+        Include Reviewer
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="subagents-includeTester" ${subagentsIncludeTester ? 'checked' : ''} />
+        Include Tester
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="subagents-includeSecurity" ${subagentsIncludeSecurity ? 'checked' : ''} />
+        Include Security
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="subagents-includeDocs" ${subagentsIncludeDocs ? 'checked' : ''} />
+        Include Docs
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="subagents-failOpen" ${subagentsFailOpen ? 'checked' : ''} />
+        Fail Open
+      </label>
+      <span class="setting-hint">Continue to main agent when an optional subagent fails.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Inject Max Chars</label>
+      <input type="number" id="subagents-injectMaxChars" min="1000" max="30000" value="${subagentsInjectMaxChars}" />
+      <span class="setting-hint">Maximum characters from subagent results injected into the main prompt.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Timeout (ms)</label>
+      <input type="number" id="subagents-timeoutMs" min="5000" max="120000" value="${subagentsTimeoutMs}" />
+      <span class="setting-hint">Timeout per subagent run in milliseconds.</span>
+    </div>
   </section>
 
   <button class="save-btn" id="saveBtn">Save Settings</button>
@@ -446,7 +607,24 @@ export function getSettingsHtml(
           maxChars: base.historyRag ? base.historyRag.maxChars : 6000,
           minScore: base.historyRag ? base.historyRag.minScore : 1.25,
         };
-        const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag });
+        const subagents = {
+          enabled: document.getElementById('subagents-enabled').checked,
+          mode: document.getElementById('subagents-mode').value,
+          preset: document.getElementById('subagents-preset').value,
+          maxRuns: parseInt(document.getElementById('subagents-maxRuns').value, 10) || 4,
+          maxParallel: parseInt(document.getElementById('subagents-maxParallel').value, 10) || 2,
+          hardCap: parseInt(document.getElementById('subagents-hardCap').value, 10) || 6,
+          includeReviewer: document.getElementById('subagents-includeReviewer').checked,
+          includeTester: document.getElementById('subagents-includeTester').checked,
+          includeSecurity: document.getElementById('subagents-includeSecurity').checked,
+          includeDocs: document.getElementById('subagents-includeDocs').checked,
+          failOpen: document.getElementById('subagents-failOpen').checked,
+          injectMaxChars: parseInt(document.getElementById('subagents-injectMaxChars').value, 10) || 8000,
+          timeoutMs: parseInt(document.getElementById('subagents-timeoutMs').value, 10) || 30000,
+          selectedRoles: base.subagents ? (base.subagents.selectedRoles || []) : [],
+          modeOverrides: base.subagents ? (base.subagents.modeOverrides || {}) : {},
+        };
+        const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
         vscode.postMessage({ type: 'settings.save', payload: config });
       });
 

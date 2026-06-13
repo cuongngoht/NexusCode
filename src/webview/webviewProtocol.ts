@@ -97,7 +97,12 @@ export type ExtensionMessage =
   | { type: 'historySearchIndexCleared' }
   | { type: 'historySearchError'; message: string }
   // History RAG messages
-  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
+  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] }
+  // Subagent trace messages
+  | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
+  | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
+  | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
+  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } };
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =

@@ -61,6 +61,41 @@ export interface HistoryRagConfig {
   minScore: number
 }
 
+export type SubagentMode = 'off' | 'auto' | 'manual' | 'full';
+export type SubagentPreset = 'fast' | 'balanced' | 'full' | 'safe';
+export type SubagentRoleId =
+  | 'search' | 'planner' | 'coder' | 'debugger' | 'tester'
+  | 'reviewer' | 'security' | 'docs' | 'product' | 'research';
+
+export interface SubagentModeOverrideConfig {
+  enabled?: boolean;
+  preset?: SubagentPreset;
+  maxRuns?: number;
+  maxParallel?: number;
+  includeSecurity?: boolean;
+  includeDocs?: boolean;
+  includeReviewer?: boolean;
+  includeTester?: boolean;
+}
+
+export interface SubagentConfig {
+  enabled: boolean;
+  mode: SubagentMode;
+  preset: SubagentPreset;
+  maxRuns: number;
+  maxParallel: number;
+  hardCap: number;
+  includeSecurity: boolean;
+  includeDocs: boolean;
+  includeReviewer: boolean;
+  includeTester: boolean;
+  failOpen: boolean;
+  injectMaxChars: number;
+  timeoutMs: number;
+  selectedRoles: SubagentRoleId[];
+  modeOverrides?: Record<string, SubagentModeOverrideConfig>;
+}
+
 export interface NexusConfig {
   version: 1
   providers: {
@@ -79,4 +114,6 @@ export interface NexusConfig {
   modelCatalog?: Partial<ModelCatalogConfig>
   /** History RAG — optional for backward compatibility. */
   historyRag?: Partial<HistoryRagConfig>
+  /** Subagents configuration — optional for backward compatibility. */
+  subagents?: Partial<SubagentConfig>
 }

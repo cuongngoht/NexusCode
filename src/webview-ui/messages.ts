@@ -161,6 +161,24 @@ export interface HistoryRagSourceView {
   score: number;
 }
 
+export interface SubagentTraceItem {
+  role: string;
+  displayName?: string;
+  agentId?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt?: number;
+  completedAt?: number;
+  durationMs?: number;
+  confidence?: number;
+  findingCount?: number;
+  error?: string;
+}
+
+export interface SubagentTraceState {
+  runId: string;
+  items: SubagentTraceItem[];
+}
+
 // Mirror of src/git/structuredDiff types — keep in sync (no Node.js deps but kept local for bundle safety)
 export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'unknown';
 export interface DiffLine { type: 'context' | 'add' | 'remove'; oldLine?: number; newLine?: number; content: string; }
@@ -511,6 +529,8 @@ export interface AppState {
   // Auto-RAG state
   historyRagEnabled: boolean;
   lastRagContext?: { resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
+  // Subagent trace state
+  subagentTrace: SubagentTraceState | null;
 }
 
 export function createInitialState(mainView: MainView = 'chat'): AppState {
@@ -559,6 +579,7 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     analyticsError: undefined,
     historyRagEnabled: true,
     lastRagContext: undefined,
+    subagentTrace: null,
   };
 }
 
@@ -660,7 +681,12 @@ export type ExtMsg =
   // Nexus native streaming protocol
   | { type: 'nexusStreamEvent'; event: NexusStreamEvent }
   // History RAG messages
-  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
+  | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] }
+  // Subagent trace messages
+  | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
+  | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
+  | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
+  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } };
 
 export type { NexusStreamEvent };
 
@@ -1410,6 +1436,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           ),
           isRunning: true,
           elapsed: 0,
+          subagentTrace: null,
         };
       }
       // Direct (non-pipeline) mode: create AssistantMessage now
@@ -1437,6 +1464,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         })),
         isRunning: true,
         elapsed: 0,
+        subagentTrace: null,
       };
     }
 
@@ -1750,6 +1778,48 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           }
         ),
       };
+
+    case 'subagentStarted': {
+      const { runId, role, agentId, displayName } = msg;
+      const existing = state.subagentTrace;
+      const newItem: SubagentTraceItem = {
+        role, displayName, agentId,
+        status: 'running', startedAt: Date.now(),
+      };
+      if (existing && existing.runId === runId) {
+        const items = [...existing.items];
+        const idx = items.findIndex(i => i.role === role);
+        if (idx >= 0) items[idx] = newItem; else items.push(newItem);
+        return { ...state, subagentTrace: { runId, items } };
+      }
+      return { ...state, subagentTrace: { runId, items: [newItem] } };
+    }
+
+    case 'subagentCompleted': {
+      const { runId, role, agentId, durationMs, confidence, findingCount } = msg;
+      if (!state.subagentTrace || state.subagentTrace.runId !== runId) return state;
+      const items = state.subagentTrace.items.map(item =>
+        item.role === role
+          ? { ...item, status: 'completed' as const, completedAt: Date.now(), durationMs, confidence, findingCount, agentId: agentId ?? item.agentId }
+          : item
+      );
+      return { ...state, subagentTrace: { runId, items } };
+    }
+
+    case 'subagentFailed': {
+      const { runId, role, error, durationMs } = msg;
+      if (!state.subagentTrace || state.subagentTrace.runId !== runId) return state;
+      const items = state.subagentTrace.items.map(item =>
+        item.role === role
+          ? { ...item, status: 'failed' as const, completedAt: Date.now(), durationMs, error }
+          : item
+      );
+      return { ...state, subagentTrace: { runId, items } };
+    }
+
+    case 'subagentSynthesis':
+      // Synthesis event updates the summary; trace state is already built from individual agent events.
+      return state;
   }
   return state;
 }

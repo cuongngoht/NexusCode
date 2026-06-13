@@ -27,9 +27,9 @@ describe('SubagentRegistry', () => {
     expect(() => registry.get('planner')).toThrow("SubagentDefinition for role 'planner' not found");
   });
 
-  it('getAll() returns 9 entries for default subagents', () => {
+  it('getAll() returns 10 entries for default subagents', () => {
     const registry = new SubagentRegistry();
     DEFAULT_SUBAGENTS.forEach(d => registry.register(d));
-    expect(registry.getAll()).toHaveLength(9);
+    expect(registry.getAll()).toHaveLength(10);
   });
 });

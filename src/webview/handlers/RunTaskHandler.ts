@@ -33,6 +33,8 @@ import type { ChatHistoryState } from '../../core/chat/ChatHistory';
 import type { SubagentOrchestrator, SubagentRunConfig } from '../../application/subagents/SubagentOrchestrator';
 import type { SubagentPlanConfig } from '../../application/subagents/SubagentPlanner';
 import { SubagentSummary } from '../../application/subagents/SubagentSummary';
+import { classifySubagentIntent } from '../../application/subagents/SubagentIntentClassifier';
+import type { SubagentMode, SubagentPreset } from '../../config/NexusConfig';
 import { loadResearchContext } from '../../context/research/researchFolderLoader';
 import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
 import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
@@ -163,15 +165,35 @@ export class RunTaskHandler {
         });
 
         const subagentCfg = vscode.workspace.getConfiguration('nexus');
+        const subagentMode = subagentCfg.get<SubagentMode>('subagents.mode', 'auto');
         const subagentsOn = subagentsEnabled
           && !!this.subagentOrchestrator
-          && subagentCfg.get<boolean>('subagents.enabled', false);
+          && subagentCfg.get<boolean>('subagents.enabled', false)
+          && subagentMode !== 'off';
+
+        const baseMaxRuns = subagentCfg.get<number>('subagents.maxRuns', 4);
+        const modeMaxRunsKey = `subagents.${mode}.maxRuns`;
+        const modeMaxRuns = subagentCfg.get<number | undefined>(modeMaxRunsKey, undefined);
+        const effectiveMaxRuns = modeMaxRuns ?? baseMaxRuns;
+
+        const intent = classifySubagentIntent({
+          prompt: effectivePrompt,
+          mode,
+        });
 
         const planCfg: SubagentPlanConfig = {
           mode,
-          maxRuns: subagentCfg.get<number>('subagents.maxRuns', 4),
+          subagentMode,
+          preset: subagentCfg.get<SubagentPreset>('subagents.preset', 'balanced'),
+          maxRuns: effectiveMaxRuns,
+          maxParallel: subagentCfg.get<number>('subagents.maxParallel', 2),
+          hardCap: subagentCfg.get<number>('subagents.hardCap', 6),
           includeSecurity: subagentCfg.get<boolean>('subagents.includeSecurity', false),
           includeDocs: subagentCfg.get<boolean>('subagents.includeDocs', false),
+          includeReviewer: subagentCfg.get<boolean>('subagents.includeReviewer', true),
+          includeTester: subagentCfg.get<boolean>('subagents.includeTester', true),
+          selectedRoles: subagentCfg.get<string[]>('subagents.selectedRoles', []),
+          intent,
         };
 
         const subagentCount = subagentsOn
@@ -185,8 +207,16 @@ export class RunTaskHandler {
 
         if (subagentsOn && subagentCount > 0) {
           const runCfg: SubagentRunConfig = {
-            ...planCfg,
+            mode,
+            maxRuns: effectiveMaxRuns,
+            includeSecurity: subagentCfg.get<boolean>('subagents.includeSecurity', false),
+            includeDocs: subagentCfg.get<boolean>('subagents.includeDocs', false),
             maxCharsPerResult: 6000,
+            maxParallel: subagentCfg.get<number>('subagents.maxParallel', 2),
+            failOpen: subagentCfg.get<boolean>('subagents.failOpen', true),
+            timeoutMs: subagentCfg.get<number>('subagents.timeoutMs', 30000),
+            injectMaxChars: subagentCfg.get<number>('subagents.injectMaxChars', 8000),
+            intent,
           };
           const subResults = await this.subagentOrchestrator!.run(
             ctx,
@@ -417,7 +447,8 @@ export class RunTaskHandler {
     }
 
     if (ctx.subagentResults && ctx.subagentResults.length > 0) {
-      const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults);
+      const injectMaxChars = vscode.workspace.getConfiguration('nexus').get<number>('subagents.injectMaxChars', 8000);
+      const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults, { maxChars: injectMaxChars });
       if (block) prompt = `${prompt}\n\n${block}`;
     }
 

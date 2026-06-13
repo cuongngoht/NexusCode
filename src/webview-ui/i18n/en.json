@@ -404,5 +404,13 @@
     "ragBadge": "{{count}} history sources",
     "ragOn": "Auto-RAG: On",
     "ragOff": "Auto-RAG: Off"
+  },
+  "subagents": {
+    "traceLabel": "Subagents",
+    "statusRunning": "Running",
+    "statusCompleted": "Done",
+    "statusFailed": "Failed",
+    "tooltipBalanced": "Auto · Balanced · max 4",
+    "tooltipDefault": "Run focused pre-agents before the main agent. Requires Nexus Subagents to be enabled in Settings."
   }
 }

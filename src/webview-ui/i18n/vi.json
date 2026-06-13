@@ -404,5 +404,13 @@
     "ragBadge": "{{count}} nguồn lịch sử",
     "ragOn": "Auto-RAG: Bật",
     "ragOff": "Auto-RAG: Tắt"
+  },
+  "subagents": {
+    "traceLabel": "Subagents",
+    "statusRunning": "Đang chạy",
+    "statusCompleted": "Hoàn thành",
+    "statusFailed": "Thất bại",
+    "tooltipBalanced": "Tự động · Cân bằng · tối đa 4",
+    "tooltipDefault": "Chạy các pre-agent chuyên biệt trước agent chính. Cần bật Nexus Subagents trong Settings."
   }
 }

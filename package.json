@@ -193,6 +193,112 @@
           "default": false,
           "description": "Include the docs subagent when applicable."
         },
+        "nexus.subagents.mode": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["off", "auto", "manual", "full"],
+          "description": "Controls how Nexus selects subagents. off: disabled. auto: selected by task intent. manual: use selectedRoles. full: broader chain within safety caps."
+        },
+        "nexus.subagents.preset": {
+          "type": "string",
+          "default": "balanced",
+          "enum": ["fast", "balanced", "full", "safe"],
+          "description": "Default subagent preset for auto mode."
+        },
+        "nexus.subagents.maxParallel": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Maximum number of subagents that may run concurrently."
+        },
+        "nexus.subagents.hardCap": {
+          "type": "number",
+          "default": 6,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Absolute maximum number of subagents allowed per task, regardless of planner output."
+        },
+        "nexus.subagents.includeReviewer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the reviewer subagent when applicable."
+        },
+        "nexus.subagents.includeTester": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the tester subagent when applicable."
+        },
+        "nexus.subagents.failOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Continue to the main agent when an optional subagent fails."
+        },
+        "nexus.subagents.injectMaxChars": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 1000,
+          "maximum": 30000,
+          "description": "Maximum characters from synthesized subagent results injected into the main agent prompt."
+        },
+        "nexus.subagents.timeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 5000,
+          "maximum": 120000,
+          "description": "Timeout in milliseconds for a single subagent run."
+        },
+        "nexus.subagents.selectedRoles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["search", "planner", "coder", "debugger", "tester", "reviewer", "security", "docs", "product", "research"]
+          },
+          "default": [],
+          "description": "Manual subagent roles used when nexus.subagents.mode is manual."
+        },
+        "nexus.subagents.debug.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for debug mode."
+        },
+        "nexus.subagents.edit.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for edit (Build Agent) mode."
+        },
+        "nexus.subagents.plan.maxRuns": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for plan mode."
+        },
+        "nexus.subagents.research.maxRuns": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for research mode."
+        },
+        "nexus.subagents.test.maxRuns": {
+          "type": "number",
+          "default": 4,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for test mode."
+        },
+        "nexus.subagents.review.maxRuns": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for review mode."
+        },
         "nexus.agents.enabled": {
           "type": "boolean",
           "default": true,
