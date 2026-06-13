@@ -192,6 +192,42 @@ export class EventForwarder {
       case 'summarize_error':
         // These events do not have corresponding webview messages — handled elsewhere if needed
         break;
+      case 'debug_state_changed':
+        // Internal state machine telemetry — not user-visible for now.
+        break;
+
+      case 'debug_bm25_results': {
+        const lines = event.results.map(r => `  - ${r.path} (score ${r.score.toFixed(2)}${r.reason ? ` — ${r.reason}` : ''})`).join('\n');
+        this.post({ type: 'stdout', chunk: `\n[BM25] Top results:\n${lines}\n` });
+        break;
+      }
+
+      case 'debug_evidence_found': {
+        const lines = event.evidence.map(e => `  - ${e}`).join('\n');
+        this.post({ type: 'stdout', chunk: `\n[Evidence collected]\n${lines}\n` });
+        break;
+      }
+
+      case 'debug_plan_ready':
+      case 'debug_approval_required':
+        // These drive the shared PlanReadyCard via the dual 'plan_ready_for_approval' emit
+        // done inside DebugPlanStep. No extra action here.
+        break;
+
+      case 'debug_verification_started':
+        this.post({ type: 'stdout', chunk: `\n[Verification] Running: ${event.command ?? '(unknown)'}\n` });
+        break;
+
+      case 'debug_verification_completed': {
+        const status = event.succeeded ? 'succeeded' : 'failed';
+        const out = event.output ? `\n${event.output}\n` : '';
+        this.post({ type: 'stdout', chunk: `\n[Verification ${status}]${out}` });
+        break;
+      }
+
+      case 'debug_summary_ready':
+        this.post({ type: 'stdout', chunk: `\n${event.summary}\n` });
+        break;
     }
   }
 }

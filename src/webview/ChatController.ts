@@ -35,6 +35,7 @@ import { Bm25HistorySearchStrategy } from '../context/history-search/bm25/Bm25Hi
 import { InMemoryBm25Engine } from '../context/history-search/bm25/InMemoryBm25Engine';
 import { RagContextBuilder } from '../context/history-search/rag/RagContextBuilder';
 import { RagPromptInjector } from '../context/history-search/rag/RagPromptInjector';
+import { createDefaultDebugOrchestrator } from '../debug/orchestrator/DebugOrchestratorFactory';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -88,7 +89,8 @@ export class ChatController {
       () => this.historyHandler.latestHistory,
     );
 
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade);
+    const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade, debugOrchestrator);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler   = new ReviewHandler(post, extensionPath, workspaceState);

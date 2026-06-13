@@ -1,7 +1,7 @@
 import { TaskMode } from '../core/types';
 import { WorkspaceInfo } from './workspaceScanner';
 import { PackageInfo } from './packageDetector';
-import type { DebugContext } from '../debug/DebugContext';
+import type { DebugContext } from '../core/debug/DebugContext';
 import { buildDebugPrompt } from '../debug/debugPrompt';
 import {
   loadModeInstruction,

@@ -5,6 +5,7 @@ import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
 import type { ProviderId, TaskMode } from '../../core/types';
 import { AgentTask } from '../../core/agent';
+import { AgentResult } from '../../core/agent/AgentResult';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import { RunAgentUseCase } from '../../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
@@ -39,6 +40,7 @@ import { loadResearchContext } from '../../context/research/researchFolderLoader
 import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
 import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
 import type { HistoryRagSourceView } from '../../context/history-search/types';
+import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrator';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -60,6 +62,7 @@ export class RunTaskHandler {
     private readonly extensionPath: string,
     private readonly subagentOrchestrator?: SubagentOrchestrator,
     private readonly historyRagFacade?: HistoryRagFacade,
+    private readonly debugOrchestrator?: DebugOrchestrator,
   ) {}
 
   hasActive(): boolean {
@@ -157,6 +160,54 @@ export class RunTaskHandler {
       if (providerId === 'nexus') {
         if (enableEnhancement) {
           ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
+        }
+        // Route debug mode through the dedicated DebugOrchestrator
+        if (mode === 'debug' && this.debugOrchestrator) {
+          const debugCfg = vscode.workspace.getConfiguration('nexus');
+
+          // Fabricate a task for lifecycle / analytics / streaming finalization.
+          // The actual work (investigation + optional inner ApplyFix for autoApprove)
+          // may produce additional inner tasks or reuse plan/apply paths.
+          const debugTask = new AgentTask(
+            effectivePrompt,
+            ctx.enhancedPrompt,
+            providerId,
+            mode,
+            model?.trim() || undefined,
+            workspaceRoot,
+          );
+          this.eventBus.emit({
+            kind: 'task_started',
+            task: debugTask,
+            enhancedPrompt: ctx.enhancedPrompt,
+          });
+
+          try {
+            await this.debugOrchestrator.run({
+              workspaceRoot,
+              originalPrompt: effectivePrompt,
+              enhancedPrompt: ctx.enhancedPrompt,
+              providerId,
+              mode,
+              model,
+              autoApprove: ctx.autoApprove ?? debugCfg.get<boolean>('debug.autoApprove', false),
+              maxBm25Results: debugCfg.get<number>('debug.bm25.maxResults', 12),
+              maxInvestigationRounds: debugCfg.get<number>('debug.react.maxRounds', 4),
+              addRegressionTest: debugCfg.get<boolean>('debug.addRegressionTest', true),
+              rerunAfterFix: debugCfg.get<boolean>('debug.rerunAfterFix', true),
+              bm25Enabled: debugCfg.get<boolean>('debug.bm25.enabled', true),
+              reactEnabled: debugCfg.get<boolean>('debug.react.enabled', true),
+            });
+            const okResult = new AgentResult(0, '', '', Date.now() - debugTask.startedAt);
+            this.eventBus.emit({ kind: 'task_completed', task: debugTask, result: okResult });
+          } catch (err) {
+            const msg = String(err);
+            const failResult = new AgentResult(1, '', msg, Date.now() - debugTask.startedAt);
+            this.eventBus.emit({ kind: 'task_error', task: debugTask, error: msg });
+            // also emit completed with failure for listeners that only key off completed
+            this.eventBus.emit({ kind: 'task_completed', task: debugTask, result: failResult });
+          }
+          return;
         }
         await this.orchestrator.run(ctx, 'auto');
       } else {
@@ -310,6 +361,11 @@ export class RunTaskHandler {
   async stop(): Promise<void> {
     if (!this.hasActive()) return; // no-op — no task is running
     await this.runAgent.stop();
+    // Also cancel any in-flight debug orchestrator (ReAct investigation, searches, verification commands).
+    // The debug path uses its own chain and does not go through runAgent for the investigation phase.
+    if (this.debugOrchestrator) {
+      await this.debugOrchestrator.stop();
+    }
   }
 
   async openPlan(planPath?: string): Promise<void> {

@@ -284,6 +284,45 @@
           "maximum": 6,
           "description": "Maximum subagents for debug mode."
         },
+        "nexus.debug.bm25.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable BM25-first local retrieval for Nexus debug mode."
+        },
+        "nexus.debug.bm25.maxResults": {
+          "type": "number",
+          "default": 12,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum BM25 candidate files for debug mode."
+        },
+        "nexus.debug.react.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable controlled ReAct investigation loop for debug mode."
+        },
+        "nexus.debug.react.maxRounds": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Maximum ReAct investigation rounds for debug mode."
+        },
+        "nexus.debug.autoApprove": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow debug mode to apply fixes without waiting for explicit approval."
+        },
+        "nexus.debug.addRegressionTest": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask debug mode to add or update regression tests when practical."
+        },
+        "nexus.debug.rerunAfterFix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run verification command after debug fix when safe."
+        },
         "nexus.subagents.edit.maxRuns": {
           "type": "number",
           "default": 4,
