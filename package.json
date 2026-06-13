@@ -406,7 +406,10 @@
     "watch": "node esbuild.js --watch",
     "watch:webview": "vite build --watch",
     "test:webview": "vitest run",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "package:list": "vsce ls",
+    "package:vsix": "vsce package --no-dependencies",
+    "package:verify": "node scripts/verify-vsix-contents.js"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
