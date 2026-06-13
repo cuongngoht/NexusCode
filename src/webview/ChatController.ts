@@ -161,6 +161,7 @@ export class ChatController {
         break;
       case 'stopTask':            await this.runTaskHandler.stop(); break;
       case 'applyPlan':           await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath, msg.provider); break;
+      case 'rejectPlan':          await this.runTaskHandler.rejectPlan(msg.planPath); break;
       case 'openPlan':            await this.runTaskHandler.openPlan(msg.planPath); break;
       case 'openSavedPlans':      await this.runTaskHandler.openSavedPlans(); break;
       case 'saveHistory':         await this.historyHandler.save(msg.history); break;

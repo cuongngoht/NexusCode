@@ -324,6 +324,10 @@ export interface AssistantMessage {
   enhancedPromptSnapshot?: EnhancedPromptSnapshot;
   planSaved?: boolean;
   planPath?: string;
+  pendingPlanApproval?: boolean;
+  approvedPlan?: boolean;
+  rejectedPlan?: boolean;
+  planPreview?: string;
   feedback?: MessageFeedback;
   retrySourceMessageId?: string;
   elapsed?: number;
@@ -609,6 +613,8 @@ export type ExtMsg =
       usage: TokenRunUsage;
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
+  | { type: 'planReadyForApproval'; taskId: string; planPath?: string; plan: string; mode: string; model?: string }
+  | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
@@ -1587,6 +1593,30 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'planSaved':
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => ({ ...m, planSaved: true, planPath: msg.planPath })),
+      );
+
+    case 'planReadyForApproval':
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          isStreaming: false,
+          planSaved: true,
+          planPath: msg.planPath,
+          pendingPlanApproval: true,
+          planPreview: msg.plan,
+          taskId: msg.taskId,
+          streamingStage: 'completed' as StreamingStage,
+          streamingLabel: undefined,
+        })),
+      );
+
+    case 'planRejected':
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          pendingPlanApproval: false,
+          rejectedPlan: true,
+        })),
       );
 
     case 'mcpStatus':

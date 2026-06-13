@@ -177,6 +177,16 @@ export class EventForwarder {
       case 'plan_saved':
         this.post({ type: 'planSaved', taskId: event.task.id, planPath: event.planPath });
         break;
+      case 'plan_ready_for_approval':
+        this.post({
+          type: 'planReadyForApproval',
+          taskId: event.task.id,
+          planPath: event.planPath,
+          plan: event.plan,
+          mode: event.mode,
+          model: event.model,
+        });
+        break;
       case 'summarize_started':
       case 'summarize_completed':
       case 'summarize_error':

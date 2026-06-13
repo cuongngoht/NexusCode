@@ -34,6 +34,7 @@ program
   .option('--plan <path>', 'Plan file path for code stage')
   .option('--base-branch <branch>', 'Base branch for review mode')
   .option('--model <model>', 'Model override')
+  .option('--auto-approve', 'Automatically approve plan and run code stage without pausing')
   .action(runCommand);
 
 program

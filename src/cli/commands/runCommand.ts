@@ -33,6 +33,7 @@ interface RunOptions {
   baseBranch?: string;
   model?: string;
   prompt: string;
+  autoApprove?: boolean;
 }
 
 function buildCliCustomConfig(root: string) {
@@ -102,6 +103,12 @@ export async function runCommand(options: RunOptions): Promise<void> {
         process.stderr.write(`Task error: ${event.error}\n`);
         exitCode = 1;
         break;
+      case 'plan_ready_for_approval':
+        if (!options.autoApprove) {
+          process.stderr.write(`\nPlan saved to: ${event.planPath ?? '.nexus/plan.md'}\n`);
+          process.stderr.write('Run with --auto-approve to execute code automatically, or apply the plan manually.\n');
+        }
+        break;
     }
   });
 
@@ -116,6 +123,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
         model: options.model,
         providerId: 'nexus',
         enableEnhancement: false,
+        autoApprove: options.autoApprove ?? false,
       };
       await orchestrator.run(ctx, requestedStage);
     } else {

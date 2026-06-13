@@ -56,6 +56,8 @@ export type ExtensionMessage =
       usage: TokenRunUsage;
     }
   | { type: 'planSaved'; taskId: string; planPath?: string }
+  | { type: 'planReadyForApproval'; taskId: string; planPath?: string; plan: string; mode: string; model?: string }
+  | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
   | { type: 'workspaceFiles'; files: string[] }
@@ -104,6 +106,7 @@ export type WebviewMessage =
   | { type: 'getReviewContext'; baseBranch?: string }
   | { type: 'openReviewAgentFile' }
   | { type: 'applyPlan'; mode: TaskMode; model?: string; planPath?: string; provider?: ProviderId }
+  | { type: 'rejectPlan'; planPath?: string }
   | { type: 'openPlan'; planPath?: string }
   | { type: 'openSavedPlans' }
   | { type: 'refreshMcpStatus' }

@@ -187,20 +187,7 @@ export class RunTaskHandler {
       return;
     }
 
-    const approvedPlanPrompt = [
-      'Apply the following approved implementation plan.',
-      '',
-      'Rules:',
-      '- Follow the plan as closely as possible.',
-      '- Do not introduce unrelated changes.',
-      '- Before editing, inspect the relevant files.',
-      '- If the plan is impossible or unsafe, stop and explain why.',
-      '- After editing, summarize changed files and verification steps.',
-      '',
-      '<approved_plan>',
-      plan,
-      '</approved_plan>',
-    ].join('\n');
+    const approvedPlanPrompt = NexusPlanStore.buildApprovedPlanPrompt(plan);
 
     const effectiveProvider: ProviderId = providerId ?? 'nexus';
 
@@ -282,6 +269,10 @@ export class RunTaskHandler {
     }
 
     await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(runsDir));
+  }
+
+  async rejectPlan(planPath?: string): Promise<void> {
+    this.post({ type: 'planRejected', planPath });
   }
 
   // ─── Private pipeline helpers ──────────────────────────────────────────────

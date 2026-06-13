@@ -210,13 +210,14 @@ export const AssistantMessage = memo(function AssistantMessage({
           />
         )}
 
-        {message.planSaved && !message.isStreaming && (
+        {(message.pendingPlanApproval || message.planSaved) && !message.isStreaming && !message.rejectedPlan && (
           <PlanReadyCard
             mode={message.mode as TaskMode}
             model={message.model}
             planPath={message.planPath}
             providerDetection={providerDetection}
             availableProviders={availableProviders}
+            pendingApproval={message.pendingPlanApproval}
             onApply={(provider, model) => getVsCodeApi().postMessage({
               type: 'applyPlan',
               mode: message.mode as TaskMode,
@@ -231,7 +232,16 @@ export const AssistantMessage = memo(function AssistantMessage({
             onOpenSavedPlans={() => getVsCodeApi().postMessage({
               type: 'openSavedPlans',
             })}
+            onReject={message.pendingPlanApproval ? () => getVsCodeApi().postMessage({
+              type: 'rejectPlan',
+              planPath: message.planPath,
+            }) : undefined}
           />
+        )}
+        {message.rejectedPlan && (
+          <div className="nx-plan-rejected">
+            {(t.nexus as Record<string, string>).planRejectedNotice ?? 'Plan rejected — no changes will be made.'}
+          </div>
         )}
       </div>
 

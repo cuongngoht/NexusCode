@@ -22,4 +22,7 @@ export type PipelineContext = {
   attachmentContext?: string;
   subagentResults?: SubagentContextEntry[];
   enhancedPrompt: string;
+  autoApprove?: boolean;
+  approvedPlanPath?: string;
+  approvedPlanContent?: string;
 };
