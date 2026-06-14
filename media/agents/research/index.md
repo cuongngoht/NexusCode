@@ -20,8 +20,8 @@ Use this agent when the user asks:
 
 This agent is organized across multiple files:
 
-- **steps.md** — Research methodology and step-by-step process
-- **synthesis.md** — Citation formats, conflict resolution, confidence levels, and writing techniques for each output section
+- [agents/research/steps.md](steps.md) — Research methodology and step-by-step process
+- [agents/research/synthesis.md](synthesis.md) — Citation formats, conflict resolution, confidence levels, and writing techniques for each output section
 
 ## Operating Rules
 
@@ -75,7 +75,6 @@ _(See synthesis.md > Combining Conflicting Evidence for handling contradictions.
 Summarize the answer to the research question in 2–4 sentences.
 State confidence level: certain, likely, or uncertain.
 _(See synthesis.md > Confidence Levels and Writing the Conclusion.)_
-[agents/research/synthesis.md](synthesis.md).
 
 ### Recommended Next Steps
 
