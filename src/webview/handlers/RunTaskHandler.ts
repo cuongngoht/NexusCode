@@ -41,6 +41,7 @@ import { buildResearchContextBlock } from '../../context/research/researchPrompt
 import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
 import type { HistoryRagSourceView } from '../../context/history-search/types';
 import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrator';
+import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -80,6 +81,7 @@ export class RunTaskHandler {
     private readonly subagentOrchestrator?: SubagentOrchestrator,
     private readonly historyRagFacade?: HistoryRagFacade,
     private readonly debugOrchestrator?: DebugOrchestrator,
+    private readonly agentExecutor?: AgentExecutor,
   ) {}
 
   hasActive(): boolean {
@@ -174,6 +176,25 @@ export class RunTaskHandler {
 
     this._pipelineActive = true;
     try {
+      // Agent Mode takes precedence over normal routing
+      if (mode === 'agent') {
+        if (this.agentExecutor) {
+          await this.agentExecutor.run({
+            prompt: effectivePrompt,
+            workspaceRoot,
+            providerId,
+            model,
+            baseBranch,
+            conversationContext: ctx.conversationContext,
+            attachments: resolvedAttachments,
+            subagentsEnabled,
+          });
+        } else {
+          this.post({ type: 'taskError', taskId: 'agent-mode', message: 'Agent Mode executor is not initialized.' });
+        }
+        return;
+      }
+
       if (providerId === 'nexus') {
         if (enableEnhancement) {
           ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
@@ -413,6 +434,18 @@ export class RunTaskHandler {
 
   async rejectPlan(planPath?: string): Promise<void> {
     this.post({ type: 'planRejected', planPath });
+  }
+
+  async approveAgentPlan(sessionId: string): Promise<void> {
+    if (this.agentExecutor) {
+      await this.agentExecutor.continueAfterApproval(sessionId);
+    }
+  }
+
+  async rejectAgentPlan_agent(sessionId: string, reason?: string): Promise<void> {
+    if (this.agentExecutor) {
+      await this.agentExecutor.rejectPlan(sessionId, reason);
+    }
   }
 
   // ─── Private pipeline helpers ──────────────────────────────────────────────

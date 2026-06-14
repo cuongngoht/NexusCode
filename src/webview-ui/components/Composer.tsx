@@ -19,6 +19,7 @@ const MODE_RISK: Record<TaskMode, RiskLevel> = {
   edit: 'mutate',
   debug: 'mutate',
   test: 'mutate',
+  agent: 'mutate',
 };
 
 const RISK_DOT_CLASS: Record<RiskLevel, string> = {
@@ -732,7 +733,7 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
               </MenuTrigger>
               <MenuPopover>
                 <MenuList>
-                  {(['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
+                  {(['ask', 'edit', 'agent', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
                     const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
                     const fit = modeFitMap.get(m);
                     const isUnsupported = fit === 'unsupported';

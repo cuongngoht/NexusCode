@@ -37,6 +37,7 @@ const MODE_FALLBACKS: Record<TaskMode, string> = {
   debug: 'Investigate the failure, identify likely root causes, and apply a focused fix when enough evidence is available.',
   test: 'Run, create, or improve tests that validate the requested behavior. Report any failures clearly.',
   review: 'Review like a code reviewer: lead with bugs, regressions, missing tests, and concrete file references.',
+  agent: 'You are operating as Nexus Agent Mode. Follow the approved implementation plan precisely. Do not edit files before the plan is approved. Run tests after editing.',
 };
 
 /**

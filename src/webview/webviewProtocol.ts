@@ -103,7 +103,138 @@ export type ExtensionMessage =
   | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
   | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
   | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
-  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } };
+  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } }
+  // Agent Mode messages (extension → webview)
+  | { type: 'agentSessionUpdated'; session: AgentSessionViewModel }
+  | { type: 'agentTimelineUpdated'; sessionId: string; events: AgentTimelineEventViewModel[] }
+  | { type: 'agentPlanReadyForApproval'; sessionId: string; plan: AgentPlanViewModel; planText: string }
+  | { type: 'agentPlanApproved'; sessionId: string }
+  | { type: 'agentPlanRejected'; sessionId: string; reason?: string }
+  | { type: 'agentCheckpointCreated'; sessionId: string; checkpointId: string }
+  | { type: 'agentStepStarted'; sessionId: string; step: AgentStepViewModel }
+  | { type: 'agentStepCompleted'; sessionId: string; step: AgentStepViewModel }
+  | { type: 'agentStepFailed'; sessionId: string; step: AgentStepViewModel; error: string }
+  | { type: 'agentCommandApprovalRequested'; sessionId: string; request: AgentCommandApprovalViewModel }
+  | { type: 'agentTestResult'; sessionId: string; result: AgentTestResultViewModel }
+  | { type: 'agentRecoveryResult'; sessionId: string; result: AgentRecoveryResultViewModel }
+  | { type: 'agentReviewResult'; sessionId: string; result: AgentReviewResultViewModel }
+  | { type: 'agentDiffCollected'; sessionId: string; diff: AgentDiffSummaryViewModel }
+  | { type: 'agentFinalSummary'; sessionId: string; summary: AgentFinalSummaryViewModel };
+
+// ── Agent Mode view models (kept near the protocol definition) ────────────
+
+export interface AgentSessionViewModel {
+  id: string;
+  status: string;
+  originalPrompt: string;
+  currentStepId?: string;
+  steps: AgentStepViewModel[];
+  createdAt: number;
+  updatedAt: number;
+  error?: string;
+}
+
+export interface AgentStepViewModel {
+  id: string;
+  type: string;
+  title: string;
+  status: string;
+  error?: string;
+}
+
+export interface AgentPlanViewModel {
+  summary: string;
+  filesToRead: string[];
+  filesToEdit: string[];
+  filesToCreate: string[];
+  filesToDelete: string[];
+  commandsToRun: string[];
+  risks: string[];
+  assumptions: string[];
+  testStrategy: string[];
+  rollbackStrategy: string[];
+  docsImpact: string[];
+  securityImpact: string[];
+  estimatedComplexity: 'low' | 'medium' | 'high';
+}
+
+export interface AgentTimelineEventViewModel {
+  id: string;
+  sessionId: string;
+  type: string;
+  message: string;
+  timestamp: number;
+  data?: unknown;
+}
+
+export interface AgentCommandApprovalViewModel {
+  id: string;
+  sessionId: string;
+  command: string;
+  cwd: string;
+  risk: 'low' | 'medium' | 'high' | 'blocked';
+  reason: string;
+  createdAt: number;
+}
+
+export interface AgentTestResultViewModel {
+  sessionId: string;
+  passed: boolean;
+  commands: {
+    command: string;
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+    durationMs: number;
+    passed: boolean;
+  }[];
+  durationMs: number;
+}
+
+export interface AgentRecoveryResultViewModel {
+  sessionId: string;
+  attempts: number;
+  recovered: boolean;
+  errors: string[];
+}
+
+export interface AgentReviewResultViewModel {
+  sessionId: string;
+  passed: boolean;
+  summary: string;
+  findings: {
+    severity: 'info' | 'warning' | 'error';
+    category: string;
+    file?: string;
+    message: string;
+    suggestion?: string;
+  }[];
+}
+
+export interface AgentDiffSummaryViewModel {
+  sessionId: string;
+  changedFiles: {
+    path: string;
+    status: string;
+    additions?: number;
+    deletions?: number;
+  }[];
+  addedLines: number;
+  deletedLines: number;
+  diffStat: string;
+  diff?: string;
+  diffTruncated: boolean;
+}
+
+export interface AgentFinalSummaryViewModel {
+  sessionId: string;
+  status: 'completed' | 'failed' | 'completed_with_warnings';
+  userTask: string;
+  implementationSummary: string;
+  changedFiles: AgentDiffSummaryViewModel['changedFiles'];
+  warnings: string[];
+  nextSteps: string[];
+}
 
 // Messages sent from the webview to the extension
 export type WebviewMessage =
@@ -159,3 +290,10 @@ export type WebviewMessage =
   | { type: 'submitRunFeedback'; taskId: string; feedback: AnalyticsFeedback; reason?: string }
   | { type: 'exportAnalytics'; format: 'json' | 'csv' | 'markdown'; query?: AnalyticsQuery }
   | { type: 'clearAnalytics' }
+  // Agent Mode requests (webview → extension)
+  | { type: 'approveAgentPlan'; sessionId: string }
+  | { type: 'rejectAgentPlan'; sessionId: string; reason?: string }
+  | { type: 'approveAgentCommand'; sessionId: string; requestId: string }
+  | { type: 'rejectAgentCommand'; sessionId: string; requestId: string; reason?: string }
+  | { type: 'openAgentSession'; sessionId: string }
+  | { type: 'listAgentSessions' }

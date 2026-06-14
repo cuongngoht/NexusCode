@@ -432,6 +432,68 @@
           "type": "number",
           "default": 1.25,
           "description": "Minimum BM25 score threshold for a history result to be included in RAG context."
+        },
+        "nexus.agentMode.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Nexus Agent Mode."
+        },
+        "nexus.agentMode.requirePlanApproval": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require approval before Agent Mode executes file edits."
+        },
+        "nexus.agentMode.createCheckpointBeforeEdit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Create a checkpoint before Agent Mode edits files."
+        },
+        "nexus.agentMode.requireApprovalBeforeTerminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require approval before Agent Mode runs terminal commands."
+        },
+        "nexus.agentMode.autoRunTests": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically run detected tests after Agent Mode edits files."
+        },
+        "nexus.agentMode.autoFixTestFailures": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow Agent Mode to attempt fixing failed tests."
+        },
+        "nexus.agentMode.maxRecoveryAttempts": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Maximum recovery attempts after test failures."
+        },
+        "nexus.agentMode.collectFinalDiff": {
+          "type": "boolean",
+          "default": true,
+          "description": "Collect final diff summary after Agent Mode completes."
+        },
+        "nexus.agentMode.updateDocsWhenNeeded": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow Agent Mode to update documentation when implementation changes require it."
+        },
+        "nexus.agentMode.useWorkingBranch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Create a working branch for Agent Mode changes."
+        },
+        "nexus.agentMode.branchPrefix": {
+          "type": "string",
+          "default": "nexus/agent-",
+          "description": "Branch prefix used by Agent Mode."
+        },
+        "nexus.agentMode.maxDiffChars": {
+          "type": "number",
+          "default": 30000,
+          "description": "Maximum number of diff characters included in final Agent Mode summaries."
         }
       }
     }

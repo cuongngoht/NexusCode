@@ -75,6 +75,10 @@
     "scan-project": {
       "label": "Scan Project",
       "desc": "Analyse the workspace"
+    },
+    "agent": {
+      "label": "Agent Mode",
+      "desc": "Stateful coding agent with plan approval"
     }
   },
   "agent": {
@@ -88,7 +92,8 @@
       "plan": "Planner",
       "test": "Test Agent",
       "scan-project": "Scan Project",
-      "brainstorm": "Brainstorm"
+      "brainstorm": "Brainstorm",
+      "agent": "Agent Mode"
     },
     "statusRunning": "Running",
     "statusDone": "✓ Done",
@@ -276,7 +281,17 @@
       "subagent-debugger": "Debug analysis",
       "subagent-docs": "Documentation",
       "subagent-product": "Product context",
-      "subagent-research": "Researching"
+      "subagent-research": "Researching",
+      "agent-scan": "Scanning project",
+      "agent-plan": "Creating implementation plan",
+      "agent-approval": "Waiting for approval",
+      "agent-checkpoint": "Creating checkpoint",
+      "agent-edit": "Implementing changes",
+      "agent-test": "Running tests",
+      "agent-fix": "Fixing test failures",
+      "agent-review": "Reviewing changes",
+      "agent-diff": "Collecting diff",
+      "agent-summary": "Generating final report"
     },
     "activities": {
       "read": "Reading file",
@@ -427,5 +442,122 @@
     "statusFailed": "Failed",
     "tooltipBalanced": "Auto · Balanced · max 4",
     "tooltipDefault": "Run focused pre-agents before the main agent. Requires Nexus Subagents to be enabled in Settings."
+  },
+  "agentMode": {
+    "panelTitle": "Agent Mode",
+    "sessionStatus": {
+      "created": "Session created",
+      "scanning": "Scanning project",
+      "planning": "Planning",
+      "waiting_approval": "Waiting for your approval",
+      "checkpointing": "Creating checkpoint",
+      "executing": "Implementing changes",
+      "testing": "Running tests",
+      "recovering": "Recovering from failures",
+      "reviewing": "Reviewing changes",
+      "collecting_diff": "Collecting diff",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "stepStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "empty": "No events yet"
+    },
+    "approval": {
+      "title": "Review Implementation Plan",
+      "description": "Agent Mode will not edit files until you approve this plan.",
+      "summary": "Summary",
+      "filesToRead": "Files to read",
+      "filesToEdit": "Files to edit",
+      "filesToCreate": "Files to create",
+      "filesToDelete": "Files to delete",
+      "commands": "Commands to run",
+      "risks": "Risks",
+      "assumptions": "Assumptions",
+      "testStrategy": "Test strategy",
+      "rollback": "Rollback strategy",
+      "docsImpact": "Docs impact",
+      "securityImpact": "Security impact",
+      "complexity": "Estimated complexity",
+      "complexityLow": "Low",
+      "complexityMedium": "Medium",
+      "complexityHigh": "High",
+      "approveButton": "Approve & Run",
+      "rejectButton": "Reject",
+      "copyPlan": "Copy plan",
+      "planText": "Plan text"
+    },
+    "commandApproval": {
+      "title": "Command Approval Required",
+      "command": "Command",
+      "cwd": "Working directory",
+      "risk": "Risk level",
+      "reason": "Reason",
+      "riskLow": "Low",
+      "riskMedium": "Medium",
+      "riskHigh": "High",
+      "riskBlocked": "Blocked",
+      "approveButton": "Approve",
+      "rejectButton": "Reject"
+    },
+    "checkpoint": {
+      "title": "Checkpoint created",
+      "id": "Checkpoint ID",
+      "type": "Type"
+    },
+    "testResult": {
+      "title": "Test Results",
+      "passed": "All tests passed",
+      "failed": "Tests failed",
+      "duration": "Duration",
+      "commands": "Commands run"
+    },
+    "review": {
+      "title": "Code Review",
+      "passed": "Review passed",
+      "failed": "Review found issues",
+      "findings": "Findings",
+      "severity": {
+        "info": "Info",
+        "warning": "Warning",
+        "error": "Error"
+      },
+      "category": {
+        "bug": "Bug",
+        "security": "Security",
+        "test": "Tests",
+        "docs": "Docs",
+        "maintainability": "Maintainability",
+        "scope": "Scope"
+      }
+    },
+    "diff": {
+      "title": "Changed Files",
+      "added": "added",
+      "deleted": "deleted",
+      "modified": "modified",
+      "renamed": "renamed",
+      "truncated": "Diff truncated due to size",
+      "lines": "{{added}} additions, {{deleted}} deletions"
+    },
+    "finalSummary": {
+      "title": "Agent Mode Complete",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "statusWarnings": "Completed with warnings",
+      "task": "Task",
+      "implementation": "Implementation summary",
+      "changedFiles": "Changed files",
+      "warnings": "Warnings",
+      "nextSteps": "Next steps"
+    }
   }
 }

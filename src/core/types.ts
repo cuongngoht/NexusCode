@@ -9,7 +9,8 @@ export type TaskMode =
   | 'edit'
   | 'debug'
   | 'test'
-  | 'review';
+  | 'review'
+  | 'agent';
 
 export type ProviderModelSource = 'detected' | 'seeded' | 'configured' | 'cached';
 
