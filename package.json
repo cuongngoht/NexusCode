@@ -95,6 +95,51 @@
         "command": "nexus.createWorkflowAgent",
         "title": "Nexus: Create Workflow Agent",
         "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.currentBranch",
+        "title": "Nexus: Review Current Branch",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.workingTree",
+        "title": "Nexus: Review Working Tree",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.staged",
+        "title": "Nexus: Review Staged Changes",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.currentFile",
+        "title": "Nexus: Review Current File",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.selection",
+        "title": "Nexus: Review Selected Code",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.architecture",
+        "title": "Nexus: Architecture Review",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.full",
+        "title": "Nexus: Full Code Review",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.exportReport",
+        "title": "Nexus: Export Review Report",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.review.openRules",
+        "title": "Nexus: Open Review Rules",
+        "category": "Nexus"
       }
     ],
     "menus": {
@@ -322,6 +367,121 @@
           "type": "boolean",
           "default": true,
           "description": "Run verification command after debug fix when safe."
+        },
+        "nexus.review.defaultBaseBranch": {
+          "type": "string",
+          "default": "main",
+          "description": "Default base branch for code review."
+        },
+        "nexus.review.defaultPreset": {
+          "type": "string",
+          "default": "architecture",
+          "enum": ["fast", "balanced", "architecture", "safe", "full"],
+          "description": "Default review preset: fast, balanced, architecture, safe, or full."
+        },
+        "nexus.review.includeSecurity": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include security review in structured code review."
+        },
+        "nexus.review.includeTests": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include test coverage review in structured code review."
+        },
+        "nexus.review.includeArchitecture": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include architecture review in structured code review."
+        },
+        "nexus.review.includeOopOod": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include OOP/OOD quality review."
+        },
+        "nexus.review.includeDesignPatterns": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include design pattern fitness review."
+        },
+        "nexus.review.maxDiffChars": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 5000,
+          "maximum": 500000,
+          "description": "Maximum characters of git diff to include in review prompt."
+        },
+        "nexus.review.maxFileContextChars": {
+          "type": "number",
+          "default": 25000,
+          "minimum": 2000,
+          "maximum": 200000,
+          "description": "Maximum characters of expanded file context for review."
+        },
+        "nexus.review.blockOnCritical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat critical findings as blocking (request-changes verdict)."
+        },
+        "nexus.review.blockOnArchitectureBlocker": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat architecture-blocker verdict as blocking."
+        },
+        "nexus.review.allowAutoFix": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow review mode to auto-apply fixes. Requires requireApprovalBeforeFix=false."
+        },
+        "nexus.review.requireApprovalBeforeFix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require user approval before applying any fix from a review finding."
+        },
+        "nexus.review.outputFormat": {
+          "type": "string",
+          "default": "structured",
+          "enum": ["structured", "markdown"],
+          "description": "Output format for code review: structured (JSON report) or markdown."
+        },
+        "nexus.review.architectureScore.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable architecture score in code review reports."
+        },
+        "nexus.review.architectureScore.warnBelow": {
+          "type": "number",
+          "default": 70,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Warn when architecture score falls below this threshold."
+        },
+        "nexus.review.architectureScore.blockBelow": {
+          "type": "number",
+          "default": 50,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Treat as architecture-blocker when architecture score falls below this threshold."
+        },
+        "nexus.review.steps.reviewer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the Reviewer agent (bug & correctness) during code review."
+        },
+        "nexus.review.steps.tester": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the Test Analyst agent (test coverage) during code review."
+        },
+        "nexus.review.steps.security": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the Security agent during code review."
+        },
+        "nexus.review.steps.architect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the Architect agent (architecture & OOP/OOD) during code review."
         },
         "nexus.subagents.edit.maxRuns": {
           "type": "number",

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
-import type { ChatMessage, Conversation, ProviderInfo } from '../messages';
+import type { ChatMessage, Conversation, ProviderInfo, SubagentTraceState } from '../messages';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
 import { GitStatusPanel } from './GitStatusPanel';
@@ -11,6 +11,7 @@ interface Props {
   isRunning: boolean;
   providerDetection: ProviderInfo[];
   availableProviders: string[];
+  subagentTrace?: SubagentTraceState;
   onOpenScm: () => void;
   onCloseGit: () => void;
   onSendSuggestion: (text: string) => void;
@@ -49,7 +50,7 @@ function EmptyState({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-export const MessageList = memo(function MessageList({ conversation, isRunning, providerDetection, availableProviders, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles, onFeedback, onRetry }: Props) {
+export const MessageList = memo(function MessageList({ conversation, isRunning, providerDetection, availableProviders, subagentTrace, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles, onFeedback, onRetry }: Props) {
   const t = useT();
   const anchorRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -85,6 +86,10 @@ export const MessageList = memo(function MessageList({ conversation, isRunning, 
                 break;
               }
             }
+            // Only attach subagentTrace to the last streaming assistant message
+            const isLastMessage = index === messages.length - 1;
+            const isStreaming = msg.role === 'assistant' && (msg as import('../messages').AssistantMessage).isStreaming;
+            const traceForMsg = isLastMessage && isStreaming ? subagentTrace : undefined;
             return (
               <AssistantMessage
                 key={msg.id}
@@ -94,6 +99,7 @@ export const MessageList = memo(function MessageList({ conversation, isRunning, 
                 availableProviders={availableProviders}
                 conversationId={conversation.id}
                 userMessageId={precedingUserMessageId}
+                subagentTrace={traceForMsg}
                 onFeedback={(messageId, rating) => onFeedback(conversation.id, messageId, rating)}
                 onRetry={onRetry}
               />

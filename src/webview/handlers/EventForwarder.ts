@@ -251,6 +251,23 @@ export class EventForwarder {
       case 'debug_summary_ready':
         this.post({ type: 'stdout', chunk: `\n${event.summary}\n` });
         break;
+
+      case 'subagent_started':
+        this.post({ type: 'subagentStarted', runId: event.runId, role: event.role, displayName: event.displayName });
+        break;
+      case 'subagent_completed':
+        this.post({
+          type: 'subagentCompleted',
+          runId: event.runId,
+          role: event.role,
+          durationMs: event.durationMs,
+          confidence: event.confidence,
+          findingCount: event.findingCount,
+        });
+        break;
+      case 'subagent_failed':
+        this.post({ type: 'subagentFailed', runId: event.runId, role: event.role, durationMs: event.durationMs, error: event.error });
+        break;
     }
   }
 }

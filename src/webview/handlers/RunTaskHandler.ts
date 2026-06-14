@@ -35,7 +35,7 @@ import type { SubagentOrchestrator, SubagentRunConfig } from '../../application/
 import type { SubagentPlanConfig } from '../../application/subagents/SubagentPlanner';
 import { SubagentSummary } from '../../application/subagents/SubagentSummary';
 import { classifySubagentIntent } from '../../application/subagents/SubagentIntentClassifier';
-import type { SubagentMode, SubagentPreset } from '../../config/NexusConfig';
+import type { SubagentMode, SubagentPreset, ReviewStepSettings } from '../../config/NexusConfig';
 import { loadResearchContext } from '../../context/research/researchFolderLoader';
 import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
 import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
@@ -270,6 +270,14 @@ export class RunTaskHandler {
           mode,
         });
 
+        const reviewStepsCfg = vscode.workspace.getConfiguration('nexus');
+        const enabledSteps: ReviewStepSettings | undefined = mode === 'review' ? {
+          reviewer:  reviewStepsCfg.get<boolean>('review.steps.reviewer', true),
+          tester:    reviewStepsCfg.get<boolean>('review.steps.tester', true),
+          security:  reviewStepsCfg.get<boolean>('review.steps.security', true),
+          architect: reviewStepsCfg.get<boolean>('review.steps.architect', true),
+        } : undefined;
+
         const planCfg: SubagentPlanConfig = {
           mode,
           subagentMode,
@@ -283,6 +291,7 @@ export class RunTaskHandler {
           includeTester: subagentCfg.get<boolean>('subagents.includeTester', true),
           selectedRoles: subagentCfg.get<string[]>('subagents.selectedRoles', []),
           intent,
+          enabledSteps,
         };
 
         const subagentCount = subagentsOn

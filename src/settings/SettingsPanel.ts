@@ -60,7 +60,13 @@ export class SettingsPanel {
   private async _update(): Promise<void> {
     const config = await this.configService.loadConfig();
     const vsCfg = vscode.workspace.getConfiguration('nexus');
-    const vsCodeConfig = { historyRagEnabled: vsCfg.get<boolean>('historyRag.enabled', true) };
+    const vsCodeConfig = {
+      historyRagEnabled:   vsCfg.get<boolean>('historyRag.enabled', true),
+      reviewStepReviewer:  vsCfg.get<boolean>('review.steps.reviewer', true),
+      reviewStepTester:    vsCfg.get<boolean>('review.steps.tester', true),
+      reviewStepSecurity:  vsCfg.get<boolean>('review.steps.security', true),
+      reviewStepArchitect: vsCfg.get<boolean>('review.steps.architect', true),
+    };
     this.panel.webview.html = getSettingsHtml(this.panel.webview, config, vsCodeConfig);
   }
 
@@ -91,12 +97,21 @@ export class SettingsPanel {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.configService.saveConfig(payload as any);
+      const vsCfg = vscode.workspace.getConfiguration('nexus');
       // Sync historyRag.enabled to VS Code workspace settings so RunTaskHandler picks it up
       const p = payload as Record<string, unknown>;
       const historyRag = p['historyRag'] as Record<string, unknown> | undefined;
       if (historyRag && typeof historyRag['enabled'] === 'boolean') {
-        const vsCfg = vscode.workspace.getConfiguration('nexus');
         await vsCfg.update('historyRag.enabled', historyRag['enabled'], vscode.ConfigurationTarget.Workspace);
+      }
+      // Sync review step toggles to VS Code workspace settings
+      const reviewSteps = (msg as Record<string, unknown>)['reviewSteps'] as Record<string, unknown> | undefined;
+      if (reviewSteps) {
+        for (const key of ['reviewer', 'tester', 'security', 'architect'] as const) {
+          if (typeof reviewSteps[key] === 'boolean') {
+            await vsCfg.update(`review.steps.${key}`, reviewSteps[key], vscode.ConfigurationTarget.Workspace);
+          }
+        }
       }
       await this.panel.webview.postMessage({ type: 'settings.saved' });
       vscode.window.showInformationMessage('Nexus settings saved.');

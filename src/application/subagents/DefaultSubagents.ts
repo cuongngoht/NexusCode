@@ -90,4 +90,13 @@ export const DEFAULT_SUBAGENTS: SubagentDefinition[] = [
     capabilities: ['research'],
     canRunInParallel: true,
   },
+  {
+    role: 'architect',
+    displayName: 'Architect',
+    promptFile: 'subagents/architect.md',
+    preferredAgentIds: ['codex', 'claude', 'grok', 'antigravity', 'copilot', 'aider', 'custom'],
+    applicableModes: ['review', 'edit', 'plan'],
+    capabilities: ['code_review'],
+    dependsOn: ['search'],
+  },
 ];

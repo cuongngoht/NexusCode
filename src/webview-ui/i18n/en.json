@@ -291,7 +291,9 @@
       "agent-fix": "Fixing test failures",
       "agent-review": "Reviewing changes",
       "agent-diff": "Collecting diff",
-      "agent-summary": "Generating final report"
+      "agent-summary": "Generating final report",
+      "code-review-context": "Building review context",
+      "subagent-architect": "Architecture review"
     },
     "activities": {
       "read": "Reading file",
@@ -388,6 +390,85 @@
       "cost": "Cost",
       "conversation": "Conversation",
       "tokens": "Tokens"
+    }
+  },
+  "codeReview": {
+    "panelTitle": "Code Review Report",
+    "tabSummary": "Summary",
+    "tabFindings": "Findings",
+    "tabFiles": "Changed Files",
+    "verdict": "Verdict",
+    "architectureVerdict": "Architecture",
+    "architectureSummary": "Architecture summary",
+    "architectureFindings": "Architecture findings",
+    "changedFiles": "Changed files",
+    "noChangedFiles": "No changed files.",
+    "evidence": "Evidence",
+    "whyItMatters": "Why it matters",
+    "violatedPrinciple": "Violated principle",
+    "recommendation": "Recommendation",
+    "refactorRecommendation": "Refactor recommendation",
+    "suggestedPattern": "Suggested pattern",
+    "migrationRisk": "Migration risk",
+    "priority": "Priority",
+    "blocking": "Blocking",
+    "openFile": "Open file",
+    "copyRecommendation": "Copy recommendation",
+    "copyPatch": "Copy patch",
+    "createFixTask": "Create fix task",
+    "createFixTaskHint": "Create a fix task from this finding",
+    "applyFixWithApproval": "Apply (requires approval)",
+    "applyFixApprovalHint": "Create a fix plan that requires approval before applying",
+    "exportReport": "Export report",
+    "filterBySeverity": "Filter by severity",
+    "filterByCategory": "Filter by category",
+    "filterByFile": "Filter by file",
+    "allSeverities": "All severities",
+    "allCategories": "All categories",
+    "allFiles": "All files",
+    "verdicts": {
+      "approve": "Approve",
+      "approve-with-comments": "Approve with comments",
+      "request-changes": "Request changes"
+    },
+    "architectureVerdicts": {
+      "healthy": "Healthy",
+      "acceptable-with-debt": "Acceptable (with debt)",
+      "needs-refactor": "Needs refactor",
+      "architecture-blocker": "Architecture blocker"
+    },
+    "architectureScore": {
+      "title": "Architecture Score",
+      "riskLevel": "Risk level",
+      "coupling": "Coupling",
+      "cohesion": "Cohesion",
+      "abstraction": "Abstraction",
+      "testability": "Testability",
+      "extensibility": "Extensibility",
+      "readability": "Readability"
+    },
+    "categories": {
+      "bug": "Bug",
+      "security": "Security",
+      "performance": "Performance",
+      "test": "Test",
+      "maintainability": "Maintainability",
+      "architecture": "Architecture",
+      "oop": "OOP",
+      "ood": "OOD",
+      "design-pattern": "Design Pattern",
+      "coupling": "Coupling",
+      "cohesion": "Cohesion",
+      "dependency-direction": "Dependency Direction",
+      "abstraction": "Abstraction",
+      "complexity": "Complexity",
+      "technical-debt": "Technical Debt",
+      "style": "Style",
+      "docs": "Docs",
+      "typing": "Typing",
+      "dependency": "Dependency",
+      "config": "Config",
+      "ux": "UX"
     }
   },
   "streaming": {
@@ -559,5 +640,14 @@
       "warnings": "Warnings",
       "nextSteps": "Next steps"
     }
+  },
+  "subagentTrace": {
+    "title": "Review Agents",
+    "running": "analyzing...",
+    "completed": "completed",
+    "failed": "failed",
+    "waiting": "waiting...",
+    "findingsCount": "{{count}} findings",
+    "confidence": "{{value}}%"
   }
 }

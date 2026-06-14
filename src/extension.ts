@@ -60,6 +60,7 @@ import { CostEstimator } from './analytics/CostEstimator';
 import { AnalyticsAggregator } from './analytics/AnalyticsAggregator';
 import { AnalyticsExporter } from './analytics/AnalyticsExporter';
 import { AnalyticsService } from './analytics/AnalyticsService';
+import { registerCodeReviewCommands } from './webview/handlers/CodeReviewCommandHandler';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = createAgentRegistry();
@@ -249,6 +250,8 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+
+  registerCodeReviewCommands(context, provider);
 }
 
 // ── Composition helpers (keeps activate() readable and groups wiring) ──────

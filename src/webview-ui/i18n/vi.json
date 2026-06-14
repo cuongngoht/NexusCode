@@ -291,7 +291,9 @@
       "agent-fix": "Sửa lỗi kiểm thử",
       "agent-review": "Đánh giá thay đổi",
       "agent-diff": "Thu thập diff",
-      "agent-summary": "Tạo báo cáo cuối"
+      "agent-summary": "Tạo báo cáo cuối",
+      "code-review-context": "Xây dựng ngữ cảnh review",
+      "subagent-architect": "Đánh giá kiến trúc"
     },
     "activities": {
       "read": "Đọc tệp",
@@ -388,6 +390,85 @@
       "cost": "Chi phí",
       "conversation": "Cuộc trò chuyện",
       "tokens": "Tokens"
+    }
+  },
+  "codeReview": {
+    "panelTitle": "Báo cáo review code",
+    "tabSummary": "Tổng quan",
+    "tabFindings": "Phát hiện",
+    "tabFiles": "Tệp thay đổi",
+    "verdict": "Kết luận",
+    "architectureVerdict": "Kiến trúc",
+    "architectureSummary": "Tóm tắt kiến trúc",
+    "architectureFindings": "Vấn đề kiến trúc",
+    "changedFiles": "Tệp thay đổi",
+    "noChangedFiles": "Không có tệp thay đổi.",
+    "evidence": "Bằng chứng",
+    "whyItMatters": "Tại sao quan trọng",
+    "violatedPrinciple": "Nguyên tắc vi phạm",
+    "recommendation": "Đề xuất",
+    "refactorRecommendation": "Đề xuất tái cấu trúc",
+    "suggestedPattern": "Pattern đề xuất",
+    "migrationRisk": "Rủi ro di chuyển",
+    "priority": "Ưu tiên",
+    "blocking": "Chặn merge",
+    "openFile": "Mở tệp",
+    "copyRecommendation": "Sao chép đề xuất",
+    "copyPatch": "Sao chép patch",
+    "createFixTask": "Tạo task sửa",
+    "createFixTaskHint": "Tạo task sửa lỗi từ phát hiện này",
+    "applyFixWithApproval": "Áp dụng (cần phê duyệt)",
+    "applyFixApprovalHint": "Tạo kế hoạch sửa, cần phê duyệt trước khi áp dụng",
+    "exportReport": "Xuất báo cáo",
+    "filterBySeverity": "Lọc theo mức độ",
+    "filterByCategory": "Lọc theo loại",
+    "filterByFile": "Lọc theo tệp",
+    "allSeverities": "Tất cả mức độ",
+    "allCategories": "Tất cả loại",
+    "allFiles": "Tất cả tệp",
+    "verdicts": {
+      "approve": "Phê duyệt",
+      "approve-with-comments": "Phê duyệt có nhận xét",
+      "request-changes": "Yêu cầu sửa đổi"
+    },
+    "architectureVerdicts": {
+      "healthy": "Tốt",
+      "acceptable-with-debt": "Chấp nhận được (có nợ kỹ thuật)",
+      "needs-refactor": "Cần tái cấu trúc",
+      "architecture-blocker": "Chặn do kiến trúc"
+    },
+    "architectureScore": {
+      "title": "Điểm kiến trúc",
+      "riskLevel": "Mức rủi ro",
+      "coupling": "Coupling",
+      "cohesion": "Cohesion",
+      "abstraction": "Abstraction",
+      "testability": "Testability",
+      "extensibility": "Extensibility",
+      "readability": "Readability"
+    },
+    "categories": {
+      "bug": "Bug",
+      "security": "Bảo mật",
+      "performance": "Hiệu năng",
+      "test": "Kiểm thử",
+      "maintainability": "Bảo trì",
+      "architecture": "Kiến trúc",
+      "oop": "OOP",
+      "ood": "OOD",
+      "design-pattern": "Design Pattern",
+      "coupling": "Coupling",
+      "cohesion": "Cohesion",
+      "dependency-direction": "Hướng phụ thuộc",
+      "abstraction": "Abstraction",
+      "complexity": "Độ phức tạp",
+      "technical-debt": "Nợ kỹ thuật",
+      "style": "Phong cách",
+      "docs": "Tài liệu",
+      "typing": "Typing",
+      "dependency": "Dependency",
+      "config": "Config",
+      "ux": "UX"
     }
   },
   "streaming": {
@@ -559,5 +640,14 @@
       "warnings": "Cảnh báo",
       "nextSteps": "Bước tiếp theo"
     }
+  },
+  "subagentTrace": {
+    "title": "Review Agents",
+    "running": "đang phân tích...",
+    "completed": "hoàn thành",
+    "failed": "lỗi",
+    "waiting": "đang chờ...",
+    "findingsCount": "{{count}} phát hiện",
+    "confidence": "{{value}}%"
   }
 }

@@ -33,7 +33,10 @@ export type NexusEvent =
   | { kind: 'debug_approval_required'; plan: unknown; planPath?: string }
   | { kind: 'debug_verification_started'; command?: string }
   | { kind: 'debug_verification_completed'; succeeded: boolean; output?: string }
-  | { kind: 'debug_summary_ready'; summary: string };
+  | { kind: 'debug_summary_ready'; summary: string }
+  | { kind: 'subagent_started';   role: string; runId: string; displayName?: string }
+  | { kind: 'subagent_completed'; role: string; runId: string; durationMs: number; confidence?: number; findingCount?: number }
+  | { kind: 'subagent_failed';    role: string; runId: string; durationMs?: number; error: string };
 
 export type NexusEventKind = NexusEvent['kind'];
 

@@ -4890,3 +4890,44 @@ html, body, #root {
   opacity: 0.5;
   font-size: 10px;
 }
+
+/* SubagentTraceView */
+.nx-subagent-trace {
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
+  background: var(--vscode-editor-background);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.nx-subagent-trace-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+}
+.nx-subagent-trace-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.nx-subagent-trace-status {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.nx-subagent-trace-item--running .nx-subagent-trace-status { color: var(--vscode-progressBar-background); }
+.nx-subagent-trace-item--completed .nx-subagent-trace-status { color: var(--vscode-testing-iconPassed, #73c991); }
+.nx-subagent-trace-item--failed .nx-subagent-trace-status { color: var(--vscode-testing-iconFailed, #f14c4c); }
+.nx-subagent-trace-name {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  min-width: 100px;
+}
+.nx-subagent-trace-meta {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}

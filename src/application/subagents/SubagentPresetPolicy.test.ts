@@ -40,15 +40,15 @@ describe('normalizeSelectedRoles', () => {
   });
   it('returns empty for undefined', () => expect(normalizeSelectedRoles(undefined)).toEqual([]));
   it('accepts all valid roles', () => {
-    const result = normalizeSelectedRoles(['search', 'planner', 'coder', 'debugger', 'tester', 'reviewer', 'security', 'docs', 'product', 'research']);
-    expect(result).toHaveLength(10);
+    const result = normalizeSelectedRoles(['search', 'planner', 'coder', 'debugger', 'tester', 'reviewer', 'security', 'docs', 'product', 'research', 'architect']);
+    expect(result).toHaveLength(11);
   });
 });
 
 describe('SUBAGENT_PRESET_DEFAULTS', () => {
   it('fast has maxRuns 2', () => expect(SUBAGENT_PRESET_DEFAULTS.fast.maxRuns).toBe(2));
   it('balanced has maxRuns 4', () => expect(SUBAGENT_PRESET_DEFAULTS.balanced.maxRuns).toBe(4));
-  it('full has maxRuns 5', () => expect(SUBAGENT_PRESET_DEFAULTS.full.maxRuns).toBe(5));
+  it('full has maxRuns 6', () => expect(SUBAGENT_PRESET_DEFAULTS.full.maxRuns).toBe(6));
   it('safe has maxRuns 6', () => expect(SUBAGENT_PRESET_DEFAULTS.safe.maxRuns).toBe(6));
   it('safe includes security', () => expect(SUBAGENT_PRESET_DEFAULTS.safe.includeSecurity).toBe(true));
   it('balanced does not include security', () => expect(SUBAGENT_PRESET_DEFAULTS.balanced.includeSecurity).toBe(false));

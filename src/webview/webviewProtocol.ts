@@ -1,4 +1,7 @@
 import { ProviderId, TaskMode, GitFileChange, GitReviewContext } from '../core/types';
+import type { CodeReviewReport } from '../application/code-review/CodeReviewReport';
+import type { CodeReviewTarget } from '../application/code-review/CodeReviewTarget';
+import type { CodeReviewPreset } from '../application/code-review/CodeReviewPromptBuilder';
 import type { PromptAttachment } from '../core/types';
 import type { NexusStreamEvent } from '../core/stream/NexusStreamEvent';
 import type { ProviderDetectionResult } from '../provider-hub/ProviderTypes';
@@ -99,6 +102,11 @@ export type ExtensionMessage =
   | { type: 'historySearchError'; message: string }
   // History RAG messages
   | { type: 'historyRagContextUsed'; resultCount: number; totalChars: number; sources: HistoryRagSourceView[] }
+  // Code Review messages (extension → webview)
+  | { type: 'codeReviewStarted'; reportId: string; targetType: string }
+  | { type: 'codeReviewProgress'; reportId: string; message: string }
+  | { type: 'codeReviewReport'; report: CodeReviewReport }
+  | { type: 'codeReviewError'; message: string }
   // Subagent trace messages
   | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
   | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
@@ -297,3 +305,9 @@ export type WebviewMessage =
   | { type: 'rejectAgentCommand'; sessionId: string; requestId: string; reason?: string }
   | { type: 'openAgentSession'; sessionId: string }
   | { type: 'listAgentSessions' }
+  // Code Review requests (webview → extension)
+  | { type: 'runCodeReview'; target: CodeReviewTarget; preset: CodeReviewPreset; userPrompt?: string }
+  | { type: 'openReviewFinding'; findingId: string; filePath?: string; line?: number }
+  | { type: 'copyReviewFinding'; findingId: string }
+  | { type: 'applyCodeReviewFix'; reportId: string; findingId: string }
+  | { type: 'exportCodeReviewReport'; reportId: string }

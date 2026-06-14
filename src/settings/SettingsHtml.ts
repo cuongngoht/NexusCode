@@ -15,7 +15,13 @@ const PROVIDER_LABELS: Record<string, string> = {
 export function getSettingsHtml(
   webview: vscode.Webview,
   config: NexusConfig,
-  vsCodeConfig?: { historyRagEnabled?: boolean },
+  vsCodeConfig?: {
+    historyRagEnabled?: boolean;
+    reviewStepReviewer?: boolean;
+    reviewStepTester?: boolean;
+    reviewStepSecurity?: boolean;
+    reviewStepArchitect?: boolean;
+  },
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
 
@@ -59,6 +65,11 @@ export function getSettingsHtml(
   const mcpMaxChars = mergedConfig.mcp.maxResultChars;
   const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
   const historyRagEnabled = vsCodeConfig?.historyRagEnabled ?? mergedConfig.historyRag?.enabled ?? true;
+
+  const reviewStepReviewer  = vsCodeConfig?.reviewStepReviewer  ?? true;
+  const reviewStepTester    = vsCodeConfig?.reviewStepTester    ?? true;
+  const reviewStepSecurity  = vsCodeConfig?.reviewStepSecurity  ?? true;
+  const reviewStepArchitect = vsCodeConfig?.reviewStepArchitect ?? true;
 
   const safeSubagents = { ...(DEFAULT_CONFIG.subagents ?? {}), ...(mergedConfig.subagents ?? {}) };
   const subagentsEnabled = safeSubagents.enabled ?? false;
@@ -484,6 +495,43 @@ export function getSettingsHtml(
     </div>
   </section>
 
+  <section class="settings-section" id="review-steps-section">
+    <hr />
+    <h2>Review Steps</h2>
+    <p class="section-description">
+      Choose which analysis agents run during code review.
+      All steps are enabled by default (best practice).
+    </p>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-reviewer" ${reviewStepReviewer ? 'checked' : ''} />
+        Reviewer &mdash; Bug &amp; Correctness
+      </label>
+      <span class="setting-hint">Checks for bugs, regressions, and logic errors</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-tester" ${reviewStepTester ? 'checked' : ''} />
+        Test Analyst &mdash; Test Coverage
+      </label>
+      <span class="setting-hint">Identifies missing or weak test cases</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-security" ${reviewStepSecurity ? 'checked' : ''} />
+        Security &mdash; Security Analysis
+      </label>
+      <span class="setting-hint">Scans for security vulnerabilities and risky patterns</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-architect" ${reviewStepArchitect ? 'checked' : ''} />
+        Architect &mdash; Architecture &amp; OOP/OOD
+      </label>
+      <span class="setting-hint">Reviews layer structure, coupling, design patterns, technical debt</span>
+    </div>
+  </section>
+
   <button class="save-btn" id="saveBtn">Save Settings</button>
   <div class="status" id="status"></div>
 
@@ -624,8 +672,14 @@ export function getSettingsHtml(
           selectedRoles: base.subagents ? (base.subagents.selectedRoles || []) : [],
           modeOverrides: base.subagents ? (base.subagents.modeOverrides || {}) : {},
         };
+        const reviewSteps = {
+          reviewer:  document.getElementById('review-step-reviewer').checked,
+          tester:    document.getElementById('review-step-tester').checked,
+          security:  document.getElementById('review-step-security').checked,
+          architect: document.getElementById('review-step-architect').checked,
+        };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config });
+        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps });
       });
 
       window.addEventListener('message', function (event) {
