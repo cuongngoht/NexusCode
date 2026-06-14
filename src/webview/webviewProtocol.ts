@@ -17,6 +17,32 @@ import type { ArtifactRef } from '../artifacts/ArtifactTypes';
 import type { AnalyticsDashboardSummary, AnalyticsRunRecord, AnalyticsQuery, AnalyticsFeedback } from '../analytics/AnalyticsTypes';
 import type { HistorySearchResultView, HistoryRagSourceView } from '../context/history-search/types';
 
+// ── Permission system view models ─────────────────────────────────────────
+
+export interface PermissionRequestView {
+  id: string;
+  sessionId?: string;
+  subjectType: string;
+  subjectId: string;
+  subjectLabel: string;
+  actionType: string;
+  risk: 'low' | 'medium' | 'high' | 'blocked';
+  title: string;
+  reason: string;
+  target?: string;
+  command?: string;
+  cwd?: string;
+  diffPreview?: string;
+  createdAt: number;
+}
+
+export type PermissionDecision =
+  | 'approved'
+  | 'rejected'
+  | 'auto_approved'
+  | 'blocked'
+  | 'expired';
+
 export type { PromptAttachment };
 
 export type { ProviderDetectionResult };
@@ -134,7 +160,11 @@ export type ExtensionMessage =
   | { type: 'agentRecoveryResult'; sessionId: string; result: AgentRecoveryResultViewModel }
   | { type: 'agentReviewResult'; sessionId: string; result: AgentReviewResultViewModel }
   | { type: 'agentDiffCollected'; sessionId: string; diff: AgentDiffSummaryViewModel }
-  | { type: 'agentFinalSummary'; sessionId: string; summary: AgentFinalSummaryViewModel };
+  | { type: 'agentFinalSummary'; sessionId: string; summary: AgentFinalSummaryViewModel }
+  // Permission system messages (extension → webview)
+  | { type: 'permissionRequested'; request: PermissionRequestView }
+  | { type: 'permissionResolved'; requestId: string; decision: PermissionDecision }
+  | { type: 'permissionRequestExpired'; requestId: string };
 
 // ── Agent Mode view models (kept near the protocol definition) ────────────
 
@@ -322,3 +352,7 @@ export type WebviewMessage =
   | { type: 'exportCodeReviewReport'; reportId: string }
   | { type: 'openReviewReport'; report: CodeReviewReport }
   | { type: 'openReviewReportById'; reportId: string }
+  // Permission system messages (webview → extension)
+  | { type: 'approvePermission'; requestId: string }
+  | { type: 'rejectPermission'; requestId: string; reason?: string }
+  | { type: 'autoApprovePermissionScope'; requestId: string; scope: 'session' | 'workspace' }

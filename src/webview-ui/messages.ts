@@ -500,6 +500,7 @@ export type AgentSessionStatus =
   | 'scanning'
   | 'planning'
   | 'waiting_approval'
+  | 'waiting_permission'
   | 'checkpointing'
   | 'executing'
   | 'testing'
@@ -623,6 +624,32 @@ export interface AgentFinalSummaryViewModel {
   nextSteps: string[];
 }
 
+// ── Permission system view models ─────────────────────────────────────────
+
+export interface PermissionRequestViewModel {
+  id: string;
+  sessionId?: string;
+  subjectType: string;
+  subjectId: string;
+  subjectLabel: string;
+  actionType: string;
+  risk: 'low' | 'medium' | 'high' | 'blocked';
+  title: string;
+  reason: string;
+  target?: string;
+  command?: string;
+  cwd?: string;
+  diffPreview?: string;
+  createdAt: number;
+}
+
+export type PermissionDecisionType =
+  | 'approved'
+  | 'rejected'
+  | 'auto_approved'
+  | 'blocked'
+  | 'expired';
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -696,6 +723,9 @@ export interface AppState {
   agentReviewResult?: AgentReviewResultViewModel;
   agentDiffSummary?: AgentDiffSummaryViewModel;
   agentFinalSummary?: AgentFinalSummaryViewModel;
+  // Permission system state
+  pendingPermissions: PermissionRequestViewModel[];
+  resolvedPermissions: Record<string, PermissionDecisionType>;
 }
 
 export function createInitialState(mainView: MainView = 'chat'): AppState {
@@ -759,6 +789,8 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     agentReviewResult: undefined,
     agentDiffSummary: undefined,
     agentFinalSummary: undefined,
+    pendingPermissions: [],
+    resolvedPermissions: {},
   };
 }
 
@@ -891,7 +923,11 @@ export type ExtMsg =
   | { type: 'agentRecoveryResult'; sessionId: string; result: AgentRecoveryResultViewModel }
   | { type: 'agentReviewResult'; sessionId: string; result: AgentReviewResultViewModel }
   | { type: 'agentDiffCollected'; sessionId: string; diff: AgentDiffSummaryViewModel }
-  | { type: 'agentFinalSummary'; sessionId: string; summary: AgentFinalSummaryViewModel };
+  | { type: 'agentFinalSummary'; sessionId: string; summary: AgentFinalSummaryViewModel }
+  // Permission system messages
+  | { type: 'permissionRequested'; request: PermissionRequestViewModel }
+  | { type: 'permissionResolved'; requestId: string; decision: PermissionDecisionType }
+  | { type: 'permissionRequestExpired'; requestId: string };
 
 export type { NexusStreamEvent };
 
@@ -2165,8 +2201,31 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       // Session update carries step info; handled via agentSessionUpdated
       return state;
 
-    case 'agentCommandApprovalRequested':
-      return { ...state, pendingAgentCommand: msg.request };
+    case 'agentCommandApprovalRequested': {
+      const req = msg.request;
+      const permRequest: PermissionRequestViewModel = {
+        id: req.id,
+        sessionId: req.sessionId,
+        subjectType: 'agent',
+        subjectId: req.sessionId,
+        subjectLabel: `agent (session ${req.sessionId.slice(0, 8)})`,
+        actionType: 'terminal.run',
+        risk: req.risk,
+        title: 'Agent wants to run a command',
+        reason: req.reason,
+        command: req.command,
+        cwd: req.cwd,
+        createdAt: req.createdAt,
+      };
+      const existing = state.pendingPermissions.find(p => p.id === permRequest.id);
+      return {
+        ...state,
+        pendingAgentCommand: req,
+        pendingPermissions: existing
+          ? state.pendingPermissions
+          : [...state.pendingPermissions, permRequest],
+      };
+    }
 
     case 'agentTestResult':
       return { ...state, agentTestResult: msg.result };
@@ -2188,6 +2247,34 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         pendingAgentPlanText: undefined,
         pendingAgentCommand: undefined,
         saveKey: state.saveKey + 1,
+      };
+
+    // ── Permission system handlers ─────────────────────────────────────────
+
+    case 'permissionRequested': {
+      const existing = state.pendingPermissions.find(p => p.id === msg.request.id);
+      return {
+        ...state,
+        pendingPermissions: existing
+          ? state.pendingPermissions.map(p => p.id === msg.request.id ? msg.request : p)
+          : [...state.pendingPermissions, msg.request],
+      };
+    }
+
+    case 'permissionResolved':
+      return {
+        ...state,
+        pendingPermissions: state.pendingPermissions.filter(p => p.id !== msg.requestId),
+        resolvedPermissions: {
+          ...state.resolvedPermissions,
+          [msg.requestId]: msg.decision,
+        },
+      };
+
+    case 'permissionRequestExpired':
+      return {
+        ...state,
+        pendingPermissions: state.pendingPermissions.filter(p => p.id !== msg.requestId),
       };
   }
   return state;

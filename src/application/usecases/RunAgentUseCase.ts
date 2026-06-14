@@ -145,6 +145,10 @@ export class RunAgentUseCase {
         },
         onStderr: chunk => this.eventBus.emit({ kind: 'stderr', task, chunk }),
         cwd: task.cwd,
+        // Kill the CLI if it produces no output for 5 minutes — guards against silent hangs
+        // where the process is alive but never exits (e.g. agy waiting for an API response
+        // that never arrives, or waiting for stdin that is set to 'ignore').
+        idleTimeoutMs: 5 * 60 * 1000,
       });
 
       if (pipeline) {

@@ -666,5 +666,25 @@
     "waiting": "đang chờ...",
     "findingsCount": "{{count}} phát hiện",
     "confidence": "{{value}}%"
+  },
+  "permission": {
+    "waitingStatus": "Đang chờ xác nhận...",
+    "riskLow": "Rủi ro thấp",
+    "riskMedium": "Rủi ro trung bình",
+    "riskHigh": "Rủi ro cao",
+    "riskBlocked": "Bị chặn",
+    "labelAction": "Hành động",
+    "labelTarget": "Mục tiêu",
+    "labelCommand": "Lệnh",
+    "labelDirectory": "Thư mục",
+    "labelReason": "Lý do",
+    "showDiff": "Hiển thị xem trước diff",
+    "hideDiff": "Ẩn xem trước diff",
+    "blockedMsg": "Hành động này bị chặn theo chính sách và không thể được phê duyệt.",
+    "approve": "Phê duyệt",
+    "autoApproveSession": "Tự động phê duyệt phiên",
+    "autoApproveSessionTitle": "Tự động phê duyệt loại hành động này cho phần còn lại của phiên",
+    "reject": "Từ chối",
+    "dismiss": "Bỏ qua"
   }
 }

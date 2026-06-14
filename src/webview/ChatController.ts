@@ -39,6 +39,7 @@ import { RagPromptInjector } from '../context/history-search/rag/RagPromptInject
 import { createDefaultDebugOrchestrator } from '../debug/orchestrator/DebugOrchestratorFactory';
 import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../review/ReviewPanel';
+import { PermissionService } from '../application/permissions/PermissionService';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -99,8 +100,9 @@ export class ChatController {
     );
 
     const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
-    const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void);
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor);
+    const permissionService = new PermissionService(post as (msg: unknown) => void);
+    const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler   = new ReviewHandler(post, workspaceState);
@@ -299,10 +301,24 @@ export class ChatController {
         await this.runTaskHandler.rejectAgentPlan_agent(msg.sessionId, msg.reason);
         break;
       case 'approveAgentCommand':
+        this.runTaskHandler.approvePermission(msg.requestId);
+        break;
       case 'rejectAgentCommand':
+        this.runTaskHandler.rejectPermission(msg.requestId, msg.reason);
+        break;
       case 'openAgentSession':
       case 'listAgentSessions':
         // These will be forwarded to the AgentExecutor when fully wired
+        break;
+      // Permission system messages
+      case 'approvePermission':
+        this.runTaskHandler.approvePermission(msg.requestId);
+        break;
+      case 'rejectPermission':
+        this.runTaskHandler.rejectPermission(msg.requestId, msg.reason);
+        break;
+      case 'autoApprovePermissionScope':
+        this.runTaskHandler.autoApprovePermission(msg.requestId, msg.scope);
         break;
     }
   }

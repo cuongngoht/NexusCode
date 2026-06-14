@@ -48,6 +48,7 @@ import type { HistoryRagSourceView } from '../../context/history-search/types';
 import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrator';
 import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../../review/ReviewPanel';
+import type { PermissionService } from '../../application/permissions/PermissionService';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -90,6 +91,7 @@ export class RunTaskHandler {
     private readonly historyRagFacade?: HistoryRagFacade,
     private readonly debugOrchestrator?: DebugOrchestrator,
     private readonly agentExecutor?: AgentExecutor,
+    private readonly permissionService?: PermissionService,
   ) {}
 
   hasActive(): boolean {
@@ -467,6 +469,18 @@ export class RunTaskHandler {
     }
   }
 
+  approvePermission(requestId: string): void {
+    this.permissionService?.approve(requestId);
+  }
+
+  rejectPermission(requestId: string, reason?: string): void {
+    this.permissionService?.reject(requestId, reason);
+  }
+
+  autoApprovePermission(requestId: string, scope: 'session' | 'workspace'): void {
+    this.permissionService?.autoApprove(requestId, scope);
+  }
+
   // ─── Private pipeline helpers ──────────────────────────────────────────────
 
   private async runPreSteps(
@@ -561,11 +575,13 @@ export class RunTaskHandler {
     if (agentIds.length > 0 || skillIds.length > 0) {
       const agentBundle = agentIds.length > 0 ? loadAgentPromptBundle(workspaceRoot, agentIds) : undefined;
       const skillBundle = skillIds.length > 0 ? loadSkillPromptBundle(workspaceRoot, skillIds) : undefined;
+      const mcpEnabled = vscode.workspace.getConfiguration('nexus').get<boolean>('mcp.enabled', false);
       prompt = buildAugmentedPrompt({
         agentMarkdownBundle: agentBundle,
         skillMarkdownBundle: skillBundle,
         userPrompt: taskPrompt,
         existingEnhancedPrompt: prompt,
+        mcpEnabled,
       });
     }
 

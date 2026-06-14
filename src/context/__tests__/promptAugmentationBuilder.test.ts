@@ -68,4 +68,46 @@ describe('buildAugmentedPrompt', () => {
     });
     expect(result).toContain('---');
   });
+
+  it('does NOT append MCP instruction when mcpEnabled is false or omitted', () => {
+    const withoutFlag = buildAugmentedPrompt({
+      userPrompt: 'review',
+      existingEnhancedPrompt: 'TASK',
+    });
+    const withFalse = buildAugmentedPrompt({
+      userPrompt: 'review',
+      existingEnhancedPrompt: 'TASK',
+      mcpEnabled: false,
+    });
+    expect(withoutFlag).not.toContain('NEXUS_TOOL_INTENT');
+    expect(withFalse).not.toContain('NEXUS_TOOL_INTENT');
+  });
+
+  it('appends MCP tool instruction after progress instruction when mcpEnabled is true', () => {
+    const result = buildAugmentedPrompt({
+      userPrompt: 'review',
+      existingEnhancedPrompt: 'TASK',
+      mcpEnabled: true,
+    });
+    expect(result).toContain('NEXUS_TOOL_INTENT');
+    expect(result).toContain('docs');
+    expect(result).toContain('library-api');
+    // MCP instruction appears after the progress instruction
+    const progressPos = result.indexOf('You are running inside Nexus AI Code');
+    const mcpPos = result.indexOf('NEXUS_TOOL_INTENT');
+    expect(progressPos).toBeLessThan(mcpPos);
+  });
+
+  it('MCP instruction appears at the end even when agent and skill bundles are present', () => {
+    const result = buildAugmentedPrompt({
+      agentMarkdownBundle: 'AGENT',
+      skillMarkdownBundle: 'SKILL',
+      userPrompt: 'task',
+      existingEnhancedPrompt: 'TASK',
+      mcpEnabled: true,
+    });
+    const taskPos   = result.indexOf('TASK');
+    const mcpPos    = result.indexOf('NEXUS_TOOL_INTENT');
+    expect(taskPos).toBeLessThan(mcpPos);
+  });
 });

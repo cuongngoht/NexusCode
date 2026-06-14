@@ -6,6 +6,7 @@ export type AgentSessionStatus =
   | 'scanning'
   | 'planning'
   | 'waiting_approval'
+  | 'waiting_permission'
   | 'checkpointing'
   | 'executing'
   | 'testing'

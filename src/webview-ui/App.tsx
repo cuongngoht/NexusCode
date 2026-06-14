@@ -15,6 +15,7 @@ import { I18nContext, LOCALES, interp, type Locale, useT } from './i18n';
 import { NexusShell } from './components/layout/NexusShell';
 import { uiReducer, createInitialUiState } from './state/uiState';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
+import { PermissionApprovalCard } from './components/PermissionApprovalCard';
 
 function getSurface(): MainView {
   return document.body.dataset.nexusSurface === 'dashboard' ? 'dashboard' : 'chat';
@@ -520,6 +521,25 @@ export function App() {
                 onRetry={handleRetry}
               />
 
+
+              {state.pendingPermissions.length > 0 && (
+                <div className="nx-perm-cards">
+                  {state.isRunning && (
+                    <div className="nx-perm-waiting-status" role="status">
+                      Waiting for permission...
+                    </div>
+                  )}
+                  {state.pendingPermissions.map(request => (
+                    <PermissionApprovalCard
+                      key={request.id}
+                      request={request}
+                      onApprove={requestId => getVsCodeApi().postMessage({ type: 'approvePermission', requestId })}
+                      onReject={(requestId, reason) => getVsCodeApi().postMessage({ type: 'rejectPermission', requestId, reason })}
+                      onAutoApproveSession={requestId => getVsCodeApi().postMessage({ type: 'autoApprovePermissionScope', requestId, scope: 'session' })}
+                    />
+                  ))}
+                </div>
+              )}
 
               {!state.isDetecting && (
                 <ConversationTokenBar

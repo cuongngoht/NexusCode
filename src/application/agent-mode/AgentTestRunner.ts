@@ -2,8 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import type { AgentSession } from './AgentSession';
+import type { AgentSessionStatus } from './AgentSession';
 import type { AgentModePolicy } from './AgentModePolicy';
 import { AgentCommandGuard, type CommandRisk } from './AgentCommandGuard';
+import type { PermissionService } from '../permissions/PermissionService';
+import { createPermissionId } from '../permissions/createPermissionId';
 
 export interface AgentTestCommand {
   command: string;
@@ -63,7 +66,12 @@ export class AgentTestRunner {
     return commands;
   }
 
-  async run(session: AgentSession, policy: AgentModePolicy): Promise<AgentTestResult> {
+  async run(
+    session: AgentSession,
+    policy: AgentModePolicy,
+    permissionService?: PermissionService,
+    onStatusChange?: (status: AgentSessionStatus) => void,
+  ): Promise<AgentTestResult> {
     const commands = await this.detectCommands(session);
     const startedAt = Date.now();
     const results: AgentTestCommandResult[] = [];
@@ -72,12 +80,35 @@ export class AgentTestRunner {
     for (const testCmd of commands) {
       const risk = this.guard.classify(testCmd.command);
       if (risk === 'blocked') {
-        // Skip blocked commands silently
         continue;
       }
+
       if (policy.requireApprovalBeforeTerminal && risk !== 'low') {
-        // Skip commands that require approval when not explicitly approved
-        continue;
+        if (permissionService) {
+          // Only set waiting_permission when ACTUALLY about to await a decision
+          onStatusChange?.('waiting_permission');
+          const resolution = await permissionService.request({
+            id: createPermissionId(),
+            sessionId: session.id,
+            subjectType: 'agent',
+            subjectId: session.providerId,
+            subjectLabel: `@${session.providerId}`,
+            actionType: 'terminal.run',
+            risk,
+            title: `Agent wants to run: ${testCmd.command}`,
+            reason: this.guard.explain(testCmd.command),
+            command: testCmd.command,
+            cwd: session.workspaceRoot,
+            createdAt: Date.now(),
+          });
+          // Resume testing status regardless of decision
+          onStatusChange?.('testing');
+          if (resolution.decision !== 'approved' && resolution.decision !== 'auto_approved') {
+            continue;
+          }
+        } else {
+          continue;
+        }
       }
 
       const result = await runCommand(testCmd.command, session.workspaceRoot);
@@ -85,7 +116,7 @@ export class AgentTestRunner {
 
       if (!result.passed) {
         allPassed = false;
-        break; // Stop on first failure
+        break;
       }
     }
 

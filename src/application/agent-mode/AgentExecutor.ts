@@ -19,6 +19,7 @@ import type { AgentDiffSummary } from './AgentDiffCollector';
 import type { AgentFinalSummary } from './AgentFinalReporter';
 import type { AgentRecoveryResult } from './AgentRecovery';
 import type { AgentReviewResult } from './AgentReviewRunner';
+import type { PermissionService } from '../permissions/PermissionService';
 
 export interface RunAgentModeInput {
   prompt: string;
@@ -38,6 +39,7 @@ export class AgentExecutor {
     private readonly runAgentUseCase: RunAgentUseCase,
     private readonly eventBus: IEventBus,
     private readonly post: (msg: unknown) => void,
+    private readonly permissionService?: PermissionService,
   ) {}
 
   private getStore(workspaceRoot: string): AgentSessionStore {
@@ -218,7 +220,14 @@ export class AgentExecutor {
           this.setSessionStatus(session!, store!, 'testing');
           const testRunner = new AgentTestRunner();
           await timeline.append({ sessionId, type: 'test_started', message: 'Running tests.' });
-          testResult = await testRunner.run(session!, policy);
+          // Status callback: test runner sets waiting_permission only when ACTUALLY awaiting
+          // a specific command approval. Returns to testing once user decides.
+          const onStatusChange = (status: import('./AgentSession').AgentSessionStatus) => {
+            this.setSessionStatus(session!, store!, status);
+          };
+          testResult = await testRunner.run(session!, policy, this.permissionService, onStatusChange);
+          // Restore testing status after all commands processed
+          this.setSessionStatus(session!, store!, 'testing');
           this.postAgentMessage({ type: 'agentTestResult', sessionId, result: toTestResultViewModel(testResult) });
           await timeline.append({ sessionId, type: 'test_completed', message: `Tests ${testResult.passed ? 'passed' : 'failed'}.` });
         });
@@ -228,11 +237,12 @@ export class AgentExecutor {
           await this.runStep(session, store, timeline, 'fix_tests', 'Fixing test failures', async () => {
             this.setSessionStatus(session!, store!, 'recovering');
             const diffCollector = new AgentDiffCollector();
+            const permSvc = this.permissionService;
             const recovery = new AgentRecovery(
               async (prompt, workspaceRoot, providerId, model) => {
                 await this.runAgentForText(prompt, workspaceRoot, providerId, model);
               },
-              async (s, p) => new AgentTestRunner().run(s, p),
+              async (s, p) => new AgentTestRunner().run(s, p, permSvc),
               async (s) => {
                 const d = await diffCollector.collect(s, policy);
                 return { diff: d.diff };

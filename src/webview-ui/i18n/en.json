@@ -666,5 +666,25 @@
     "waiting": "waiting...",
     "findingsCount": "{{count}} findings",
     "confidence": "{{value}}%"
+  },
+  "permission": {
+    "waitingStatus": "Waiting for permission...",
+    "riskLow": "Low Risk",
+    "riskMedium": "Medium Risk",
+    "riskHigh": "High Risk",
+    "riskBlocked": "Blocked",
+    "labelAction": "Action",
+    "labelTarget": "Target",
+    "labelCommand": "Command",
+    "labelDirectory": "Directory",
+    "labelReason": "Reason",
+    "showDiff": "Show diff preview",
+    "hideDiff": "Hide diff preview",
+    "blockedMsg": "This action is blocked by policy and cannot be approved.",
+    "approve": "Approve",
+    "autoApproveSession": "Auto-approve session",
+    "autoApproveSessionTitle": "Auto-approve this type of action for the rest of this session",
+    "reject": "Reject",
+    "dismiss": "Dismiss"
   }
 }
