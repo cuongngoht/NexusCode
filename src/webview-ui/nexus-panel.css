@@ -4929,6 +4929,40 @@ html, body, #root {
   user-select: none;
 }
 
+/* Review report card inline in assistant message */
+.nx-review-report-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: var(--nx-radius-sm, 4px);
+  background: var(--nx-bg-muted);
+  border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+}
+
+.nx-review-report-stats {
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--nx-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.nx-review-open-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--nx-radius-sm, 4px);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nx-review-open-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
 /* Subagent trace panel */
 .subagent-trace-panel {
   font-size: 11px;

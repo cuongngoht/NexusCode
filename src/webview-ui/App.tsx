@@ -504,6 +504,7 @@ export function App() {
                 providerDetection={state.providerDetection}
                 availableProviders={state.availableProviders}
                 subagentTrace={state.subagentTrace ?? undefined}
+                reviewHistory={state.reviewHistory}
                 onOpenScm={handleOpenScm}
                 onCloseGit={() => {
                   dispatch({ type: 'extMsg', msg: { type: 'gitStatus', changes: [] } });

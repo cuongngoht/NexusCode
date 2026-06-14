@@ -125,6 +125,8 @@ export class RunTaskHandler {
 
     const cfg = vscode.workspace.getConfiguration('nexus');
     const enableEnhancement = cfg.get<boolean>('enablePromptEnhancement', true);
+    const contextMaxChars = cfg.get<number>('context.maxChars', 100_000);
+    const contextMaxMessages = cfg.get<number>('context.maxMessages', 20);
 
     const ctx: PipelineContext = {
       workspaceRoot,
@@ -134,7 +136,7 @@ export class RunTaskHandler {
       providerId,
       enableEnhancement,
       enhancedPrompt: effectivePrompt,
-      conversationContext: conversationContext ?? (latestHistory ? buildConversationContext(latestHistory, undefined) : undefined),
+      conversationContext: conversationContext ?? (latestHistory ? buildConversationContext(latestHistory, undefined, { maxChars: contextMaxChars, maxMessages: contextMaxMessages }) : undefined),
       baseBranch: baseBranch || undefined,
     };
 

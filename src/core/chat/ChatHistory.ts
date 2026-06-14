@@ -39,6 +39,13 @@ export interface SerializedAssistantMessage {
   feedback?: { rating: 'good' | 'bad' | null; ratedAt?: number };
   retrySourceMessageId?: string;
   elapsed?: number;
+  reviewReportId?: string;
+  reviewReportSnapshot?: {
+    verdict: string;
+    blockerCount: number;
+    criticalCount: number;
+    majorCount: number;
+  };
 }
 
 export type SerializedChatMessage = SerializedUserMessage | SerializedAssistantMessage;

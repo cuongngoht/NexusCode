@@ -215,6 +215,16 @@ export class ChatController {
       case 'openReviewReport':
         void ReviewPanel.createOrShow(this._extensionUri, this._workspaceState, msg.report);
         break;
+      case 'openReviewReportById': {
+        const history = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history', []);
+        const report = history.find(r => r.id === msg.reportId);
+        if (report) {
+          void ReviewPanel.createOrShow(this._extensionUri, this._workspaceState, report);
+        } else {
+          void vscode.window.showInformationMessage('Review report not found in history (may have been cleared).');
+        }
+        break;
+      }
       case 'pickPromptAttachment':   await this.attachmentHandler.pickAttachment(); break;
       case 'getWorkspaceFiles':      this.attachmentHandler.getWorkspaceFiles(); break;
       case 'resolveDroppedFiles':    await this.attachmentHandler.resolveDropped(msg.paths); break;

@@ -85,6 +85,7 @@ export class RunAgentUseCase {
     const command = agent.buildCommand(task);
     const parser = agent.outputParser;
     const pipeline: AgentStreamPipeline | null = AgentStreamPipelineFactory.create(command);
+    const suppressChat = agent.suppressChatStreamModes?.includes(task.mode) ?? false;
 
     const inputPrompt = command.inputPrompt ?? task.enhancedPrompt;
 
@@ -104,7 +105,7 @@ export class RunAgentUseCase {
           const chunk = agent.transformStdout ? agent.transformStdout(rawChunk) : rawChunk;
           onStdoutCollect?.(chunk);
           if (pipeline) {
-            this._emitStreamEvents(task, pipeline.processChunk(chunk));
+            this._emitStreamEvents(task, pipeline.processChunk(chunk), suppressChat);
             return;
           }
           // Always emit the raw chunk as stdout. This guarantees the agent's full output
@@ -123,7 +124,7 @@ export class RunAgentUseCase {
           // This separation keeps content fidelity independent of activity extraction.
           // It matches PlainTextAdapter + the original Claude/Codex parsers and prevents
           // review-style or @-mention prose from being diverted entirely into chips.
-          this.eventBus.emit({ kind: 'stdout', task, chunk });
+          this.eventBus.emit({ kind: 'stdout', task, chunk, suppressChat });
 
           if (!parser) {
             return;
@@ -147,7 +148,7 @@ export class RunAgentUseCase {
       });
 
       if (pipeline) {
-        this._emitStreamEvents(task, pipeline.flush());
+        this._emitStreamEvents(task, pipeline.flush(), suppressChat);
       } else if (parser?.flush) {
         for (const act of parser.flush()) {
           if (act.kind === 'plain') continue;
@@ -177,11 +178,11 @@ export class RunAgentUseCase {
     }
   }
 
-  private _emitStreamEvents(task: AgentTask, events: AgentStreamEvent[]): void {
+  private _emitStreamEvents(task: AgentTask, events: AgentStreamEvent[], suppressChat = false): void {
     for (const event of events) {
       switch (event.kind) {
         case 'content_delta':
-          this.eventBus.emit({ kind: 'stdout', task, chunk: event.text });
+          this.eventBus.emit({ kind: 'stdout', task, chunk: event.text, suppressChat });
           break;
         case 'reasoning_delta':
           this.eventBus.emit({ kind: 'reasoning', task, chunk: event.text });

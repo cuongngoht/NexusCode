@@ -313,3 +313,4 @@ export type WebviewMessage =
   | { type: 'applyCodeReviewFix'; reportId: string; findingId: string }
   | { type: 'exportCodeReviewReport'; reportId: string }
   | { type: 'openReviewReport'; report: CodeReviewReport }
+  | { type: 'openReviewReportById'; reportId: string }

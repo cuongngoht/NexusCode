@@ -372,6 +372,13 @@ export interface AssistantMessage {
   estimatedCostUsd?: number;
   elapsedMs?: number;
   taskId?: string;
+  reviewReportId?: string;
+  reviewReportSnapshot?: {
+    verdict: string;
+    blockerCount: number;
+    criticalCount: number;
+    majorCount: number;
+  };
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
@@ -1088,6 +1095,8 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
         feedback: a.feedback,
         retrySourceMessageId: a.retrySourceMessageId,
         elapsed: a.elapsed,
+        reviewReportId: a.reviewReportId,
+        reviewReportSnapshot: a.reviewReportSnapshot,
       };
     });
   return {
@@ -1155,6 +1164,8 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       feedback: m.feedback,
       retrySourceMessageId: m.retrySourceMessageId,
       elapsed: m.elapsed,
+      reviewReportId: m.reviewReportId,
+      reviewReportSnapshot: m.reviewReportSnapshot,
     } satisfies AssistantMessage;
   });
   return {
@@ -2045,8 +2056,51 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'agentSessionUpdated':
       return { ...state, agentSession: msg.session };
 
-    case 'codeReviewReport':
-      return { ...state, activeCodeReviewReport: msg.report };
+    case 'codeReviewReport': {
+      const report = msg.report;
+      // Use getRunConvId so the report attaches to the correct conversation even if
+      // the user navigated away. Also drop the !isStreaming guard — codeReviewReport
+      // arrives before taskCompleted (specific-kind listeners fire before '*' in EventBus),
+      // so the message is still streaming when this runs. taskCompleted's updateLastAssistant
+      // spreads ...m and preserves reviewReportId/reviewReportSnapshot.
+      const runConvId = getRunConvId(state);
+      const conv = state.conversations.find(c => c.id === runConvId);
+      let updatedConversations = state.conversations;
+      if (conv) {
+        const lastReviewMsg = [...conv.messages]
+          .reverse()
+          .find(m =>
+            m.role === 'assistant' &&
+            (m as AssistantMessage).mode === 'review',
+          ) as AssistantMessage | undefined;
+        if (lastReviewMsg) {
+          const snapshot = {
+            verdict: report.verdict,
+            blockerCount: report.findings.filter(f => f.severity === 'blocker').length,
+            criticalCount: report.findings.filter(f => f.severity === 'critical').length,
+            majorCount: report.findings.filter(f => f.severity === 'major').length,
+          };
+          updatedConversations = state.conversations.map(c =>
+            c.id !== runConvId ? c : {
+              ...c,
+              messages: c.messages.map(m =>
+                m.id !== lastReviewMsg.id ? m : {
+                  ...m,
+                  reviewReportId: report.id,
+                  reviewReportSnapshot: snapshot,
+                },
+              ),
+            },
+          );
+        }
+      }
+      return {
+        ...state,
+        activeCodeReviewReport: report,
+        conversations: updatedConversations,
+        saveKey: state.saveKey + 1,
+      };
+    }
 
     case 'codeReviewStarted':
     case 'codeReviewProgress':

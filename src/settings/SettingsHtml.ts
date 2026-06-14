@@ -21,6 +21,8 @@ export function getSettingsHtml(
     reviewStepTester?: boolean;
     reviewStepSecurity?: boolean;
     reviewStepArchitect?: boolean;
+    contextMaxChars?: number;
+    contextMaxMessages?: number;
   },
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
@@ -65,6 +67,8 @@ export function getSettingsHtml(
   const mcpMaxChars = mergedConfig.mcp.maxResultChars;
   const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
   const historyRagEnabled = vsCodeConfig?.historyRagEnabled ?? mergedConfig.historyRag?.enabled ?? true;
+  const contextMaxChars    = vsCodeConfig?.contextMaxChars    ?? 100_000;
+  const contextMaxMessages = vsCodeConfig?.contextMaxMessages ?? 20;
 
   const reviewStepReviewer  = vsCodeConfig?.reviewStepReviewer  ?? true;
   const reviewStepTester    = vsCodeConfig?.reviewStepTester    ?? true;
@@ -393,6 +397,24 @@ export function getSettingsHtml(
     <p class="description">When enabled, Nexus searches previous conversations and injects relevant snippets into every prompt automatically.</p>
   </section>
 
+  <section class="settings-section" id="context-section">
+    <hr />
+    <h2>Context Window</h2>
+    <p class="section-description">Controls how much conversation history is injected into each prompt. Higher values give the agent more memory but use more tokens per request.</p>
+
+    <div class="setting-row">
+      <label>Max Context (chars)</label>
+      <input type="number" id="context-maxChars" min="10000" max="500000" step="10000" value="${contextMaxChars}" />
+      <span class="setting-hint">Characters of conversation history sent to the agent per task. Default: 100,000.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Max Messages</label>
+      <input type="number" id="context-maxMessages" min="4" max="50" value="${contextMaxMessages}" />
+      <span class="setting-hint">Number of past messages included in context. Default: 20.</span>
+    </div>
+  </section>
+
   <section class="settings-section" id="subagents-section">
     <hr />
     <h2>Subagents</h2>
@@ -678,8 +700,12 @@ export function getSettingsHtml(
           security:  document.getElementById('review-step-security').checked,
           architect: document.getElementById('review-step-architect').checked,
         };
+        const contextSettings = {
+          maxChars:    parseInt(document.getElementById('context-maxChars').value, 10) || 100000,
+          maxMessages: parseInt(document.getElementById('context-maxMessages').value, 10) || 20,
+        };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps });
+        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, contextSettings: contextSettings });
       });
 
       window.addEventListener('message', function (event) {

@@ -674,6 +674,20 @@
           "type": "number",
           "default": 30000,
           "description": "Maximum number of diff characters included in final Agent Mode summaries."
+        },
+        "nexus.context.maxChars": {
+          "type": "number",
+          "default": 100000,
+          "minimum": 10000,
+          "maximum": 500000,
+          "description": "Maximum characters of conversation history injected as context into each prompt. Higher values give the agent more memory but use more tokens."
+        },
+        "nexus.context.maxMessages": {
+          "type": "number",
+          "default": 20,
+          "minimum": 4,
+          "maximum": 50,
+          "description": "Maximum number of past conversation messages included in the context window."
         }
       }
     }

@@ -66,6 +66,8 @@ export class SettingsPanel {
       reviewStepTester:    vsCfg.get<boolean>('review.steps.tester', true),
       reviewStepSecurity:  vsCfg.get<boolean>('review.steps.security', true),
       reviewStepArchitect: vsCfg.get<boolean>('review.steps.architect', true),
+      contextMaxChars:     vsCfg.get<number>('context.maxChars', 100_000),
+      contextMaxMessages:  vsCfg.get<number>('context.maxMessages', 20),
     };
     this.panel.webview.html = getSettingsHtml(this.panel.webview, config, vsCodeConfig);
   }
@@ -111,6 +113,16 @@ export class SettingsPanel {
           if (typeof reviewSteps[key] === 'boolean') {
             await vsCfg.update(`review.steps.${key}`, reviewSteps[key], vscode.ConfigurationTarget.Workspace);
           }
+        }
+      }
+      // Sync context window settings to VS Code workspace settings
+      const contextSettings = (msg as Record<string, unknown>)['contextSettings'] as Record<string, unknown> | undefined;
+      if (contextSettings) {
+        if (typeof contextSettings['maxChars'] === 'number') {
+          await vsCfg.update('context.maxChars', contextSettings['maxChars'], vscode.ConfigurationTarget.Workspace);
+        }
+        if (typeof contextSettings['maxMessages'] === 'number') {
+          await vsCfg.update('context.maxMessages', contextSettings['maxMessages'], vscode.ConfigurationTarget.Workspace);
         }
       }
       await this.panel.webview.postMessage({ type: 'settings.saved' });

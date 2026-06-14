@@ -436,6 +436,7 @@
     "generatedAt": "Tạo lúc",
     "target": "Mục tiêu",
     "noFindings": "Không có phát hiện nào.",
+    "openReport": "Mở Report",
     "historyTitle": "Lịch sử Code Review",
     "noHistory": "Chưa có review nào",
     "clearHistory": "Xóa lịch sử",

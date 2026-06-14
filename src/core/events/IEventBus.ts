@@ -5,7 +5,8 @@ import type { TokenRunUsage } from '../tokens/TokenUsage';
 
 export type NexusEvent =
   | { kind: 'task_started'; task: AgentTask; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
-  | { kind: 'stdout'; task: AgentTask; chunk: string }
+  | { kind: 'stdout'; task: AgentTask; chunk: string; suppressChat?: boolean }
+  | { kind: 'reasoning'; task: AgentTask; chunk: string }
   | { kind: 'stderr'; task: AgentTask; chunk: string }
   | { kind: 'task_completed'; task: AgentTask; result: AgentResult }
   | { kind: 'task_stopped'; task: AgentTask }

@@ -6,7 +6,7 @@ export class ReviewPanel {
   static readonly viewType = 'nexus.review';
   private static instance: ReviewPanel | undefined;
 
-  private static readonly HISTORY_KEY = 'nexus.review.reportHistory';
+  private static readonly HISTORY_KEY = 'nexus.review.history';
   private static readonly MAX_HISTORY = 10;
 
   private readonly panel: vscode.WebviewPanel;

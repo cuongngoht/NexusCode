@@ -12,6 +12,9 @@ export abstract class BaseAgent implements IAgent {
   abstract readonly seededModels: ReadonlyArray<ProviderModel>;
   readonly defaultModel?: string;
   get outputParser(): IOutputParser | undefined { return undefined; }
+  // All CLI agents output structured JSON in review mode, so suppress raw token stream in chat.
+  // Individual agents may override (e.g. set [] to opt out, or add more modes).
+  readonly suppressChatStreamModes: ReadonlyArray<string> = ['review'];
 
   protected abstract readonly executableName: string;
 

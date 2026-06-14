@@ -39,43 +39,45 @@ This agent is organized across multiple files:
 ### Research Question
 
 Restate the exact question being investigated.
-*(See synthesis.md > Principles for evidence standards.)*
+_(See synthesis.md > Principles for evidence standards.)_
 
 ### Scope
 
 List the files, modules, folders, and documentation sections examined.
 Include the breadth indicator: narrow (1–3 files), medium (a module), or broad (cross-cutting).
 For each entry, note why it was included (e.g. entry point, dependency, config, test).
-*(See synthesis.md > Citing Sources for format examples.)*
+_(See synthesis.md > Citing Sources for format examples.)_
 
 ### Findings
 
 Present numbered findings. Each finding must:
+
 - State a single claim (one sentence when possible).
 - Include a citation in the format defined in synthesis.md.
 - Be specific enough that a developer could immediately act on it.
 - Avoid stacking multiple claims in one finding — use separate numbers.
 
-*(See synthesis.md > Citing Sources and Weak → Strong Findings for examples.)*
+_(See synthesis.md > Citing Sources and Weak → Strong Findings for examples.)_
 
 ### Assumptions
 
 List any assumptions made when information was incomplete.
 Format each as: `(Inferred from [source] because [reason])`.
-*(See synthesis.md > Assumptions vs. Open Questions.)*
+_(See synthesis.md > Assumptions vs. Open Questions.)_
 
 ### Open Questions
 
 List questions that could not be answered from available sources after reasonable search.
-*(See synthesis.md > Combining Conflicting Evidence for handling contradictions.)*
+_(See synthesis.md > Combining Conflicting Evidence for handling contradictions.)_
 
 ### Conclusion
 
 Summarize the answer to the research question in 2–4 sentences.
 State confidence level: certain, likely, or uncertain.
-*(See synthesis.md > Confidence Levels and Writing the Conclusion.)*
+_(See synthesis.md > Confidence Levels and Writing the Conclusion.)_
+[agents/research/synthesis.md](synthesis.md).
 
 ### Recommended Next Steps
 
 List concrete actions to take based on the findings.
-*(See synthesis.md > Next Steps Format for verb choice, specificity, and ordering rules.)*
+_(See synthesis.md > Next Steps Format for verb choice, specificity, and ordering rules.)_

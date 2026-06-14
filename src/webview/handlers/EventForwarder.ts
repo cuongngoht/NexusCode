@@ -31,7 +31,9 @@ export class EventForwarder {
         });
         break;
       case 'stdout':
-        this.post({ type: 'stdout', chunk: event.chunk });
+        if (!event.suppressChat) {
+          this.post({ type: 'stdout', chunk: event.chunk });
+        }
         this._postNexus({
           kind: 'provider.raw',
           taskId: event.task.id,

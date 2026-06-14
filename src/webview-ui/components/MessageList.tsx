@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import type { ChatMessage, Conversation, ProviderInfo, SubagentTraceState } from '../messages';
+import type { CodeReviewReport } from '../../application/code-review/CodeReviewReport';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
 import { GitStatusPanel } from './GitStatusPanel';
@@ -12,6 +13,7 @@ interface Props {
   providerDetection: ProviderInfo[];
   availableProviders: string[];
   subagentTrace?: SubagentTraceState;
+  reviewHistory?: CodeReviewReport[];
   onOpenScm: () => void;
   onCloseGit: () => void;
   onSendSuggestion: (text: string) => void;
@@ -50,7 +52,7 @@ function EmptyState({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-export const MessageList = memo(function MessageList({ conversation, isRunning, providerDetection, availableProviders, subagentTrace, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles, onFeedback, onRetry }: Props) {
+export const MessageList = memo(function MessageList({ conversation, isRunning, providerDetection, availableProviders, subagentTrace, reviewHistory, onOpenScm, onCloseGit, onSendSuggestion, onOpenFile, onAttachFiles, onFeedback, onRetry }: Props) {
   const t = useT();
   const anchorRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,6 +102,7 @@ export const MessageList = memo(function MessageList({ conversation, isRunning, 
                 conversationId={conversation.id}
                 userMessageId={precedingUserMessageId}
                 subagentTrace={traceForMsg}
+                reviewHistory={reviewHistory}
                 onFeedback={(messageId, rating) => onFeedback(conversation.id, messageId, rating)}
                 onRetry={onRetry}
               />

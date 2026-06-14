@@ -436,6 +436,7 @@
     "generatedAt": "Generated",
     "target": "Target",
     "noFindings": "No findings.",
+    "openReport": "Open Report",
     "historyTitle": "Review History",
     "noHistory": "No reviews yet",
     "clearHistory": "Clear history",
