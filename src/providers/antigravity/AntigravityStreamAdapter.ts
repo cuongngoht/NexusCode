@@ -8,6 +8,15 @@ const MD_LINK_RE = /\[([^\]]+)\]\([^)]+\)/g;
 const NL_I_RE = /^I(?:'ll| will)\s+(.+)/i;
 const CLI_GT_RE = /^>\s+(.+)/;
 
+// agy emits these startup banners to stdout (not only stderr); suppress them from the chat view.
+// Also suppress lines that are pure JavaScript object noise ([object Object]) which appear when
+// agy logs internal debug state without JSON.stringify.
+const AGY_NOISE_RE = [
+  /YOLO mode is enabled/i,
+  /All tool calls will be automatically approved/i,
+  /^\[object Object\]/,
+];
+
 const READ_RE   = /\b(read|open|view|inspect|check|look at|examine|load|fetch)\b/i;
 const EDIT_RE   = /\b(edit|update|modify|write|create|add|change|fix|implement|apply)\b/i;
 const BASH_RE   = /\b(run|execute|compile|build|install|test|launch|start)\b/i;
@@ -32,6 +41,11 @@ export class AntigravityStreamAdapter implements IProviderStreamAdapter {
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
     const rawText = frame.data;
     const line = rawText.replace(ANSI_RE, '').trim();
+
+    if (AGY_NOISE_RE.some(re => re.test(line))) {
+      return [];
+    }
+
     const events: AgentStreamEvent[] = [{ kind: 'content_delta', text: rawText }];
 
     let action: string | null = null;
