@@ -60,6 +60,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.globalState,
       new ChatHistoryStore(this.workspaceState),
       this.extensionUri.fsPath,
+      this.extensionUri,
       this.subagentOrchestrator,
       this.workspaceState,
       this.compactor,

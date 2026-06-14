@@ -4,6 +4,7 @@ import type {
   SerializedChatMessage,
   SerializedConversationCompactSummary,
 } from '../core/chat/ChatHistory';
+import type { CodeReviewReport } from '../application/code-review/CodeReviewReport';
 import type {
   TokenRunUsage,
   ConversationTokenUsage,
@@ -663,6 +664,13 @@ export interface AppState {
   lastRagContext?: { resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
   // Subagent trace state
   subagentTrace: SubagentTraceState | null;
+  // Subagent synthesis summary (populated after subagentSynthesis event)
+  activeSubagentSynthesis: { topFindings: number; files: string[]; risks: string[]; confidence: number } | null;
+  // Architecture review report (populated after review mode task completes)
+  activeCodeReviewReport: CodeReviewReport | null;
+  // Review history (persisted, max 10 entries)
+  reviewHistory: CodeReviewReport[];
+  showReviewHistory: boolean;
   // Agent Mode state
   agentSession?: AgentSessionViewModel;
   agentTimeline: AgentTimelineEventViewModel[];
@@ -722,6 +730,10 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     historyRagEnabled: true,
     lastRagContext: undefined,
     subagentTrace: null,
+    activeSubagentSynthesis: null,
+    activeCodeReviewReport: null,
+    reviewHistory: [],
+    showReviewHistory: false,
     agentSession: undefined,
     agentTimeline: [],
     pendingAgentPlan: undefined,
@@ -839,6 +851,12 @@ export type ExtMsg =
   | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
   | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
   | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } }
+  // Code Review messages
+  | { type: 'codeReviewReport'; report: CodeReviewReport }
+  | { type: 'codeReviewStarted'; reportId: string; targetType: string }
+  | { type: 'codeReviewProgress'; reportId: string; message: string }
+  | { type: 'codeReviewError'; message: string }
+  | { type: 'reviewHistoryLoaded'; reports: CodeReviewReport[] }
   // Agent Mode messages
   | { type: 'agentSessionUpdated'; session: AgentSessionViewModel }
   | { type: 'agentTimelineUpdated'; sessionId: string; events: AgentTimelineEventViewModel[] }
@@ -868,6 +886,9 @@ export type AppAction =
   | { type: 'setModel'; value?: string }
   | { type: 'setMode'; value: TaskMode }
   | { type: 'toggleHistory' }
+  | { type: 'toggleReviewHistory' }
+  | { type: 'selectReviewReport'; report: CodeReviewReport }
+  | { type: 'clearReviewHistory' }
   | { type: 'toggleSubagents' }
   | { type: 'resetSubagents' }
   | { type: 'newConversation' }
@@ -1332,6 +1353,15 @@ export function reducer(state: AppState, action: AppAction): AppState {
     case 'toggleHistory':
       return { ...state, showHistory: !state.showHistory };
 
+    case 'toggleReviewHistory':
+      return { ...state, showReviewHistory: !state.showReviewHistory };
+
+    case 'selectReviewReport':
+      return { ...state, activeCodeReviewReport: action.report, showReviewHistory: false };
+
+    case 'clearReviewHistory':
+      return { ...state, reviewHistory: [], activeCodeReviewReport: null };
+
     case 'toggleSubagents':
       return { ...state, subagentsEnabled: !state.subagentsEnabled };
 
@@ -1608,6 +1638,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           isRunning: true,
           elapsed: 0,
           subagentTrace: null,
+          activeSubagentSynthesis: null,
+          activeCodeReviewReport: null,
+          showReviewHistory: false,
         };
       }
       // Direct (non-pipeline) mode: create AssistantMessage now
@@ -1637,6 +1670,9 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         isRunning: true,
         elapsed: 0,
         subagentTrace: null,
+        activeSubagentSynthesis: null,
+        activeCodeReviewReport: null,
+        showReviewHistory: false,
       };
     }
 
@@ -2002,13 +2038,23 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'subagentSynthesis':
-      // Synthesis event updates the summary; trace state is already built from individual agent events.
-      return state;
+      return { ...state, activeSubagentSynthesis: msg.summary };
 
     // ── Agent Mode handlers ────────────────────────────────────────────────
 
     case 'agentSessionUpdated':
       return { ...state, agentSession: msg.session };
+
+    case 'codeReviewReport':
+      return { ...state, activeCodeReviewReport: msg.report };
+
+    case 'codeReviewStarted':
+    case 'codeReviewProgress':
+    case 'codeReviewError':
+      return state;
+
+    case 'reviewHistoryLoaded':
+      return { ...state, reviewHistory: msg.reports };
 
     case 'agentTimelineUpdated':
       return { ...state, agentTimeline: msg.events };

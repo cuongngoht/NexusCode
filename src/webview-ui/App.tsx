@@ -7,6 +7,7 @@ import { ConversationTokenBar } from './components/ConversationTokenBar';
 import { getVsCodeApi } from './vscodeApi';
 import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
+import { ReviewHistoryPanel } from './components/review/ReviewHistoryPanel';
 import { ConversationHistory } from './components/ConversationHistory';
 import { Composer, type ComposerRef } from './components/Composer';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -350,8 +351,11 @@ export function App() {
                 showHistory={state.showHistory}
                 conversationCount={state.conversations.length}
                 locale={locale}
+                showReviewHistory={state.showReviewHistory}
+                reviewHistoryCount={state.reviewHistory.length}
                 onNewConversation={() => dispatch({ type: 'newConversation' })}
                 onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
+                onToggleReviewHistory={() => dispatch({ type: 'toggleReviewHistory' })}
                 onLocaleChange={handleLocaleChange}
                 onOpenSettings={handleOpenSettings}
                 onAbout={handleAbout}
@@ -364,6 +368,18 @@ export function App() {
                   onSelect={id => dispatch({ type: 'selectConversation', id })}
                   onDelete={id => dispatch({ type: 'deleteConversation', id })}
                   onClearAll={() => dispatch({ type: 'clearHistory' })}
+                />
+              )}
+
+              {state.showReviewHistory && (
+                <ReviewHistoryPanel
+                  reports={state.reviewHistory}
+                  activeReportId={state.activeCodeReviewReport?.id ?? null}
+                  onSelect={report => {
+                    dispatch({ type: 'selectReviewReport', report });
+                    getVsCodeApi().postMessage({ type: 'openReviewReport', report });
+                  }}
+                  onClearAll={() => dispatch({ type: 'clearReviewHistory' })}
                 />
               )}
 
@@ -498,6 +514,7 @@ export function App() {
                 onFeedback={handleFeedback}
                 onRetry={handleRetry}
               />
+
 
               {!state.isDetecting && (
                 <ConversationTokenBar

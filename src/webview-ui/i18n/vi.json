@@ -7,7 +7,8 @@
     "settings": "Cài đặt",
     "about": "Giới thiệu",
     "switchLang": "Switch to English",
-    "chat": "Chat"
+    "chat": "Chat",
+    "reviewHistory": "Lịch sử review"
   },
   "provider": {
     "autoDetect": "Tự động phát hiện",
@@ -426,6 +427,20 @@
     "allSeverities": "Tất cả mức độ",
     "allCategories": "Tất cả loại",
     "allFiles": "Tất cả tệp",
+    "subagentSection": "Phân tích Subagent",
+    "subagentConfidence": "Độ tin cậy",
+    "subagentRisks": "Rủi ro",
+    "subagentTopFindings": "Phát hiện chính",
+    "tabArchitecture": "Kiến trúc",
+    "searchPlaceholder": "Tìm kiếm phát hiện...",
+    "generatedAt": "Tạo lúc",
+    "target": "Mục tiêu",
+    "noFindings": "Không có phát hiện nào.",
+    "historyTitle": "Lịch sử Code Review",
+    "noHistory": "Chưa có review nào",
+    "clearHistory": "Xóa lịch sử",
+    "confirmClear": "Xác nhận xóa",
+    "findings": "phát hiện",
     "verdicts": {
       "approve": "Phê duyệt",
       "approve-with-comments": "Phê duyệt có nhận xét",

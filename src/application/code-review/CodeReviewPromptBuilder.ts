@@ -45,15 +45,39 @@ Avoid:
 `.trim();
 
 const OUTPUT_CONTRACT = `
-## Output Contract
+## Output Format
 
-Return JSON first using this exact schema, then optionally add a markdown summary:
+Your response has TWO parts in this exact order.
+
+---
+
+### Part 1 — Narrative Review (markdown, write this first)
+
+Write a thorough, human-readable review with these numbered sections:
+
+1. **Correctness & Tests** — Which test suites exist, how many pass, and any regressions found.
+2. **Architecture & OOP Design** — Layer adherence (domain/application/infrastructure), cohesion, coupling, SOLID violations, ownership clarity. Reference concrete files and class names.
+3. **Design Patterns** — Identify patterns already in use (Strategy, Factory, Chain of Responsibility, etc.). Call out missing or misapplied patterns only when there is a real structural problem. Be specific about why.
+4. **Security** — Injection risks, credential exposure, input validation gaps, privilege escalation paths.
+5. **Performance & Concurrency** — Hot-path allocations, blocking I/O, race conditions, throttling.
+6. **Maintainability & Technical Debt** — Long methods, duplicated logic, unclear naming, test coverage gaps.
+
+Rules for Part 1:
+- Reference file names and line numbers where relevant.
+- Each section is 2–5 sentences. Skip a section only if truly nothing to say.
+- This part streams live in the chat panel — make it readable as a PR review comment.
+
+---
+
+### Part 2 — Structured JSON Report (write this after Part 1)
+
+After the narrative, output the structured findings inside a \`\`\`json block:
 
 \`\`\`json
 {
-  "summary": "string",
+  "summary": "2–4 sentence overall verdict",
   "verdict": "approve | approve-with-comments | request-changes",
-  "architectureSummary": "string",
+  "architectureSummary": "2–3 sentence architecture-specific assessment",
   "architectureVerdict": "healthy | acceptable-with-debt | needs-refactor | architecture-blocker",
   "architectureScore": {
     "overall": 0,
@@ -69,33 +93,31 @@ Return JSON first using this exact schema, then optionally add a markdown summar
     {
       "severity": "blocker | critical | major | minor | nit | info",
       "category": "bug | security | performance | test | maintainability | architecture | oop | ood | design-pattern | coupling | cohesion | dependency-direction | abstraction | complexity | technical-debt | style | docs | typing | dependency | config | ux",
-      "title": "string",
-      "description": "string",
-      "filePath": "string",
+      "title": "short title ≤80 chars",
+      "description": "1–3 sentences describing the problem",
+      "filePath": "relative/path/to/file.ts",
       "lineStart": 0,
-      "lineEnd": 0,
-      "evidence": "string",
-      "recommendation": "string",
-      "suggestedPatch": "string",
+      "evidence": "≤150 chars of the relevant code snippet",
+      "recommendation": "1–2 sentences on how to fix",
       "confidence": 0.0,
       "blocking": false,
-      "violatedPrinciple": "string",
-      "whyItMatters": "string",
-      "refactorRecommendation": "string",
-      "suggestedPattern": "string",
-      "migrationRisk": "low | medium | high",
-      "priority": "p0 | p1 | p2 | p3"
+      "violatedPrinciple": "e.g. SRP, DIP (optional)",
+      "whyItMatters": "1 sentence on impact — required for architecture/oop/ood findings",
+      "refactorRecommendation": "concrete refactor suggestion (optional, architecture findings only)",
+      "suggestedPattern": "pattern name only if it directly solves the problem (optional)",
+      "migrationRisk": "low | medium | high (optional)",
+      "priority": "p0 | p1 | p2 | p3 (optional)"
     }
   ]
 }
 \`\`\`
 
-Rules:
+Rules for Part 2:
 - Every finding MUST have: severity, category, title, description, recommendation, confidence, blocking.
 - Architecture/OOP/OOD findings MUST include evidence and whyItMatters.
-- suggestedPattern is optional — only include if a specific pattern clearly solves a structural problem.
-- architectureScore values are 0–100.
-- confidence is 0.0–1.0.
+- Do NOT include suggestedPatch — keep recommendations textual.
+- architectureScore values 0–100; confidence 0.0–1.0.
+- Aim for 5–15 findings. Skip trivial nit/style unless systemic.
 `.trim();
 
 function buildRoleSection(preset: CodeReviewPreset): string {

@@ -294,12 +294,11 @@ export class CodeReviewContextBuilder {
       diff = '';
     }
 
-    const changedCodeContext = buildChangedCodeContext(
-      workspaceRoot,
-      changedFiles,
-      baseBranch,
-      maxFileContextChars,
-    );
+    // Only build expanded file context when the diff is truncated or very small,
+    // to avoid sending the same code twice in the prompt.
+    const changedCodeContext = diffTruncated || diff.length < 2000
+      ? buildChangedCodeContext(workspaceRoot, changedFiles, baseBranch, maxFileContextChars)
+      : undefined;
 
     return {
       target,

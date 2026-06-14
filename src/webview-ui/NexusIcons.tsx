@@ -116,3 +116,9 @@ export const IconBranch = (p: IconProps) => (
 export const IconArrowUp = (p: IconProps) => (
   <Svg {...p}><path d="M10 15.5V4.5M4.5 10l5.5-5.5 5.5 5.5" /></Svg>
 );
+export const IconReviewList = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5" y="3" width="10" height="14" rx="1.5" />
+    <path d="M7.5 7.5h5M7.5 10h5M7.5 12.5h3" />
+  </Svg>
+);

@@ -117,6 +117,11 @@
         "category": "Nexus"
       },
       {
+        "command": "nexus.review.openLatestReport",
+        "title": "Nexus: Open Latest Code Review Report",
+        "category": "Nexus"
+      },
+      {
         "command": "nexus.review.selection",
         "title": "Nexus: Review Selected Code",
         "category": "Nexus"
@@ -482,6 +487,21 @@
           "type": "boolean",
           "default": true,
           "description": "Run the Architect agent (architecture & OOP/OOD) during code review."
+        },
+        "nexus.review.openPanelOnCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically open the Review Panel when code review completes."
+        },
+        "nexus.review.panelColumn": {
+          "type": "string",
+          "enum": [
+            "One",
+            "Two",
+            "Active"
+          ],
+          "default": "Two",
+          "description": "Which editor column to open the Review Panel in."
         },
         "nexus.subagents.edit.maxRuns": {
           "type": "number",

@@ -33,6 +33,7 @@ import { ConfigService } from './config/ConfigService';
 import { ProviderDetector } from './provider-hub/ProviderDetector';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { AboutPanel } from './settings/AboutPanel';
+import { ReviewPanel } from './review/ReviewPanel';
 import { McpPresetRegistry } from './mcp/McpPresetRegistry';
 import { McpPresetSelectionPolicy } from './mcp/McpPresetSelectionPolicy';
 import { McpToolRouter } from './mcp/McpToolRouter';
@@ -152,6 +153,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('nexus.openAbout', () => {
       AboutPanel.createOrShow(context.extensionUri);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nexus.review.openLatestReport', () => {
+      void ReviewPanel.showLatest(context.extensionUri, context.workspaceState);
     }),
   );
 

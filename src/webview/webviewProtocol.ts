@@ -107,6 +107,7 @@ export type ExtensionMessage =
   | { type: 'codeReviewProgress'; reportId: string; message: string }
   | { type: 'codeReviewReport'; report: CodeReviewReport }
   | { type: 'codeReviewError'; message: string }
+  | { type: 'reviewHistoryLoaded'; reports: CodeReviewReport[] }
   // Subagent trace messages
   | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
   | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
@@ -311,3 +312,4 @@ export type WebviewMessage =
   | { type: 'copyReviewFinding'; findingId: string }
   | { type: 'applyCodeReviewFix'; reportId: string; findingId: string }
   | { type: 'exportCodeReviewReport'; reportId: string }
+  | { type: 'openReviewReport'; report: CodeReviewReport }

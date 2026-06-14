@@ -1,4 +1,5 @@
 import React from 'react';
+import { Badge, Card, Text } from '@fluentui/react-components';
 import type { CodeReviewReport } from '../../../application/code-review/CodeReviewReport';
 import { ReviewVerdictBadge } from './ReviewVerdictBadge';
 import { ReviewArchitectureScoreCard } from './ReviewArchitectureScoreCard';
@@ -17,24 +18,25 @@ export function ReviewSummaryCard({ report }: Props): React.ReactElement {
     <div style={{ marginBottom: '16px' }}>
       {/* Verdict row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600, fontSize: '14px' }}>{s.verdict}</span>
+        <Text weight="semibold" size={400}>{s.verdict}</Text>
         <ReviewVerdictBadge verdict={report.verdict} type="review" />
         {report.architectureVerdict && (
           <>
-            <span style={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)' }}>{s.architectureVerdict}:</span>
+            <Text size={300} style={{ color: 'var(--vscode-descriptionForeground)' }}>{s.architectureVerdict}:</Text>
             <ReviewVerdictBadge verdict={report.architectureVerdict} type="architecture" />
           </>
         )}
       </div>
 
       {/* Summary */}
-      <p style={{ margin: '0 0 12px', fontSize: '13px' }}>{report.summary}</p>
+      <Text as="p" size={300} style={{ margin: '0 0 12px' }}>{report.summary}</Text>
 
       {/* Architecture summary */}
       {report.architectureSummary && (
-        <div style={{ margin: '0 0 12px', padding: '8px 12px', background: 'var(--vscode-sideBar-background)', borderRadius: '4px', fontSize: '13px' }}>
-          <strong>{s.architectureSummary}:</strong> {report.architectureSummary}
-        </div>
+        <Card style={{ margin: '0 0 12px', padding: '8px 12px' }}>
+          <Text weight="semibold">{s.architectureSummary}:</Text>{' '}
+          <Text>{report.architectureSummary}</Text>
+        </Card>
       )}
 
       {/* Architecture score */}
@@ -45,34 +47,29 @@ export function ReviewSummaryCard({ report }: Props): React.ReactElement {
       {/* Stats row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
         {([
-          { key: 'blocker', label: 'Blocker', value: stats.blocker },
-          { key: 'critical', label: 'Critical', value: stats.critical },
-          { key: 'major', label: 'Major', value: stats.major },
-          { key: 'minor', label: 'Minor', value: stats.minor },
-          { key: 'nit', label: 'Nit', value: stats.nit },
-          { key: 'info', label: 'Info', value: stats.info },
-        ] as const).filter(({ value }) => value > 0).map(({ key, label, value }) => (
-          <span key={key} style={{
-            fontSize: '12px', padding: '2px 8px',
-            borderRadius: '10px',
-            background: 'var(--vscode-badge-background)',
-            color: 'var(--vscode-badge-foreground)',
-          }}>
+          { key: 'blocker', label: 'Blocker', value: stats.blocker, color: 'danger' as const },
+          { key: 'critical', label: 'Critical', value: stats.critical, color: 'important' as const },
+          { key: 'major', label: 'Major', value: stats.major, color: 'warning' as const },
+          { key: 'minor', label: 'Minor', value: stats.minor, color: 'informative' as const },
+          { key: 'nit', label: 'Nit', value: stats.nit, color: 'subtle' as const },
+          { key: 'info', label: 'Info', value: stats.info, color: 'brand' as const },
+        ] as const).filter(({ value }) => value > 0).map(({ key, label, value, color }) => (
+          <Badge key={key} appearance="filled" color={color} size="small">
             {label}: {value}
-          </span>
+          </Badge>
         ))}
         {stats.architecture > 0 && (
-          <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '10px', background: 'var(--vscode-badge-background)', color: 'var(--vscode-badge-foreground)' }}>
+          <Badge appearance="filled" color="informative" size="small">
             {s.architectureFindings}: {stats.architecture}
-          </span>
+          </Badge>
         )}
       </div>
 
       {/* Changed files count */}
       {report.changedFiles.length > 0 && (
-        <div style={{ fontSize: '12px', color: 'var(--vscode-descriptionForeground)' }}>
+        <Text size={200} style={{ color: 'var(--vscode-descriptionForeground)' }}>
           {s.changedFiles}: {report.changedFiles.length}
-        </div>
+        </Text>
       )}
     </div>
   );

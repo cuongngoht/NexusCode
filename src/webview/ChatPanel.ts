@@ -79,6 +79,10 @@ export class ChatPanel {
       detector,
       globalState,
       new ChatHistoryStore(workspaceState),
+      extensionUri.fsPath,
+      extensionUri,
+      undefined, // subagentOrchestrator
+      workspaceState,
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);

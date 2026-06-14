@@ -1,4 +1,5 @@
 import React from 'react';
+import { Badge } from '@fluentui/react-components';
 import type { CodeReviewVerdict } from '../../../application/code-review/CodeReviewReport';
 import type { ArchitectureVerdict } from '../../../application/code-review/CodeReviewArchitectureScore';
 import { useT } from '../../i18n';
@@ -8,14 +9,24 @@ interface Props {
   type?: 'review' | 'architecture';
 }
 
-const VERDICT_COLORS: Record<string, string> = {
-  'approve':               'var(--vscode-testing-iconPassed)',
-  'approve-with-comments': 'var(--vscode-notificationsWarningIcon-foreground)',
-  'request-changes':       'var(--vscode-errorForeground)',
-  'healthy':               'var(--vscode-testing-iconPassed)',
-  'acceptable-with-debt':  'var(--vscode-notificationsWarningIcon-foreground)',
-  'needs-refactor':        'var(--vscode-editorWarning-foreground)',
-  'architecture-blocker':  'var(--vscode-errorForeground)',
+const VERDICT_APPEARANCE: Record<string, 'filled' | 'outline' | 'tint'> = {
+  'approve':               'filled',
+  'approve-with-comments': 'tint',
+  'request-changes':       'filled',
+  'healthy':               'filled',
+  'acceptable-with-debt':  'tint',
+  'needs-refactor':        'outline',
+  'architecture-blocker':  'filled',
+};
+
+const VERDICT_COLOR: Record<string, 'success' | 'warning' | 'danger' | 'important' | 'informative'> = {
+  'approve':               'success',
+  'approve-with-comments': 'warning',
+  'request-changes':       'danger',
+  'healthy':               'success',
+  'acceptable-with-debt':  'warning',
+  'needs-refactor':        'important',
+  'architecture-blocker':  'danger',
 };
 
 export function ReviewVerdictBadge({ verdict, type = 'review' }: Props): React.ReactElement {
@@ -25,24 +36,17 @@ export function ReviewVerdictBadge({ verdict, type = 'review' }: Props): React.R
     : t.codeReview.verdicts as Record<string, string>;
 
   const label = labelMap[verdict] ?? verdict;
-  const color = VERDICT_COLORS[verdict] ?? 'var(--vscode-foreground)';
+  const appearance = VERDICT_APPEARANCE[verdict] ?? 'filled';
+  const color = VERDICT_COLOR[verdict] ?? 'informative';
 
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        padding: '2px 8px',
-        borderRadius: '4px',
-        fontSize: '12px',
-        fontWeight: 600,
-        color,
-        background: `color-mix(in srgb, ${color} 12%, transparent)`,
-        border: `1px solid ${color}`,
-      }}
+    <Badge
+      appearance={appearance}
+      color={color}
+      size="medium"
+      shape="rounded"
     >
       {label}
-    </span>
+    </Badge>
   );
 }

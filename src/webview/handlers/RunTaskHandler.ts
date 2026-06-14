@@ -24,9 +24,14 @@ import { detectPackageInfo } from '../../context/packageDetector';
 import { loadRules } from '../../context/rulesLoader';
 import { loadPlanContent } from '../../context/planLoader';
 import { getGitStatus } from '../../git/gitStatus';
-import { buildGitReviewContext } from '../../git/gitReviewContext';
-import { loadReviewAgentMarkdown } from '../../context/reviewAgentLoader';
-import { buildReviewPrompt } from '../../context/reviewPromptBuilder';
+import { CodeReviewContextBuilder } from '../../application/code-review/CodeReviewContextBuilder';
+import { CodeReviewPromptBuilder } from '../../application/code-review/CodeReviewPromptBuilder';
+import { CodeReviewResultParser } from '../../application/code-review/CodeReviewResultParser';
+import { CodeReviewPolicy } from '../../application/code-review/CodeReviewPolicy';
+import { CodeReviewArchitecturePolicy } from '../../application/code-review/CodeReviewArchitecturePolicy';
+import type { CodeReviewPreset } from '../../application/code-review/CodeReviewPromptBuilder';
+import type { CodeReviewTarget } from '../../application/code-review/CodeReviewTarget';
+import type { CodeReviewReport } from '../../application/code-review/CodeReviewReport';
 import { requireWorkspaceRoot } from './workspaceUtils';
 import { buildConversationContext } from '../../context/conversationContext';
 import type { PromptAttachment } from '../../core/types';
@@ -42,6 +47,7 @@ import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFa
 import type { HistoryRagSourceView } from '../../context/history-search/types';
 import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrator';
 import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
+import { ReviewPanel } from '../../review/ReviewPanel';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -78,6 +84,8 @@ export class RunTaskHandler {
     private readonly post: (msg: ExtensionMessage) => void,
     private readonly buildProjectMap: BuildProjectMapUseCase,
     private readonly extensionPath: string,
+    private readonly extensionUri: vscode.Uri,
+    private readonly workspaceState: vscode.Memento,
     private readonly subagentOrchestrator?: SubagentOrchestrator,
     private readonly historyRagFacade?: HistoryRagFacade,
     private readonly debugOrchestrator?: DebugOrchestrator,
@@ -496,19 +504,17 @@ export class RunTaskHandler {
     const rules = loadRules(workspaceRoot);
 
     if (mode === 'review') {
-      const reviewContext = buildGitReviewContext(workspaceRoot, baseBranch);
-      const reviewAgentMarkdown = loadReviewAgentMarkdown(workspaceRoot, this.extensionPath);
-      const workspaceContext = [
-        `Workspace: ${workspace.name}${workspace.gitBranch ? ` | Branch: ${workspace.gitBranch}` : ''}`,
-        rules ? `\n# Project Rules\n${rules}` : '',
-      ].filter(Boolean).join('\n');
-      return buildReviewPrompt({
-        userPrompt: ctx.originalPrompt,
-        reviewAgentMarkdown,
-        reviewContext,
-        baseWorkspacePrompt: workspaceContext || undefined,
-        reviewFileContents: ctx.reviewFileContents,
-        conversationContext: ctx.conversationContext,
+      const vsCfg = vscode.workspace.getConfiguration('nexus');
+      const preset = (vsCfg.get<string>('review.defaultPreset', 'architecture')) as CodeReviewPreset;
+      const maxDiffChars = vsCfg.get<number>('review.maxDiffChars', 60000);
+      const maxFileContextChars = vsCfg.get<number>('review.maxFileContextChars', 25000);
+
+      const target: CodeReviewTarget = { type: 'branch', baseBranch: baseBranch || 'main' };
+      const reviewCtx = new CodeReviewContextBuilder().build(workspaceRoot, target, { maxDiffChars, maxFileContextChars });
+      return new CodeReviewPromptBuilder().build({
+        context: reviewCtx,
+        userPrompt: ctx.originalPrompt || undefined,
+        preset,
       });
     }
 
@@ -603,11 +609,126 @@ export class RunTaskHandler {
       this.setupGitStatusListener(task, workspaceRoot);
     }
 
+    if (mode === 'review') {
+      this.setupCodeReviewListener(task, workspaceRoot, cfg);
+    }
+
     try {
       await this.runAgent.execute(task);
       this.eventBus.emit({ kind: 'step_completed', stepLabel: RUN_STEP_LABEL });
     } catch {
       this.eventBus.emit({ kind: 'step_error', stepLabel: RUN_STEP_LABEL, error: '' });
+    }
+  }
+
+  private setupCodeReviewListener(
+    task: AgentTask,
+    workspaceRoot: string,
+    cfg: vscode.WorkspaceConfiguration,
+  ): void {
+    const chunks: string[] = [];
+
+    const stdoutListener = (event: NexusEvent) => {
+      if (event.kind === 'stdout' && event.task.id === task.id) {
+        chunks.push(event.chunk);
+      }
+    };
+
+    const doneListener = (event: NexusEvent) => {
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped') &&
+        event.task.id === task.id
+      ) {
+        cleanup();
+        if (event.kind === 'task_completed') {
+          this.emitCodeReviewReport(chunks.join(''), workspaceRoot, task, cfg);
+        }
+      }
+      if (event.kind === 'task_error' && event.task.id === task.id) {
+        cleanup();
+      }
+    };
+
+    const cleanup = () => {
+      this.eventBus.off('stdout', stdoutListener);
+      this.eventBus.off('task_completed', doneListener);
+      this.eventBus.off('task_stopped', doneListener);
+      this.eventBus.off('task_error', doneListener);
+    };
+
+    this.eventBus.on('stdout', stdoutListener);
+    this.eventBus.on('task_completed', doneListener);
+    this.eventBus.on('task_stopped', doneListener);
+    this.eventBus.on('task_error', doneListener);
+  }
+
+  private emitCodeReviewReport(
+    rawOutput: string,
+    workspaceRoot: string,
+    task: AgentTask,
+    cfg: vscode.WorkspaceConfiguration,
+  ): void {
+    try {
+      const baseBranch = cfg.get<string>('review.defaultBaseBranch', 'main');
+      const target: CodeReviewTarget = { type: 'branch', baseBranch };
+      const blockBelow = cfg.get<number>('review.architectureScore.blockBelow', 50);
+      const warnBelow = cfg.get<number>('review.architectureScore.warnBelow', 70);
+
+      const resultParser = new CodeReviewResultParser();
+      const policy = new CodeReviewPolicy();
+      const archPolicy = new CodeReviewArchitecturePolicy();
+
+      const report = resultParser.parse(rawOutput, target);
+      const normalized = report.findings.map(f => policy.normalizeFinding(f));
+      const deduped = policy.dedupeFindings(normalized);
+      const sorted = policy.sortFindings(deduped);
+      const verdict = policy.calculateVerdict(sorted);
+      const architectureVerdict = archPolicy.calculateArchitectureVerdict(
+        sorted,
+        report.architectureScore,
+        blockBelow,
+        warnBelow,
+      );
+      const architectureScore = report.architectureScore
+        ? archPolicy.clampArchitectureScore(report.architectureScore)
+        : undefined;
+      const stats = policy.calculateStats(sorted);
+
+      const finalReport = {
+        ...report,
+        findings: sorted,
+        verdict,
+        architectureVerdict,
+        architectureScore,
+        stats,
+      };
+
+      // Update history state in webview (for history panel)
+      this.post({
+        type: 'codeReviewReport',
+        report: finalReport,
+      });
+
+      // Save to review history (max 10)
+      const history = this.workspaceState.get<CodeReviewReport[]>('nexus.review.history') ?? [];
+      const updated = [finalReport, ...history.filter(r => r.id !== finalReport.id)].slice(0, 10);
+      void this.workspaceState.update('nexus.review.history', updated);
+      this.post({ type: 'reviewHistoryLoaded', reports: updated });
+
+      // Always open the dedicated side panel
+      void ReviewPanel.createOrShow(
+        this.extensionUri,
+        this.workspaceState,
+        finalReport,
+      );
+    } catch (err) {
+      // Non-fatal — review report parsing failed, streaming output already shown
+      console.error('[RunTaskHandler] Code review report parsing failed:', err);
+      // On error, fallback to chat display with error message
+      this.post({
+        type: 'codeReviewError',
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

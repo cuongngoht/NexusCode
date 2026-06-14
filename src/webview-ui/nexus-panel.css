@@ -1546,6 +1546,96 @@ html, body, #root {
 }
 
 /* ============================================================
+   REVIEW HISTORY PANEL
+   ============================================================ */
+.nx-review-history-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-bottom: 1px solid var(--vscode-panel-border);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.nx-review-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  position: sticky;
+  top: 0;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  z-index: 1;
+}
+.nx-review-history-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+}
+.nx-review-history-clear {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.nx-review-history-clear:hover {
+  color: var(--vscode-errorForeground);
+}
+.nx-review-history-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  justify-content: center;
+  align-items: center;
+}
+.nx-review-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  transition: background 0.1s;
+}
+.nx-review-history-item:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.nx-review-history-item-active {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+.nx-review-history-item-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.nx-review-history-item-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.nx-review-history-branch {
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-descriptionForeground);
+}
+.nx-review-history-date {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+.nx-review-history-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ============================================================
    GIT STATUS PANEL
    ============================================================ */
 .nx-git {
@@ -4930,4 +5020,12 @@ html, body, #root {
 .nx-subagent-trace-meta {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
+}
+
+/* Review Report Container */
+.nx-review-report-container {
+  margin: 0 8px 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
 }

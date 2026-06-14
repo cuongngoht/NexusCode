@@ -7,7 +7,8 @@
     "settings": "Settings",
     "about": "About",
     "switchLang": "Chuyển sang tiếng Việt",
-    "chat": "Chat"
+    "chat": "Chat",
+    "reviewHistory": "Review History"
   },
   "provider": {
     "autoDetect": "Auto-detect",
@@ -426,6 +427,20 @@
     "allSeverities": "All severities",
     "allCategories": "All categories",
     "allFiles": "All files",
+    "subagentSection": "Subagent Analysis",
+    "subagentConfidence": "Confidence",
+    "subagentRisks": "Risks",
+    "subagentTopFindings": "Top Findings",
+    "tabArchitecture": "Architecture",
+    "searchPlaceholder": "Search findings...",
+    "generatedAt": "Generated",
+    "target": "Target",
+    "noFindings": "No findings.",
+    "historyTitle": "Review History",
+    "noHistory": "No reviews yet",
+    "clearHistory": "Clear history",
+    "confirmClear": "Confirm clear",
+    "findings": "findings",
     "verdicts": {
       "approve": "Approve",
       "approve-with-comments": "Approve with comments",
