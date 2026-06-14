@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState } from '../messages';
+import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState, CommandDef } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 import { ErrorBanner } from './ErrorBanner';
@@ -64,6 +64,8 @@ interface Props {
   onReloadSkills: () => void;
   onResearchCommand: (action: 'done' | 'current' | 'next' | 'list' | 'reload') => void;
   onCompactCommand: (action: 'compact' | 'show' | 'clear') => void;
+  commandDefs: CommandDef[];
+  onReloadCommands: () => void;
 }
 
 interface SlashCommand {
@@ -97,6 +99,7 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   skillPrompts, skillMention, onSkillMentionChange, onReloadSkills,
   onResearchCommand,
   onCompactCommand,
+  commandDefs, onReloadCommands,
 }: Props, ref) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -220,13 +223,26 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       description: t.composer.cmdClearCompact,
       run: () => { onCompactCommand('clear'); setPrompt(''); },
     },
+    {
+      id: 'reload-commands',
+      description: t.composer.cmdReloadCommands,
+      run: () => { onReloadCommands(); setPrompt(''); },
+    },
+    // Dynamic workflow commands loaded from media/commands/ files
+    ...commandDefs.map(def => ({
+      id: def.id,
+      description: def.description,
+      run: () => { onRun(def.promptTemplate, undefined, []); setPrompt(''); },
+    })),
   ], [
     onReloadAgents, onReloadSkills, onResearchCommand, onCompactCommand,
+    onReloadCommands, commandDefs, onRun,
     t.composer.cmdReloadAgents, t.composer.cmdReloadSkills,
     t.composer.cmdResearchDone, t.composer.cmdResearchCurrent,
     t.composer.cmdResearchNext, t.composer.cmdResearchList,
     t.composer.cmdResearchReload,
     t.composer.cmdCompact, t.composer.cmdShowCompact, t.composer.cmdClearCompact,
+    t.composer.cmdReloadCommands,
   ]);
 
   const handleRun = useCallback(() => {

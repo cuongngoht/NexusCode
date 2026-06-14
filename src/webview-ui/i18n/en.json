@@ -178,6 +178,7 @@
     "cmdCompact": "Compact conversation to reduce context",
     "cmdShowCompact": "Show current compact summary",
     "cmdClearCompact": "Clear compact summary",
+    "cmdReloadCommands": "Reload workflow command list",
     "charCount": "{{n}} chars",
     "promptTooLong": "Prompt is very long ({{n}} chars) — consider using attachments",
     "formAriaLabel": "Message composer",

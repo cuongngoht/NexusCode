@@ -484,6 +484,13 @@ export interface SkillMentionState {
   selectedIndex: number;
 }
 
+// Mirror of CommandDef from src/context/commandPromptLibrary.ts — keep in sync
+export interface CommandDef {
+  id: string;
+  description: string;
+  promptTemplate: string;
+}
+
 export type MainView = 'chat' | 'dashboard';
 
 // ── Agent Mode view models ─────────────────────────────────────────────────
@@ -646,6 +653,7 @@ export interface AppState {
   agentMention?: AgentMentionState;
   skillPrompts: SkillPrompt[];
   skillMention?: SkillMentionState;
+  commandDefs: CommandDef[];
   isCompacting: boolean;
   compactError?: string;
   showCompactInfo: boolean;
@@ -722,6 +730,7 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     agentMention: undefined,
     skillPrompts: [],
     skillMention: undefined,
+    commandDefs: [],
     isCompacting: false,
     compactError: undefined,
     showCompactInfo: false,
@@ -830,6 +839,9 @@ export type ExtMsg =
   | { type: 'skillPrompts'; skills: SkillPrompt[] }
   | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
   | { type: 'skillPromptError'; message: string }
+  | { type: 'commandDefs'; commands: CommandDef[] }
+  | { type: 'commandDefsReloaded'; count: number; commands: CommandDef[] }
+  | { type: 'commandDefsError'; message: string }
   | { type: 'compactStarted'; conversationId: string }
   | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
   | { type: 'compactSummaryError'; conversationId: string; message: string }
@@ -1928,6 +1940,15 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return { ...state, skillPrompts: msg.skills };
 
     case 'skillPromptError':
+      return state;
+
+    case 'commandDefs':
+      return { ...state, commandDefs: msg.commands };
+
+    case 'commandDefsReloaded':
+      return { ...state, commandDefs: msg.commands };
+
+    case 'commandDefsError':
       return state;
 
     case 'compactStarted':

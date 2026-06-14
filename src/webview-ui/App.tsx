@@ -279,6 +279,10 @@ export function App() {
     getVsCodeApi().postMessage({ type: 'reloadSkills' });
   }, []);
 
+  const handleReloadCommands = useCallback(() => {
+    getVsCodeApi().postMessage({ type: 'reloadCommands' });
+  }, []);
+
   const handleResearchCommand = useCallback(
     (action: 'done' | 'current' | 'next' | 'list' | 'reload') => {
       getVsCodeApi().postMessage({ type: 'researchCommand', action });
@@ -584,6 +588,8 @@ export function App() {
                   onReloadSkills={handleReloadSkills}
                   onResearchCommand={handleResearchCommand}
                   onCompactCommand={handleCompactCommand}
+                  commandDefs={state.commandDefs}
+                  onReloadCommands={handleReloadCommands}
                 />
               )}
                 </div>

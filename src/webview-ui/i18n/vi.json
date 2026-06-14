@@ -178,6 +178,7 @@
     "cmdCompact": "Tóm tắt cuộc trò chuyện để giảm context",
     "cmdShowCompact": "Hiển thị tóm tắt compact hiện tại",
     "cmdClearCompact": "Xóa tóm tắt compact",
+    "cmdReloadCommands": "Tải lại danh sách workflow command",
     "charCount": "{{n}} ký tự",
     "promptTooLong": "Prompt quá dài ({{n}} ký tự) — cân nhắc dùng đính kèm file",
     "formAriaLabel": "Khung soạn tin nhắn",

@@ -18,6 +18,7 @@ import { NavigationHandler } from './handlers/NavigationHandler';
 import { EventForwarder } from './handlers/EventForwarder';
 import { AgentPromptHandler } from './handlers/AgentPromptHandler';
 import { SkillPromptHandler } from './handlers/SkillPromptHandler';
+import { CommandPromptHandler } from './handlers/CommandPromptHandler';
 import { ResearchCommandHandler } from './handlers/ResearchCommandHandler';
 import { CompactCommandHandler } from './handlers/CompactCommandHandler';
 import { DiffHandler } from './handlers/DiffHandler';
@@ -52,6 +53,7 @@ export class ChatController {
   private readonly navigationHandler: NavigationHandler;
   private readonly agentPromptHandler: AgentPromptHandler;
   private readonly skillPromptHandler: SkillPromptHandler;
+  private readonly commandPromptHandler: CommandPromptHandler;
   private readonly researchCommandHandler: ResearchCommandHandler;
   private readonly compactCommandHandler: CompactCommandHandler;
   private readonly diffHandler: DiffHandler;
@@ -107,6 +109,7 @@ export class ChatController {
     this.navigationHandler    = new NavigationHandler();
     this.agentPromptHandler      = new AgentPromptHandler(extensionPath, post);
     this.skillPromptHandler      = new SkillPromptHandler(extensionPath, post);
+    this.commandPromptHandler    = new CommandPromptHandler(extensionPath, post);
     this.researchCommandHandler  = new ResearchCommandHandler();
     this.compactCommandHandler   = new CompactCommandHandler(post, compactor);
     this.diffHandler             = new DiffHandler(post);
@@ -186,6 +189,7 @@ export class ChatController {
         await this.providerHandler.sendAvailable();
         await this.agentPromptHandler.sendAgentPrompts();
         await this.skillPromptHandler.sendSkillPrompts();
+        await this.commandPromptHandler.sendCommandDefs();
         void this.historySearchHandler.ensureIndex();
         {
           const reviewHistory = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history') ?? [];
@@ -239,6 +243,8 @@ export class ChatController {
       case 'reloadAgents':           await this.agentPromptHandler.reload(); break;
       case 'getSkillPrompts':        await this.skillPromptHandler.sendSkillPrompts(); break;
       case 'reloadSkills':           await this.skillPromptHandler.reload(); break;
+      case 'getCommandDefs':         await this.commandPromptHandler.sendCommandDefs(); break;
+      case 'reloadCommands':         await this.commandPromptHandler.reload(); break;
       case 'researchCommand':        await this.researchCommandHandler.handle(msg.action); break;
       case 'compactConversation':
         await this.compactCommandHandler.handle(

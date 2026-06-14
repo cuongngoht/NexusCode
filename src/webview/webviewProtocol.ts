@@ -11,6 +11,7 @@ import type { AgentModeCapability, AgentRecommendation } from '../application/ne
 import type { McpPresetStatusView } from '../mcp/McpTypes';
 import type { AgentPrompt } from '../context/agentPromptLibrary';
 import type { SkillPrompt } from '../context/skillPromptLibrary';
+import type { CommandDef } from '../context/commandPromptLibrary';
 import type { FileDiffSummary } from '../git/structuredDiff';
 import type { ArtifactRef } from '../artifacts/ArtifactTypes';
 import type { AnalyticsDashboardSummary, AnalyticsRunRecord, AnalyticsQuery, AnalyticsFeedback } from '../analytics/AnalyticsTypes';
@@ -23,6 +24,8 @@ export type { ProviderDetectionResult };
 export type { AgentPrompt };
 
 export type { SkillPrompt };
+
+export type { CommandDef };
 
 // Messages sent from the extension to the webview
 export type ExtensionMessage =
@@ -74,6 +77,9 @@ export type ExtensionMessage =
   | { type: 'skillPrompts'; skills: SkillPrompt[] }
   | { type: 'skillsReloaded'; count: number; skills: SkillPrompt[] }
   | { type: 'skillPromptError'; message: string }
+  | { type: 'commandDefs'; commands: CommandDef[] }
+  | { type: 'commandDefsReloaded'; count: number; commands: CommandDef[] }
+  | { type: 'commandDefsError'; message: string }
   | { type: 'compactStarted'; conversationId: string }
   | { type: 'compactSummaryUpdated'; conversationId: string; summary: SerializedConversationCompactSummary }
   | { type: 'compactSummaryError'; conversationId: string; message: string }
@@ -272,6 +278,8 @@ export type WebviewMessage =
   | { type: 'reloadAgents' }
   | { type: 'getSkillPrompts' }
   | { type: 'reloadSkills' }
+  | { type: 'getCommandDefs' }
+  | { type: 'reloadCommands' }
   | { type: 'researchCommand'; action: 'done' | 'current' | 'next' | 'list' | 'reload' }
   | { type: 'compactConversation'; conversationId: string; messages: SerializedChatMessage[]; provider: ProviderId; model?: string }
   | { type: 'openExternal'; url: string }

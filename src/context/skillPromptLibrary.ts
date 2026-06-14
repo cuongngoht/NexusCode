@@ -33,13 +33,23 @@ export function ensureWorkspaceSkills(workspaceRoot: string, extensionRoot: stri
   }
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-    const dest = path.join(destDir, entry.name);
-    if (!fs.existsSync(dest)) {
-      try {
-        fs.copyFileSync(path.join(srcDir, entry.name), dest);
-      } catch {
-        // best effort — skip files that fail to copy
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      const dest = path.join(destDir, entry.name);
+      if (!fs.existsSync(dest)) {
+        try {
+          fs.copyFileSync(path.join(srcDir, entry.name), dest);
+        } catch {
+          // best effort — skip files that fail to copy
+        }
+      }
+    } else if (entry.isDirectory()) {
+      const destFolder = path.join(destDir, entry.name);
+      if (!fs.existsSync(destFolder)) {
+        try {
+          fs.cpSync(path.join(srcDir, entry.name), destFolder, { recursive: true });
+        } catch {
+          // best effort — skip folders that fail to copy
+        }
       }
     }
   }
@@ -70,20 +80,32 @@ export function listSkillPrompts(workspaceRoot: string): SkillPrompt[] {
 
   const prompts: SkillPrompt[] = [];
   for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name.startsWith('.')) continue;
+    if (entry.isFile()) {
+      if (!entry.name.endsWith('.md')) continue;
+      if (entry.name.startsWith('.')) continue;
 
-    const id = entry.name.slice(0, -3);
-    if (!SAFE_SKILL_ID_RE.test(id)) continue;
+      const id = entry.name.slice(0, -3);
+      if (!SAFE_SKILL_ID_RE.test(id)) continue;
 
-    const workspacePath = path.join(dir, entry.name);
-    prompts.push({
-      id,
-      displayName: extractDisplayName(workspacePath, id),
-      fileName: entry.name,
-      workspacePath,
-    });
+      const workspacePath = path.join(dir, entry.name);
+      prompts.push({
+        id,
+        displayName: extractDisplayName(workspacePath, id),
+        fileName: entry.name,
+        workspacePath,
+      });
+    } else if (entry.isDirectory()) {
+      const id = entry.name;
+      if (!SAFE_SKILL_ID_RE.test(id)) continue;
+      const indexPath = path.join(dir, id, 'index.md');
+      if (!fs.existsSync(indexPath)) continue;
+      prompts.push({
+        id,
+        displayName: extractDisplayName(indexPath, id),
+        fileName: `${id}/index.md`,
+        workspacePath: indexPath,
+      });
+    }
   }
 
   return prompts.sort((a, b) => a.id.localeCompare(b.id));
@@ -92,12 +114,23 @@ export function listSkillPrompts(workspaceRoot: string): SkillPrompt[] {
 export function loadSkillPromptMarkdown(workspaceRoot: string, skillId: string): string | undefined {
   if (!SAFE_SKILL_ID_RE.test(skillId)) return undefined;
 
-  const filePath = path.join(getWorkspaceSkillsDir(workspaceRoot), `${skillId}.md`);
+  const skillsDir = getWorkspaceSkillsDir(workspaceRoot);
+  const filePath = path.join(skillsDir, `${skillId}.md`);
+  try { return fs.readFileSync(filePath, 'utf8'); } catch { /* fall through */ }
+
+  // Folder skill: bundle index.md first, then remaining .md files alphabetically
+  const skillDir = path.join(skillsDir, skillId);
+  const indexPath = path.join(skillDir, 'index.md');
+  if (!fs.existsSync(indexPath)) return undefined;
+
   try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return undefined;
-  }
+    const files = fs.readdirSync(skillDir)
+      .filter(f => f.endsWith('.md') && !f.startsWith('.'))
+      .sort((a, b) => a === 'index.md' ? -1 : b === 'index.md' ? 1 : a.localeCompare(b));
+    return files
+      .map(f => fs.readFileSync(path.join(skillDir, f), 'utf8'))
+      .join('\n\n---\n\n');
+  } catch { return undefined; }
 }
 
 export function loadSkillPromptBundle(workspaceRoot: string, skillIds: string[]): string {
