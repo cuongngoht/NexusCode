@@ -6,6 +6,7 @@ import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, Pr
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 import { ErrorBanner } from './ErrorBanner';
+import { filterPromptReferenceCandidates } from '../../context/promptReferenceCompletion';
 
 type RiskLevel = 'readonly' | 'plan' | 'mutate';
 
@@ -77,6 +78,11 @@ interface SlashCommand {
 interface SlashMention {
   query: string;
   selectedIndex: number;
+}
+
+function nextSelectionIndex(current: number, delta: 1 | -1, length: number): number {
+  if (length <= 0) return 0;
+  return (current + delta + length) % length;
 }
 
 export interface ComposerRef {
@@ -268,22 +274,39 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   const filteredSlash = useMemo(() => {
     if (!slashMention) return [];
     const q = slashMention.query.toLowerCase();
-    return slashCommands.filter(c => c.id.startsWith(q));
+    return filterPromptReferenceCandidates(
+      slashCommands.map(command => ({
+        ...command,
+        title: command.description,
+      })),
+      q,
+      12,
+    );
   }, [slashCommands, slashMention]);
 
   const filteredAgents = useMemo(() => {
     if (!agentMention) return [];
-    const q = agentMention.query.toLowerCase();
-    return agentPrompts.filter(a =>
-      a.id.toLowerCase().startsWith(q) || a.displayName.toLowerCase().includes(q),
+    return filterPromptReferenceCandidates(
+      agentPrompts.map(agent => ({
+        ...agent,
+        title: agent.displayName,
+        description: agent.fileName,
+      })),
+      agentMention.query,
+      12,
     );
   }, [agentPrompts, agentMention]);
 
   const filteredSkills = useMemo(() => {
     if (!skillMention) return [];
-    const q = skillMention.query.toLowerCase();
-    return skillPrompts.filter(s =>
-      s.id.toLowerCase().startsWith(q) || s.displayName.toLowerCase().includes(q),
+    return filterPromptReferenceCandidates(
+      skillPrompts.map(skill => ({
+        ...skill,
+        title: skill.displayName,
+        description: skill.fileName,
+      })),
+      skillMention.query,
+      12,
     );
   }, [skillPrompts, skillMention]);
 
@@ -335,12 +358,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       if (slashMention && filteredSlash.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setSlashMention({ ...slashMention, selectedIndex: Math.min(slashMention.selectedIndex + 1, filteredSlash.length - 1) });
+          setSlashMention({ ...slashMention, selectedIndex: nextSelectionIndex(slashMention.selectedIndex, 1, filteredSlash.length) });
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setSlashMention({ ...slashMention, selectedIndex: Math.max(slashMention.selectedIndex - 1, 0) });
+          setSlashMention({ ...slashMention, selectedIndex: nextSelectionIndex(slashMention.selectedIndex, -1, filteredSlash.length) });
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
@@ -357,12 +380,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       if (agentMention && filteredAgents.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          onAgentMentionChange({ ...agentMention, selectedIndex: Math.min(agentMention.selectedIndex + 1, filteredAgents.length - 1) });
+          onAgentMentionChange({ ...agentMention, selectedIndex: nextSelectionIndex(agentMention.selectedIndex, 1, filteredAgents.length) });
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          onAgentMentionChange({ ...agentMention, selectedIndex: Math.max(agentMention.selectedIndex - 1, 0) });
+          onAgentMentionChange({ ...agentMention, selectedIndex: nextSelectionIndex(agentMention.selectedIndex, -1, filteredAgents.length) });
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
@@ -379,12 +402,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       if (skillMention && filteredSkills.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          onSkillMentionChange({ ...skillMention, selectedIndex: Math.min(skillMention.selectedIndex + 1, filteredSkills.length - 1) });
+          onSkillMentionChange({ ...skillMention, selectedIndex: nextSelectionIndex(skillMention.selectedIndex, 1, filteredSkills.length) });
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          onSkillMentionChange({ ...skillMention, selectedIndex: Math.max(skillMention.selectedIndex - 1, 0) });
+          onSkillMentionChange({ ...skillMention, selectedIndex: nextSelectionIndex(skillMention.selectedIndex, -1, filteredSkills.length) });
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {

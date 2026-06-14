@@ -4,6 +4,7 @@ Specialist personas that play a single role with a single perspective. Each pers
 
 | Persona | Role | Best for |
 |---------|------|----------|
+| [code-review](code-review.md) | Nexus Review Agent | Default practical code review |
 | [code-reviewer](code-reviewer.md) | Senior Staff Engineer | Five-axis review before merge |
 | [security-auditor](security-auditor.md) | Security Engineer | Vulnerability detection, OWASP-style audit |
 | [test-engineer](test-engineer.md) | QA Engineer | Test strategy, coverage analysis, Prove-It pattern |
