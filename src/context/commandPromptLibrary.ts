@@ -87,3 +87,17 @@ export function listCommandDefs(workspaceRoot: string): CommandDef[] {
 
   return defs.sort((a, b) => a.id.localeCompare(b.id));
 }
+
+export function loadCommandPromptMarkdown(workspaceRoot: string, commandId: string): string | undefined {
+  if (!SAFE_COMMAND_ID_RE.test(commandId)) {
+    return undefined;
+  }
+  const workspacePath = path.join(getWorkspaceCommandsDir(workspaceRoot), `${commandId}.md`);
+  try {
+    const raw = fs.readFileSync(workspacePath, 'utf8');
+    const parsed = parseFrontmatter(raw);
+    return parsed.body.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}

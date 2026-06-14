@@ -35,6 +35,27 @@
       }
     },
     {
+      "label": "build:cli",
+      "type": "npm",
+      "script": "build:cli",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      // Sau khi build CLI xong thì cài global luôn
+      "label": "install:cli:global",
+      "type": "shell",
+      "command": "npm install -g .",
+      "dependsOn": ["build:cli"],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
       // Watch cả hai — dùng với "Watch & Debug Extension"
       "label": "watch",
       "dependsOn": [
