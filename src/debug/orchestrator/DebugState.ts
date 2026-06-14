@@ -1,0 +1,16 @@
+export type DebugState =
+  | 'idle'
+  | 'parsing'
+  | 'loading_project_profile'
+  | 'retrieving_context'
+  | 'strategy_retrieval'
+  | 'selecting_tools'
+  | 'investigating'
+  | 'planning'
+  | 'waiting_for_approval'
+  | 'editing'
+  | 'verifying'
+  | 'summarizing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';

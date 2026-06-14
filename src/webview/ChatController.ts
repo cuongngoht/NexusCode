@@ -4,7 +4,7 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import { ConfigService } from '../config/ConfigService';
 import type { IChatHistoryStore } from './IChatHistoryStore';
 import { RunTaskHandler } from './handlers/RunTaskHandler';
@@ -35,6 +35,8 @@ import { Bm25HistorySearchStrategy } from '../context/history-search/bm25/Bm25Hi
 import { InMemoryBm25Engine } from '../context/history-search/bm25/InMemoryBm25Engine';
 import { RagContextBuilder } from '../context/history-search/rag/RagContextBuilder';
 import { RagPromptInjector } from '../context/history-search/rag/RagPromptInjector';
+import { createDefaultDebugOrchestrator } from '../debug/orchestrator/DebugOrchestratorFactory';
+import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -88,7 +90,9 @@ export class ChatController {
       () => this.historyHandler.latestHistory,
     );
 
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade);
+    const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
+    const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
     this.reviewHandler   = new ReviewHandler(post, extensionPath, workspaceState);
@@ -257,6 +261,19 @@ export class ChatController {
         break;
       case 'clearAnalytics':
         await this.analyticsHandler?.clear();
+        break;
+      // Agent Mode approval messages
+      case 'approveAgentPlan':
+        await this.runTaskHandler.approveAgentPlan(msg.sessionId);
+        break;
+      case 'rejectAgentPlan':
+        await this.runTaskHandler.rejectAgentPlan_agent(msg.sessionId, msg.reason);
+        break;
+      case 'approveAgentCommand':
+      case 'rejectAgentCommand':
+      case 'openAgentSession':
+      case 'listAgentSessions':
+        // These will be forwarded to the AgentExecutor when fully wired
         break;
     }
   }

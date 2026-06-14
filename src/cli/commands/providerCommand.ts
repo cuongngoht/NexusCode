@@ -1,4 +1,4 @@
-import { ProviderDetector } from '../../core/providerDetector';
+import { ProviderDetector } from '../../provider-hub/ProviderDetector';
 import { getAllProviderSpecs, getProviderSpec } from '../../provider-hub/ProviderSpecRegistry';
 import { CustomProviderScaffolder } from '../../provider-hub/custom/CustomProviderScaffolder';
 import type { ProviderId } from '../../core/types';

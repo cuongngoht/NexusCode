@@ -11,7 +11,8 @@ export type TaskMode =
   | 'edit'
   | 'debug'
   | 'test'
-  | 'review';
+  | 'review'
+  | 'agent';
 
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 

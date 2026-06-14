@@ -75,6 +75,18 @@ describe('StreamStore', () => {
     });
   });
 
+  describe('step.reasoning', () => {
+    it('accumulates reasoningText separately from assistantText', () => {
+      store.dispatch(makeEvent({ kind: 'task.started', taskId: 't1', ...BASE }));
+      store.dispatch(makeEvent({ kind: 'step.reasoning', taskId: 't1', ...BASE, text: 'I think ' }));
+      store.dispatch(makeEvent({ kind: 'step.delta', taskId: 't1', ...BASE, text: 'final answer' }));
+      store.dispatch(makeEvent({ kind: 'step.reasoning', taskId: 't1', ...BASE, text: 'more thought' }));
+      const s = store.getState();
+      expect(s.reasoningText).toBe('I think more thought');
+      expect(s.assistantText).toBe('final answer');
+    });
+  });
+
   describe('step.started / step.completed', () => {
     it('adds a running step', () => {
       store.dispatch(makeEvent({ kind: 'task.started', taskId: 't1', ...BASE }));

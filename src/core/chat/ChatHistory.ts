@@ -30,6 +30,7 @@ export interface SerializedAssistantMessage {
   mode: string;
   model?: string;
   content: string;
+  reasoning?: string;
   exitCode?: number;
   errorText?: string;
   timestamp: number;

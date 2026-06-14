@@ -1,4 +1,5 @@
 import type { ProviderId } from '../core/types';
+import type { ProviderModel } from '../core/types';
 
 export type ProviderAuthStatus = 'authenticated' | 'unauthenticated' | 'unknown';
 
@@ -69,4 +70,24 @@ export interface ProviderSpec {
   installDocsUrl?: string;
   /** Optional command to list available models dynamically. */
   modelListCommand?: ProviderModelListCommand;
+}
+
+// ── Detection result (moved from core/ for proper layering) ─────────────────
+
+export interface ProviderDetectionResult {
+  id: ProviderId;
+  displayName: string;
+  cliLabel: string;
+  installed: boolean;
+  authStatus: ProviderAuthStatus;
+  loggedIn?: boolean;
+  loginCommand?: string;
+  installCommand?: string;
+  installDocsUrl?: string;
+  version?: string;
+  executablePath?: string;
+  reason?: string;
+  supportsModelSelection: boolean;
+  defaultModel?: string;
+  models: ProviderModel[];
 }

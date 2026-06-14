@@ -62,10 +62,10 @@ export interface HistoryRagConfig {
 }
 
 export type SubagentMode = 'off' | 'auto' | 'manual' | 'full';
-export type SubagentPreset = 'fast' | 'balanced' | 'full' | 'safe';
+export type SubagentPreset = 'fast' | 'balanced' | 'architecture' | 'full' | 'safe';
 export type SubagentRoleId =
   | 'search' | 'planner' | 'coder' | 'debugger' | 'tester'
-  | 'reviewer' | 'security' | 'docs' | 'product' | 'research';
+  | 'reviewer' | 'security' | 'docs' | 'product' | 'research' | 'architect';
 
 export interface SubagentModeOverrideConfig {
   enabled?: boolean;
@@ -94,6 +94,13 @@ export interface SubagentConfig {
   timeoutMs: number;
   selectedRoles: SubagentRoleId[];
   modeOverrides?: Record<string, SubagentModeOverrideConfig>;
+}
+
+export interface ReviewStepSettings {
+  reviewer: boolean;
+  tester: boolean;
+  security: boolean;
+  architect: boolean;
 }
 
 export interface NexusConfig {

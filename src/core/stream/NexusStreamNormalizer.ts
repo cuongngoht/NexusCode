@@ -20,6 +20,8 @@ export class NexusStreamNormalizer {
     switch (event.kind) {
       case 'content_delta':
         return [{ kind: 'step.delta', ...base, text: event.text }];
+      case 'reasoning_delta':
+        return [{ kind: 'step.reasoning', ...base, text: event.text }];
       case 'tool_call':
         return [{ kind: 'tool.started', ...base, toolName: event.toolName, toolKind: event.toolKind }];
       case 'tool_result':

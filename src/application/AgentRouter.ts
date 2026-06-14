@@ -11,6 +11,7 @@ const CAPABILITY_BY_MODE: Record<TaskMode, Partial<AgentCapabilities>> = {
   debug: { canRunShell: true },
   test: { canRunShell: true },
   review: { canEditFiles: true },
+  agent: { canEditFiles: true },
 };
 
 export class AgentRouter {

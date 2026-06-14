@@ -14,6 +14,7 @@ export const MODE_FLOW: Record<TaskMode, StageFlow> = {
   ask:            ['plan'],
   brainstorm:     ['plan'],
   'scan-project': ['search'],
+  agent:          ['search', 'plan'],
 };
 
 export const STAGE_CAPABILITIES: Record<NexusStage, Partial<AgentCapabilities>> = {

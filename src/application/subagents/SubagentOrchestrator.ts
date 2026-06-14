@@ -95,6 +95,7 @@ export class SubagentOrchestrator {
             provider: ctx.providerId,
             mode: config.mode,
           });
+          emit({ kind: 'subagent_started', role: def.role, runId: ctx.providerId + '-' + def.role, displayName: def.displayName });
 
           const agent = await this.router.resolve(def);
           if (!agent) {
@@ -102,16 +103,31 @@ export class SubagentOrchestrator {
             return;
           }
 
+          const subagentStartMs = Date.now();
           try {
             const resultPromise = this.executor.execute(def, agent, ctx, config.maxCharsPerResult);
             const result = await withTimeout(resultPromise, timeoutMs, role);
+            const elapsed = Date.now() - subagentStartMs;
             results.push(result);
-            emit(result.error
-              ? { kind: 'step_error', stepLabel, error: result.error }
-              : { kind: 'step_completed', stepLabel });
+            if (result.error) {
+              emit({ kind: 'subagent_failed', role: def.role, runId: ctx.providerId + '-' + def.role, durationMs: elapsed, error: result.error });
+              emit({ kind: 'step_error', stepLabel, error: result.error });
+            } else {
+              emit({
+                kind: 'subagent_completed',
+                role: def.role,
+                runId: ctx.providerId + '-' + def.role,
+                durationMs: elapsed,
+                confidence: result.confidence,
+                findingCount: result.findings?.length ?? 0,
+              });
+              emit({ kind: 'step_completed', stepLabel });
+            }
           } catch (err) {
             const errMsg = String(err);
+            const elapsed = Date.now() - subagentStartMs;
             results.push({ role: def.role, agentId: agent?.id ?? 'unknown', compactOutput: '', durationMs: 0, error: errMsg });
+            emit({ kind: 'subagent_failed', role: def.role, runId: ctx.providerId + '-' + def.role, durationMs: elapsed, error: errMsg });
             emit({ kind: 'step_error', stepLabel, error: errMsg });
             if (!failOpen) throw err;
           }

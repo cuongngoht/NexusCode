@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
+import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode, SubagentTraceState } from '../messages';
 import { MarkdownRenderer } from './markdown/MarkdownRenderer';
 import type { CodeBlockActions } from './markdown/CodeBlockActionsContext';
 import { IconSparkle } from '../NexusIcons';
@@ -9,6 +9,7 @@ import { PlanReadyCard } from './PlanReadyCard';
 import { MessageActions } from './MessageActions';
 import { EnhancedPromptModal } from './EnhancedPromptModal';
 import { StreamingStatusBar } from './StreamingStatusBar';
+import { SubagentTraceView } from './SubagentTraceView';
 
 interface Props {
   message: AssistantMsg;
@@ -17,6 +18,7 @@ interface Props {
   availableProviders?: string[];
   conversationId: string;
   userMessageId?: string;
+  subagentTrace?: SubagentTraceState;
   onFeedback: (messageId: string, rating: 'good' | 'bad' | null) => void;
   onRetry: (userMessageId: string, useCurrentSettings: boolean) => void;
 }
@@ -102,6 +104,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   availableProviders = [],
   conversationId: _conversationId,
   userMessageId,
+  subagentTrace,
   onFeedback,
   onRetry,
 }: Props) {
@@ -160,6 +163,20 @@ export const AssistantMessage = memo(function AssistantMessage({
 
         <div className="fl-blocks">
           <PipelineSteps steps={message.steps} />
+          {subagentTrace && subagentTrace.items.length > 0 && (
+            <SubagentTraceView trace={subagentTrace} />
+          )}
+
+          {message.reasoning && message.reasoning.trim() && (
+            <details className="nx-reasoning" open={!!message.isStreaming}>
+              <summary className="nx-reasoning-summary">
+                🧠 { (message.providerLabel || '').toLowerCase().includes('grok') ? t.reasoning.titleGrok : t.reasoning.title }
+              </summary>
+              <div className="nx-reasoning-body">
+                <MarkdownRenderer content={message.reasoning} codeBlockActions={codeBlockActions} />
+              </div>
+            </details>
+          )}
 
           {message.lines.length > 0 && (() => {
             const stdoutText = message.lines
@@ -266,6 +283,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   if (prev.message.id !== next.message.id) return false;
   if (prev.message.isStreaming !== next.message.isStreaming) return false;
   if (prev.message.isStreaming) return false; // always re-render while streaming
+  if (prev.subagentTrace !== next.subagentTrace) return false;
   if (prev.message.feedback !== next.message.feedback) return false;
   return true; // stable completed message — skip re-render
 });

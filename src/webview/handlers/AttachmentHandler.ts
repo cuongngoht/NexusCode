@@ -51,17 +51,48 @@ export class AttachmentHandler {
 
   async resolveDropped(rawPaths: string[]): Promise<void> {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) return;
+    if (!workspaceRoot) {
+      console.warn('[AttachmentHandler] resolveDropped: no workspace root');
+      this.post({ type: 'droppedFilesResolved', attachments: [] });
+      return;
+    }
 
     const attachments: PromptAttachment[] = [];
+    const skipped: string[] = [];
+
     for (const rawPath of rawPaths) {
       const absPath = normalizeDroppedPath(rawPath);
       const rel = path.relative(workspaceRoot, absPath);
-      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
-      if (SECRET_PATTERNS.test(path.basename(absPath))) continue;
+
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+        skipped.push(`${rawPath} -> outside workspace (rel=${rel})`);
+        continue;
+      }
+      if (SECRET_PATTERNS.test(path.basename(absPath))) {
+        skipped.push(`${rawPath} -> secret file`);
+        continue;
+      }
+
       const stat = fs.statSync(absPath, { throwIfNoEntry: false });
-      if (!stat) continue;
+      if (!stat) {
+        skipped.push(`${rawPath} -> stat failed (not exist or no access)`);
+        continue;
+      }
+
       attachments.push({ type: stat.isDirectory() ? 'folder' : 'file', path: rel });
+    }
+
+    if (rawPaths.length > 0) {
+      console.log('[AttachmentHandler] resolveDropped raw:', rawPaths, '-> attached:', attachments, 'skipped:', skipped);
+    }
+
+    if (attachments.length === 0 && rawPaths.length > 0) {
+      // Give visible feedback instead of total silence
+      this.post({
+        type: 'taskError',
+        taskId: 'attachment',
+        message: `Dropped ${rawPaths.length} path(s) but none were attached (outside workspace, secrets, or inaccessible). See extension host logs for details.`,
+      });
     }
 
     this.post({ type: 'droppedFilesResolved', attachments });
@@ -70,7 +101,17 @@ export class AttachmentHandler {
   async openFile(relPath: string): Promise<void> {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!root) return;
-    const uri = vscode.Uri.file(path.join(root, relPath));
+    // If the webview sends an absolute path (e.g. from AI output), use it directly.
+    const fullPath = path.isAbsolute(relPath) ? relPath : path.join(root, relPath);
+    const uri = vscode.Uri.file(fullPath);
+
+    if (!fs.existsSync(fullPath)) {
+      vscode.window.showWarningMessage(
+        `Cannot open file: ${relPath}. The file does not exist (it may be a new file referenced in a plan that has not been created yet, or was filtered/skipped).`
+      );
+      return;
+    }
+
     await vscode.window.showTextDocument(uri, { preview: true });
   }
 

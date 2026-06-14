@@ -208,7 +208,8 @@ export type TaskMode =
   | 'edit'
   | 'debug'
   | 'test'
-  | 'review';
+  | 'review'
+  | 'agent';
 
 export type ProviderModelSource = 'detected' | 'seeded';
 export type AgentModeFit = 'best' | 'good' | 'limited' | 'unsupported' | 'unknown';
@@ -339,6 +340,7 @@ export interface AssistantMessage {
   mode: string;
   model?: string;
   lines: OutputLine[];
+  reasoning?: string;
   isStreaming: boolean;
   timestamp?: number;
   exitCode?: number;
@@ -476,6 +478,136 @@ export interface SkillMentionState {
 
 export type MainView = 'chat' | 'dashboard';
 
+// ── Agent Mode view models ─────────────────────────────────────────────────
+
+export type AgentSessionStatus =
+  | 'created'
+  | 'scanning'
+  | 'planning'
+  | 'waiting_approval'
+  | 'checkpointing'
+  | 'executing'
+  | 'testing'
+  | 'recovering'
+  | 'reviewing'
+  | 'collecting_diff'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export interface AgentSessionViewModel {
+  id: string;
+  status: AgentSessionStatus;
+  originalPrompt: string;
+  currentStepId?: string;
+  steps: AgentStepViewModel[];
+  createdAt: number;
+  updatedAt: number;
+  error?: string;
+}
+
+export interface AgentStepViewModel {
+  id: string;
+  type: string;
+  title: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  error?: string;
+}
+
+export interface AgentPlanViewModel {
+  summary: string;
+  filesToRead: string[];
+  filesToEdit: string[];
+  filesToCreate: string[];
+  filesToDelete: string[];
+  commandsToRun: string[];
+  risks: string[];
+  assumptions: string[];
+  testStrategy: string[];
+  rollbackStrategy: string[];
+  docsImpact: string[];
+  securityImpact: string[];
+  estimatedComplexity: 'low' | 'medium' | 'high';
+}
+
+export interface AgentTimelineEventViewModel {
+  id: string;
+  sessionId: string;
+  type: string;
+  message: string;
+  timestamp: number;
+  data?: unknown;
+}
+
+export interface AgentCommandApprovalViewModel {
+  id: string;
+  sessionId: string;
+  command: string;
+  cwd: string;
+  risk: 'low' | 'medium' | 'high' | 'blocked';
+  reason: string;
+  createdAt: number;
+}
+
+export interface AgentTestResultViewModel {
+  sessionId: string;
+  passed: boolean;
+  commands: {
+    command: string;
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+    durationMs: number;
+    passed: boolean;
+  }[];
+  durationMs: number;
+}
+
+export interface AgentRecoveryResultViewModel {
+  sessionId: string;
+  attempts: number;
+  recovered: boolean;
+  errors: string[];
+}
+
+export interface AgentReviewResultViewModel {
+  sessionId: string;
+  passed: boolean;
+  summary: string;
+  findings: {
+    severity: 'info' | 'warning' | 'error';
+    category: string;
+    file?: string;
+    message: string;
+    suggestion?: string;
+  }[];
+}
+
+export interface AgentDiffSummaryViewModel {
+  sessionId: string;
+  changedFiles: {
+    path: string;
+    status: string;
+    additions?: number;
+    deletions?: number;
+  }[];
+  addedLines: number;
+  deletedLines: number;
+  diffStat: string;
+  diff?: string;
+  diffTruncated: boolean;
+}
+
+export interface AgentFinalSummaryViewModel {
+  sessionId: string;
+  status: 'completed' | 'failed' | 'completed_with_warnings';
+  userTask: string;
+  implementationSummary: string;
+  changedFiles: AgentDiffSummaryViewModel['changedFiles'];
+  warnings: string[];
+  nextSteps: string[];
+}
+
 export interface AppState {
   conversations: Conversation[];
   activeConvId: string;
@@ -531,6 +663,16 @@ export interface AppState {
   lastRagContext?: { resultCount: number; totalChars: number; sources: HistoryRagSourceView[] };
   // Subagent trace state
   subagentTrace: SubagentTraceState | null;
+  // Agent Mode state
+  agentSession?: AgentSessionViewModel;
+  agentTimeline: AgentTimelineEventViewModel[];
+  pendingAgentPlan?: AgentPlanViewModel;
+  pendingAgentPlanText?: string;
+  pendingAgentCommand?: AgentCommandApprovalViewModel;
+  agentTestResult?: AgentTestResultViewModel;
+  agentReviewResult?: AgentReviewResultViewModel;
+  agentDiffSummary?: AgentDiffSummaryViewModel;
+  agentFinalSummary?: AgentFinalSummaryViewModel;
 }
 
 export function createInitialState(mainView: MainView = 'chat'): AppState {
@@ -580,6 +722,15 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     historyRagEnabled: true,
     lastRagContext: undefined,
     subagentTrace: null,
+    agentSession: undefined,
+    agentTimeline: [],
+    pendingAgentPlan: undefined,
+    pendingAgentPlanText: undefined,
+    pendingAgentCommand: undefined,
+    agentTestResult: undefined,
+    agentReviewResult: undefined,
+    agentDiffSummary: undefined,
+    agentFinalSummary: undefined,
   };
 }
 
@@ -591,7 +742,7 @@ export interface PromptAttachment {
   path: string;
 }
 
-// Structural mirror of ProviderDetectionResult from src/core/providerDetector.ts —
+// Structural mirror of ProviderDetectionResult from src/provider-hub/ProviderTypes.ts —
 // keep in sync (webview bundle cannot import from extension-side modules).
 // id is typed as string here because the webview does not import ProviderId from core.
 export interface ProviderInfo {
@@ -615,6 +766,7 @@ export interface ProviderInfo {
 export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
+  | { type: 'reasoning'; chunk: string }
   | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
@@ -686,7 +838,23 @@ export type ExtMsg =
   | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
   | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
   | { type: 'subagentFailed'; runId: string; role: string; agentId?: string; durationMs?: number; error: string }
-  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } };
+  | { type: 'subagentSynthesis'; runId: string; summary: { topFindings: number; files: string[]; risks: string[]; confidence: number } }
+  // Agent Mode messages
+  | { type: 'agentSessionUpdated'; session: AgentSessionViewModel }
+  | { type: 'agentTimelineUpdated'; sessionId: string; events: AgentTimelineEventViewModel[] }
+  | { type: 'agentPlanReadyForApproval'; sessionId: string; plan: AgentPlanViewModel; planText: string }
+  | { type: 'agentPlanApproved'; sessionId: string }
+  | { type: 'agentPlanRejected'; sessionId: string; reason?: string }
+  | { type: 'agentCheckpointCreated'; sessionId: string; checkpointId: string }
+  | { type: 'agentStepStarted'; sessionId: string; step: AgentStepViewModel }
+  | { type: 'agentStepCompleted'; sessionId: string; step: AgentStepViewModel }
+  | { type: 'agentStepFailed'; sessionId: string; step: AgentStepViewModel; error: string }
+  | { type: 'agentCommandApprovalRequested'; sessionId: string; request: AgentCommandApprovalViewModel }
+  | { type: 'agentTestResult'; sessionId: string; result: AgentTestResultViewModel }
+  | { type: 'agentRecoveryResult'; sessionId: string; result: AgentRecoveryResultViewModel }
+  | { type: 'agentReviewResult'; sessionId: string; result: AgentReviewResultViewModel }
+  | { type: 'agentDiffCollected'; sessionId: string; diff: AgentDiffSummaryViewModel }
+  | { type: 'agentFinalSummary'; sessionId: string; summary: AgentFinalSummaryViewModel };
 
 export type { NexusStreamEvent };
 
@@ -891,6 +1059,7 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
         mode: a.mode,
         model: a.model,
         content,
+        reasoning: a.reasoning || undefined,
         exitCode: a.exitCode,
         errorText: a.errorText,
         timestamp: a.timestamp ?? now,
@@ -915,7 +1084,7 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
 // ── Runtime deserialization guards ────────────────────────────────────────
 
 const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto'];
-const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review'];
+const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review', 'agent'];
 
 const LEGACY_PROVIDER_LABELS: Record<string, string> = { 'Gemini': 'Antigravity' };
 function normalizeLegacyProviderLabel(label: string | undefined): string | undefined {
@@ -955,6 +1124,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       mode: m.mode,
       model: m.model,
       lines,
+      reasoning: m.reasoning,
       isStreaming: false,
       exitCode: m.exitCode,
       errorText: m.errorText,
@@ -1348,6 +1518,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           mode: msg.mode,
           model: msg.model,
           lines: [],
+          reasoning: '',
           isStreaming: true,
           timestamp: Date.now(),
           steps: [newStep],
@@ -1447,6 +1618,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         mode: msg.mode,
         model: msg.model,
         lines: [],
+        reasoning: '',
         isStreaming: true,
         timestamp: Date.now(),
         steps: [],
@@ -1477,6 +1649,18 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         updateLastAssistant(conv, m => ({
           ...m,
           lines: truncateLines([...m.lines, ...lines]),
+        })),
+      );
+    }
+
+    case 'reasoning': {
+      if (!state.isRunning) return state;
+      const chunk = msg.chunk;
+      if (!chunk || !chunk.trim()) return state;
+      return updateConversationById(state, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => ({
+          ...m,
+          reasoning: (m.reasoning ?? '') + chunk,
         })),
       );
     }
@@ -1820,6 +2004,70 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'subagentSynthesis':
       // Synthesis event updates the summary; trace state is already built from individual agent events.
       return state;
+
+    // ── Agent Mode handlers ────────────────────────────────────────────────
+
+    case 'agentSessionUpdated':
+      return { ...state, agentSession: msg.session };
+
+    case 'agentTimelineUpdated':
+      return { ...state, agentTimeline: msg.events };
+
+    case 'agentPlanReadyForApproval':
+      return {
+        ...state,
+        pendingAgentPlan: msg.plan,
+        pendingAgentPlanText: msg.planText,
+      };
+
+    case 'agentPlanApproved':
+      return {
+        ...state,
+        pendingAgentPlan: undefined,
+        pendingAgentPlanText: undefined,
+      };
+
+    case 'agentPlanRejected':
+      return {
+        ...state,
+        pendingAgentPlan: undefined,
+        pendingAgentPlanText: undefined,
+        agentFinalSummary: undefined,
+      };
+
+    case 'agentCheckpointCreated':
+      return state;
+
+    case 'agentStepStarted':
+    case 'agentStepCompleted':
+    case 'agentStepFailed':
+      // Session update carries step info; handled via agentSessionUpdated
+      return state;
+
+    case 'agentCommandApprovalRequested':
+      return { ...state, pendingAgentCommand: msg.request };
+
+    case 'agentTestResult':
+      return { ...state, agentTestResult: msg.result };
+
+    case 'agentRecoveryResult':
+      return state; // Recovery info is included in final summary
+
+    case 'agentReviewResult':
+      return { ...state, agentReviewResult: msg.result };
+
+    case 'agentDiffCollected':
+      return { ...state, agentDiffSummary: msg.diff };
+
+    case 'agentFinalSummary':
+      return {
+        ...state,
+        agentFinalSummary: msg.summary,
+        pendingAgentPlan: undefined,
+        pendingAgentPlanText: undefined,
+        pendingAgentCommand: undefined,
+        saveKey: state.saveKey + 1,
+      };
   }
   return state;
 }
