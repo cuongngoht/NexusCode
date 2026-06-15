@@ -13,7 +13,9 @@ function isInternalLog(line: string): boolean {
     /^\s+at file:\/\//.test(line) ||      // stack trace: "    at file:///..."
     /^Error: exception \w/.test(line) ||  // JS Error wrapper around another error
     /YOLO mode is enabled/i.test(line) || // Antigravity CLI startup banner (also on stdout)
-    /All tool calls will be automatically approved/i.test(line)
+    /All tool calls will be automatically approved/i.test(line) ||
+    // Grok CLI structured log lines: "2026-06-15T04:43:24.041273Z ERROR ..."
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (ERROR|WARN|INFO|DEBUG) /.test(line)
   );
 }
 

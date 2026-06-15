@@ -593,6 +593,11 @@
           "default": true,
           "description": "Enable BM25 full-text search over conversation history."
         },
+        "nexus.projectMap.addToGitignore": {
+          "type": "boolean",
+          "default": false,
+          "description": "Add the .nexus folder to the root .gitignore so it is not tracked by git."
+        },
         "nexus.historyRag.enabled": {
           "type": "boolean",
           "default": true,

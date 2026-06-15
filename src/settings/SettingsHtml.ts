@@ -23,6 +23,7 @@ export function getSettingsHtml(
     reviewStepArchitect?: boolean;
     contextMaxChars?: number;
     contextMaxMessages?: number;
+    projectMapAddToGitignore?: boolean;
   },
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
@@ -66,6 +67,7 @@ export function getSettingsHtml(
   const mcpContext7 = mergedConfig.mcp.presets.context7.enabled;
   const mcpMaxChars = mergedConfig.mcp.maxResultChars;
   const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
+  const projectMapAddToGitignore = vsCodeConfig?.projectMapAddToGitignore ?? false;
   const historyRagEnabled = vsCodeConfig?.historyRagEnabled ?? mergedConfig.historyRag?.enabled ?? true;
   const contextMaxChars    = vsCodeConfig?.contextMaxChars    ?? 100_000;
   const contextMaxMessages = vsCodeConfig?.contextMaxMessages ?? 20;
@@ -386,6 +388,17 @@ export function getSettingsHtml(
     </label>
   </section>
 
+  <section class="settings-section" id="project-map-section">
+    <hr />
+    <h2>Project Scan (.nexus)</h2>
+    <p class="section-desc">Controls how the project scan writes the <code>.nexus/</code> folder.</p>
+    <label class="toggle-row">
+      <input type="checkbox" id="projectmap-add-gitignore" ${projectMapAddToGitignore ? 'checked' : ''} />
+      <span>Add <code>.nexus/</code> to <code>.gitignore</code></span>
+    </label>
+    <p class="description">When enabled, Nexus automatically appends <code>.nexus/</code> to the root <code>.gitignore</code> after each project scan so the folder is not tracked by git.</p>
+  </section>
+
   <section class="settings-section">
     <hr />
     <h2>History RAG</h2>
@@ -704,8 +717,11 @@ export function getSettingsHtml(
           maxChars:    parseInt(document.getElementById('context-maxChars').value, 10) || 100000,
           maxMessages: parseInt(document.getElementById('context-maxMessages').value, 10) || 20,
         };
+        const projectMapSettings = {
+          addToGitignore: document.getElementById('projectmap-add-gitignore').checked,
+        };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, contextSettings: contextSettings });
+        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, contextSettings: contextSettings, projectMapSettings: projectMapSettings });
       });
 
       window.addEventListener('message', function (event) {

@@ -49,6 +49,7 @@ import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrat
 import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../../review/ReviewPanel';
 import type { PermissionService } from '../../application/permissions/PermissionService';
+import { NexusDiscoveryOrchestrator } from '../../context/project-map/NexusDiscoveryOrchestrator';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -219,17 +220,28 @@ export class RunTaskHandler {
           model,
         });
         try {
-          const result = await this.buildProjectMap.execute({
+          const discoveryOrchestrator = new NexusDiscoveryOrchestrator(this.buildProjectMap);
+          const result = await discoveryOrchestrator.run(
             workspaceRoot,
-            maxDepth: scanCfg.get<number>('projectMap.maxDepth', 6),
-            maxFiles: scanCfg.get<number>('projectMap.maxFiles', 2000),
-          });
+            (phase, activityKind, label) => {
+              if (phase === 'started') {
+                this.post({ type: 'activityStarted', activityKind, label });
+              } else {
+                this.post({ type: 'activityDone', activityKind, label, status: 'done' });
+              }
+            },
+            {
+              maxDepth: scanCfg.get<number>('projectMap.maxDepth', 6),
+              maxFiles: scanCfg.get<number>('projectMap.maxFiles', 2000),
+              addToGitignore: scanCfg.get<boolean>('projectMap.addToGitignore', false),
+            },
+          );
           this.eventBus.emit({ kind: 'step_completed', stepLabel: 'scan' });
           this.post({
             type: 'projectScanCompleted',
-            fileCount: result.tree.files.length,
-            folderCount: result.tree.folders.length,
-            unitCount: result.units.length,
+            fileCount: result.mapOutput.tree.files.length,
+            folderCount: result.mapOutput.tree.folders.length,
+            unitCount: result.mapOutput.units.length,
             filesWritten: result.filesWritten,
           });
         } catch (err) {
