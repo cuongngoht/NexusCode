@@ -164,7 +164,9 @@ export type ExtensionMessage =
   // Permission system messages (extension → webview)
   | { type: 'permissionRequested'; request: PermissionRequestView }
   | { type: 'permissionResolved'; requestId: string; decision: PermissionDecision }
-  | { type: 'permissionRequestExpired'; requestId: string };
+  | { type: 'permissionRequestExpired'; requestId: string }
+  // Project scan messages (extension → webview)
+  | { type: 'projectScanCompleted'; fileCount: number; folderCount: number; unitCount: number; filesWritten: string[] };
 
 // ── Agent Mode view models (kept near the protocol definition) ────────────
 

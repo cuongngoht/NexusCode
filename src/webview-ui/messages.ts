@@ -862,6 +862,7 @@ export type ExtMsg =
   | { type: 'planReadyForApproval'; taskId: string; planPath?: string; plan: string; mode: string; model?: string }
   | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
+  | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
   | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
@@ -927,7 +928,9 @@ export type ExtMsg =
   // Permission system messages
   | { type: 'permissionRequested'; request: PermissionRequestViewModel }
   | { type: 'permissionResolved'; requestId: string; decision: PermissionDecisionType }
-  | { type: 'permissionRequestExpired'; requestId: string };
+  | { type: 'permissionRequestExpired'; requestId: string }
+  // Project scan messages (extension → webview)
+  | { type: 'projectScanCompleted'; fileCount: number; folderCount: number; unitCount: number; filesWritten: string[] };
 
 export type { NexusStreamEvent };
 
@@ -2276,6 +2279,27 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         ...state,
         pendingPermissions: state.pendingPermissions.filter(p => p.id !== msg.requestId),
       };
+
+    case 'projectScanCompleted': {
+      const { fileCount, folderCount, unitCount } = msg;
+      const summary = `Scan complete — ${fileCount} file${fileCount !== 1 ? 's' : ''}, ${folderCount} folder${folderCount !== 1 ? 's' : ''}, ${unitCount} unit${unitCount !== 1 ? 's' : ''} detected.`;
+      return {
+        ...updateConversationById(state, getRunConvId(state), conv =>
+          touchConversation(completeRunningActivities(
+            updateLastAssistant(conv, m => ({
+              ...m,
+              isStreaming: false,
+              streamingStage: 'completed' as StreamingStage,
+              streamingLabel: undefined,
+              lines: [...m.lines, { kind: 'stdout' as const, text: summary }],
+            })),
+          )),
+        ),
+        isRunning: false,
+        isStopping: false,
+        saveKey: state.saveKey + 1,
+      };
+    }
   }
   return state;
 }

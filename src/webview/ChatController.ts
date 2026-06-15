@@ -45,6 +45,7 @@ export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
   private readonly _workspaceState: vscode.Memento;
   private readonly _extensionUri: vscode.Uri;
+  private readonly _post: (msg: ExtensionMessage) => void;
   private readonly runTaskHandler: RunTaskHandler;
   private readonly historyHandler: HistoryHandler;
   private readonly providerHandler: ProviderHandler;
@@ -85,6 +86,7 @@ export class ChatController {
     // Build history search / RAG infrastructure
     this._workspaceState = workspaceState ?? globalState;
     this._extensionUri = extensionUri;
+    this._post = post;
     const historyIndexRepo = new MementoHistoryIndexRepository(workspaceState ?? globalState);
     const historyIndexBuilder = new HistoryIndexBuilder();
     const bm25Engine = new InMemoryBm25Engine();
@@ -195,7 +197,7 @@ export class ChatController {
         void this.historySearchHandler.ensureIndex();
         {
           const reviewHistory = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history') ?? [];
-          post({ type: 'reviewHistoryLoaded', reports: reviewHistory });
+          this._post({ type: 'reviewHistoryLoaded', reports: reviewHistory });
         }
         break;
       case 'runTask':

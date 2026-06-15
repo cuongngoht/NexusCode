@@ -9,7 +9,8 @@ import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
 import { ReviewHistoryPanel } from './components/review/ReviewHistoryPanel';
 import { ConversationHistory } from './components/ConversationHistory';
-import { Composer, type ComposerRef } from './components/Composer';
+import { Composer, type ComposerRef, extractDroppedPaths } from './components/Composer';
+import { IconDoc } from './NexusIcons';
 import { ErrorBanner } from './components/ErrorBanner';
 import { I18nContext, LOCALES, interp, type Locale, useT } from './i18n';
 import { NexusShell } from './components/layout/NexusShell';
@@ -56,6 +57,7 @@ export function App() {
   }, []);
   const [composerAttachments, setComposerAttachments] = useState<PromptAttachment[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
+  const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -323,10 +325,91 @@ export function App() {
     }
   }, [state.mode, state.isDetecting]);
 
+  // ── Global file drag-and-drop ─────────────────────────────────────────────
+  useEffect(() => {
+    const panel = document.querySelector<HTMLElement>('.nx-panel');
+
+    const show = () => {
+      setIsGlobalDragOver(true);
+      panel?.classList.add('nx-drag-active');       // direct DOM — no React batch delay
+    };
+    const hide = () => {
+      setIsGlobalDragOver(false);
+      panel?.classList.remove('nx-drag-active');
+    };
+
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      show();
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      show();
+    };
+
+    const onDragLeave = (e: DragEvent) => {
+      // relatedTarget is null only when cursor fully leaves the viewport
+      if (!e.relatedTarget) hide();
+    };
+
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      hide();
+      if (!e.dataTransfer) return;
+      const paths = extractDroppedPaths(e.dataTransfer);
+      console.log('[App] drop paths:', paths, 'types:', Array.from(e.dataTransfer.types));
+      if (paths.length > 0) getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths });
+    };
+
+    // Clipboard paste — file(s) copied from Finder/Explorer (Cmd+C → Cmd+V).
+    // This goes directly to the focused webview, bypassing VS Code's drag interception.
+    const onPaste = (e: ClipboardEvent) => {
+      const files = e.clipboardData?.files;
+      if (!files || files.length === 0) return;
+      const paths: string[] = [];
+      for (const file of Array.from(files)) {
+        const p = (file as unknown as { path?: string }).path;
+        if (p) paths.push(p);
+      }
+      if (paths.length === 0) return;
+      e.preventDefault(); // prevent pasting filename text
+      console.log('[App] paste paths:', paths);
+      getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths });
+    };
+
+    document.addEventListener('dragenter', onDragEnter);
+    document.addEventListener('dragover', onDragOver);
+    document.addEventListener('dragleave', onDragLeave);
+    document.addEventListener('drop', onDrop);
+    document.addEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('dragenter', onDragEnter);
+      document.removeEventListener('dragover', onDragOver);
+      document.removeEventListener('dragleave', onDragLeave);
+      document.removeEventListener('drop', onDrop);
+      document.removeEventListener('paste', onPaste);
+    };
+  }, []);
+
   return (
     <I18nContext.Provider value={LOCALES[locale]}>
       <FluentProvider theme={getBaseTheme()}>
-        <div className="nx-panel" role="main">
+        <div
+          className="nx-panel"
+          role="main"
+          style={isGlobalDragOver ? { cursor: 'copy' } : undefined}
+        >
+          {isGlobalDragOver && (
+            <div className="nx-global-drop-overlay" aria-hidden="true">
+              <div className="nx-drop-icon-badge-wrap">
+                <IconDoc size={32} />
+                <span className="nx-drop-plus-badge">+</span>
+              </div>
+              <span>Drop files to attach</span>
+            </div>
+          )}
           {/* Screen-reader status announcements (9D) */}
           <div
             role="status"

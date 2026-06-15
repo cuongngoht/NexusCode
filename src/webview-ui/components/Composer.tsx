@@ -470,10 +470,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
     const next = (e.relatedTarget as Node) || null;
     if (next && (e.currentTarget as Node).contains(next)) return;
     setIsDragOver(false);
@@ -481,13 +483,15 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
-    const paths = extractDroppedPaths(e);
+    const paths = extractDroppedPaths(e.dataTransfer);
     console.log('[Composer] handleDrop extracted paths:', paths);
     if (paths.length > 0) onResolveDroppedFiles(paths);
   };
@@ -712,7 +716,10 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       >
         {isDragOver && (
           <div className="fl-cmp-drop-overlay" aria-hidden="true">
-            <IconDoc size={16} />
+            <div className="nx-drop-icon-badge-wrap">
+              <IconDoc size={20} />
+              <span className="nx-drop-plus-badge">+</span>
+            </div>
             <span>{t.composer.dropHere}</span>
           </div>
         )}
@@ -876,19 +883,35 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   );
 });
 
-function extractDroppedPaths(e: React.DragEvent): string[] {
+export function extractDroppedPaths(dt: DataTransfer): string[] {
   const paths: string[] = [];
 
   // 1. Electron File objects (when available) expose absolute .path
-  for (const file of Array.from(e.dataTransfer.files)) {
+  for (const file of Array.from(dt.files)) {
     const p = (file as unknown as { path?: string }).path;
     if (p) paths.push(p);
   }
 
-  // 2. Always also harvest from text/uri-list (Explorer drags, Finder, non-Electron webviews, folders)
+  // 2. VS Code Explorer uses application/vnd.code.uri-list internally
+  try {
+    const codeUriList = dt.getData('application/vnd.code.uri-list') || '';
+    if (codeUriList) {
+      for (const line of codeUriList.split(/\r?\n/)) {
+        const uri = line.trim();
+        if (!uri || uri.startsWith('#')) continue;
+        if (/^(?:file|vscode-file):\/\//i.test(uri)) {
+          let p = uri.replace(/^(?:file|vscode-file):\/+/i, '/');
+          try { p = decodeURIComponent(p); } catch { /* keep original */ }
+          if (p && !paths.includes(p)) paths.push(p);
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 3. Always also harvest from text/uri-list (Explorer drags, Finder, non-Electron webviews, folders)
   //    Merge with primary so we don't lose anything.
   try {
-    const uriList = e.dataTransfer.getData('text/uri-list') || '';
+    const uriList = dt.getData('text/uri-list') || '';
     for (const line of uriList.split(/\r?\n/)) {
       let uri = line.trim();
       if (!uri || uri.startsWith('#')) continue;

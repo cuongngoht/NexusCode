@@ -1044,6 +1044,59 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* Pure-CSS drag indicator — shows immediately via direct DOM classList, no React re-render needed */
+.nx-panel.nx-drag-active::after {
+  content: '';
+  position: fixed;
+  inset: 4px;
+  z-index: 9998;
+  border: 2px dashed var(--colorBrandStroke1);
+  border-radius: 6px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--colorBrandBackground) 8%, transparent);
+}
+
+.nx-global-drop-overlay {
+  position: fixed;
+  inset: 4px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--colorBrandBackground) 12%, transparent);
+  border: 2px dashed var(--colorBrandStroke1);
+  border-radius: 6px;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--colorBrandForeground1);
+  gap: 10px;
+}
+
+.nx-drop-icon-badge-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nx-drop-plus-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--colorBrandBackground);
+  color: var(--colorNeutralForegroundOnBrand);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  display: block;
+}
+
 .fl-cmp-box--drag {
   border-color: var(--colorBrandStroke1);
   box-shadow: 0 0 0 1px var(--colorBrandStroke1);

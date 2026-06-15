@@ -207,6 +207,38 @@ export class RunTaskHandler {
         return;
       }
 
+      if (mode === 'scan-project') {
+        const scanCfg = vscode.workspace.getConfiguration('nexus');
+        this.eventBus.emit({
+          kind: 'step_started',
+          stepLabel: 'scan',
+          stepIndex: 0,
+          totalSteps: 1,
+          provider: String(providerId),
+          mode: 'scan-project',
+          model,
+        });
+        try {
+          const result = await this.buildProjectMap.execute({
+            workspaceRoot,
+            maxDepth: scanCfg.get<number>('projectMap.maxDepth', 6),
+            maxFiles: scanCfg.get<number>('projectMap.maxFiles', 2000),
+          });
+          this.eventBus.emit({ kind: 'step_completed', stepLabel: 'scan' });
+          this.post({
+            type: 'projectScanCompleted',
+            fileCount: result.tree.files.length,
+            folderCount: result.tree.folders.length,
+            unitCount: result.units.length,
+            filesWritten: result.filesWritten,
+          });
+        } catch (err) {
+          this.eventBus.emit({ kind: 'step_error', stepLabel: 'scan', error: String(err) });
+          this.post({ type: 'taskError', taskId: 'scan-project', message: `Project scan failed: ${String(err)}` });
+        }
+        return;
+      }
+
       if (providerId === 'nexus') {
         if (enableEnhancement) {
           ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
