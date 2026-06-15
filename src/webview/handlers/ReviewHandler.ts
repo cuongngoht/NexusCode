@@ -53,7 +53,8 @@ export class ReviewHandler {
     if (!workspaceRoot) return;
     try {
       const resolved = baseBranch ?? this.workspaceState?.get<string>(SAVED_REVIEW_BASE_KEY);
-      const context = buildGitReviewContext(workspaceRoot, resolved);
+      const diffCharLimit = vscode.workspace.getConfiguration('nexus').get<number>('review.maxDiffChars', 60000);
+      const context = buildGitReviewContext(workspaceRoot, resolved, diffCharLimit);
       if (context.baseBranch) {
         await this.workspaceState?.update(SAVED_REVIEW_BASE_KEY, context.baseBranch);
       }

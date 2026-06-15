@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import type { GitReviewContext, GitReviewFileChange } from '../core/types';
 import { detectDefaultBaseBranch, getCurrentBranch, getLocalBranches } from './gitBranch';
 
-const REVIEW_DIFF_CHAR_LIMIT = 60_000;
+const DEFAULT_DIFF_CHAR_LIMIT = 60_000;
 
 const DIFF_MAX_BUFFER = 100 * 1024 * 1024; // 100 MB — large repos can produce big diffs
 const META_MAX_BUFFER = 4 * 1024 * 1024;   // 4 MB — sufficient for name-status, stat, branch list
@@ -30,6 +30,7 @@ function parseNameStatus(output: string): GitReviewFileChange[] {
 export function buildGitReviewContext(
   workspaceRoot: string,
   baseBranch?: string,
+  diffCharLimit: number = DEFAULT_DIFF_CHAR_LIMIT,
 ): GitReviewContext {
   const currentBranch = getCurrentBranch(workspaceRoot);
   const availableBranches = getLocalBranches(workspaceRoot);
@@ -56,8 +57,8 @@ export function buildGitReviewContext(
   let diff = git(workspaceRoot, ['diff', '-U5', '--find-renames', range], DIFF_MAX_BUFFER);
 
   let diffTruncated = false;
-  if (diff.length > REVIEW_DIFF_CHAR_LIMIT) {
-    diff = diff.slice(0, REVIEW_DIFF_CHAR_LIMIT);
+  if (diff.length > diffCharLimit) {
+    diff = diff.slice(0, diffCharLimit);
     diffTruncated = true;
   }
 

@@ -66,6 +66,7 @@ export class SettingsPanel {
       reviewStepTester:        vsCfg.get<boolean>('review.steps.tester', true),
       reviewStepSecurity:      vsCfg.get<boolean>('review.steps.security', true),
       reviewStepArchitect:     vsCfg.get<boolean>('review.steps.architect', true),
+      reviewMaxDiffChars:      vsCfg.get<number>('review.maxDiffChars', 60_000),
       contextMaxChars:         vsCfg.get<number>('context.maxChars', 100_000),
       contextMaxMessages:      vsCfg.get<number>('context.maxMessages', 20),
       projectMapAddToGitignore: vsCfg.get<boolean>('projectMap.addToGitignore', false),
@@ -115,6 +116,11 @@ export class SettingsPanel {
             await vsCfg.update(`review.steps.${key}`, reviewSteps[key], vscode.ConfigurationTarget.Workspace);
           }
         }
+      }
+      // Sync review limit settings to VS Code workspace settings
+      const reviewSettings = (msg as Record<string, unknown>)['reviewSettings'] as Record<string, unknown> | undefined;
+      if (reviewSettings && typeof reviewSettings['maxDiffChars'] === 'number') {
+        await vsCfg.update('review.maxDiffChars', reviewSettings['maxDiffChars'], vscode.ConfigurationTarget.Workspace);
       }
       // Sync context window settings to VS Code workspace settings
       const contextSettings = (msg as Record<string, unknown>)['contextSettings'] as Record<string, unknown> | undefined;

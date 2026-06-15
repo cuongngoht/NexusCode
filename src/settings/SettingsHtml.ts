@@ -21,6 +21,7 @@ export function getSettingsHtml(
     reviewStepTester?: boolean;
     reviewStepSecurity?: boolean;
     reviewStepArchitect?: boolean;
+    reviewMaxDiffChars?: number;
     contextMaxChars?: number;
     contextMaxMessages?: number;
     projectMapAddToGitignore?: boolean;
@@ -76,6 +77,7 @@ export function getSettingsHtml(
   const reviewStepTester    = vsCodeConfig?.reviewStepTester    ?? true;
   const reviewStepSecurity  = vsCodeConfig?.reviewStepSecurity  ?? true;
   const reviewStepArchitect = vsCodeConfig?.reviewStepArchitect ?? true;
+  const reviewMaxDiffChars  = vsCodeConfig?.reviewMaxDiffChars  ?? 60_000;
 
   const safeSubagents = { ...(DEFAULT_CONFIG.subagents ?? {}), ...(mergedConfig.subagents ?? {}) };
   const subagentsEnabled = safeSubagents.enabled ?? false;
@@ -565,6 +567,11 @@ export function getSettingsHtml(
       </label>
       <span class="setting-hint">Reviews layer structure, coupling, design patterns, technical debt</span>
     </div>
+    <div class="setting-row">
+      <label class="setting-label" for="review-maxDiffChars">Max Diff Size (characters)</label>
+      <input type="number" id="review-maxDiffChars" value="${reviewMaxDiffChars}" min="5000" max="500000" step="5000" style="width:120px" />
+      <span class="setting-hint">Maximum characters of git diff loaded for review. Larger values cover more of the diff but increase prompt size. (5,000 – 500,000)</span>
+    </div>
   </section>
 
   <button class="save-btn" id="saveBtn">Save Settings</button>
@@ -713,6 +720,9 @@ export function getSettingsHtml(
           security:  document.getElementById('review-step-security').checked,
           architect: document.getElementById('review-step-architect').checked,
         };
+        const reviewSettings = {
+          maxDiffChars: parseInt(document.getElementById('review-maxDiffChars').value, 10) || 60000,
+        };
         const contextSettings = {
           maxChars:    parseInt(document.getElementById('context-maxChars').value, 10) || 100000,
           maxMessages: parseInt(document.getElementById('context-maxMessages').value, 10) || 20,
@@ -721,7 +731,7 @@ export function getSettingsHtml(
           addToGitignore: document.getElementById('projectmap-add-gitignore').checked,
         };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, contextSettings: contextSettings, projectMapSettings: projectMapSettings });
+        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, reviewSettings: reviewSettings, contextSettings: contextSettings, projectMapSettings: projectMapSettings });
       });
 
       window.addEventListener('message', function (event) {
