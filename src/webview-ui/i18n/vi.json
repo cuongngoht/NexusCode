@@ -443,6 +443,13 @@
     "clearHistory": "Xóa lịch sử",
     "confirmClear": "Xác nhận xóa",
     "findings": "phát hiện",
+    "overviewSection": "Tổng quan",
+    "findingsSection": "Danh sách lỗi",
+    "colSeverity": "Mức độ",
+    "colCategory": "Loại",
+    "colTitle": "Mô tả",
+    "colLocation": "Vị trí",
+    "selectHistory": "Chọn lịch sử review",
     "verdicts": {
       "approve": "Phê duyệt",
       "approve-with-comments": "Phê duyệt có nhận xét",

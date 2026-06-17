@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import type { CodeReviewContext } from './CodeReviewContextBuilder';
 
 export type CodeReviewPreset = 'fast' | 'balanced' | 'architecture' | 'safe' | 'full';
@@ -65,43 +67,13 @@ const EVIDENCE_AND_ACCURACY_RULES = `
 - The final JSON block must be the last content in the response. Do not write anything after the JSON block.
 `.trim();
 
-const READ_ONLY_REVIEW_CONSTRAINTS = `
-## Critical — read-only review
+/** Used instead of OUTPUT_CONTRACT when the agent runs in non-interactive (--print) mode.
+ *  Skips the narrative to guarantee the JSON block is always present and never truncated. */
+const JSON_ONLY_OUTPUT_CONTRACT = `
+## Output Format — JSON Only
 
-- Do **not** create, edit, or delete files. Do **not** use write/edit/apply_patch/shell tools to save the report.
-- Output the **entire** review (Part 1 markdown + Part 2 \`\`\`json block) **only in your reply text**.
-- Nexus parses your reply automatically; writing a report file (e.g. under \`.nexus/reviews/\`) will hang or fail the review flow.
-`.trim();
-
-const OUTPUT_CONTRACT = `
-## Output Format
-
-Your response has TWO parts in this exact order.
-
----
-
-### Part 1 — Narrative Review (markdown, write this first)
-
-Write a thorough, human-readable review with these numbered sections:
-
-1. **Correctness & Tests** — State only what is supported by provided code, diff, context, or explicit test output. If no test output is provided, say exactly: "No test execution evidence was provided."
-2. **Architecture & OOP Design** — Layer adherence (domain/application/infrastructure), cohesion, coupling, SOLID violations, ownership clarity. Reference concrete files and class names when available.
-3. **Design Patterns** — Identify patterns already in use (Strategy, Factory, Chain of Responsibility, etc.). Call out missing or misapplied patterns only when there is a real structural problem. Be specific about why.
-4. **Security** — Injection risks, credential exposure, input validation gaps, privilege escalation paths.
-5. **Performance & Concurrency** — Hot-path allocations, blocking I/O, race conditions, throttling.
-6. **Maintainability & Technical Debt** — Long methods, duplicated logic, unclear naming, test coverage gaps.
-
-Rules for Part 1:
-- Reference file names and line numbers where relevant and available.
-- Do not invent line numbers; use file/class/function names instead when line numbers are unavailable.
-- Each section is 2–5 sentences. Skip a section only if truly nothing relevant can be said from the provided evidence.
-- This part streams live in the chat panel — make it readable as a PR review comment.
-
----
-
-### Part 2 — Structured JSON Report (write this after Part 1)
-
-After the narrative, output the structured findings inside a \`\`\`json block:
+Output ONLY the structured JSON block below. Do NOT write a narrative (Part 1).
+The JSON must be the entire response — no introductory text, no trailing text.
 
 \`\`\`json
 {
@@ -124,34 +96,33 @@ After the narrative, output the structured findings inside a \`\`\`json block:
       "severity": "blocker | critical | major | minor | nit | info",
       "category": "bug | security | performance | test | maintainability | architecture | oop | ood | design-pattern | coupling | cohesion | dependency-direction | abstraction | complexity | technical-debt | style | docs | typing | dependency | config | ux",
       "title": "short title <=80 chars",
-      "description": "1–3 sentences describing the problem",
+      "description": "1–3 sentences",
       "filePath": "relative/path/to/file.ts",
       "lineStart": 0,
-      "evidence": "<=150 chars of the relevant code snippet, or 'line unavailable: ...' when exact lines are unavailable",
+      "evidence": "<=150 chars of relevant code",
       "recommendation": "1–2 sentences on how to fix",
-      "confidence": 0.0,
+      "confidence": 0.7,
       "blocking": false,
-      "violatedPrinciple": "e.g. SRP, DIP (optional)",
-      "whyItMatters": "1 sentence on impact — required for architecture/oop/ood/design-pattern findings",
-      "refactorRecommendation": "concrete refactor suggestion (optional, architecture findings only)",
-      "suggestedPattern": "pattern name only if it directly solves the problem (optional)",
-      "migrationRisk": "low | medium | high (optional)",
-      "priority": "p0 | p1 | p2 | p3 (optional)"
+      "violatedPrinciple": "e.g. SRP (optional)",
+      "whyItMatters": "1 sentence (required for architecture findings)"
     }
   ]
 }
 \`\`\`
 
-Rules for Part 2:
-- Output valid JSON only inside the final \`\`\`json block.
-- The JSON block must be the final content in the response.
+Rules:
+- Output valid JSON only. No text before or after the \`\`\`json block.
 - Every finding MUST have: severity, category, title, description, filePath, lineStart, evidence, recommendation, confidence, blocking.
-- Code-related findings MUST include concrete evidence.
-- Architecture/OOP/OOD/design-pattern findings MUST include evidence and whyItMatters.
-- Do NOT include suggestedPatch — keep recommendations textual.
-- architectureScore values must be integers from 0 to 100; confidence must be a number from 0.0 to 1.0.
-- Aim for 5–15 findings only when the evidence supports them. Fewer findings are acceptable when there are fewer real issues.
-- Skip trivial nit/style unless systemic or harmful.
+- Aim for 5–15 findings when evidence supports them.
+- architectureScore values: integers 0–100. confidence: number 0.0–1.0.
+`.trim();
+
+const READ_ONLY_REVIEW_CONSTRAINTS = `
+## Critical — read-only review
+
+- Do **not** create, edit, or delete files. Do **not** use write/edit/apply_patch/shell tools to save the report.
+- Output the structured JSON **only in your reply text** — do not write any files.
+- Nexus parses your reply automatically; writing a report file (e.g. under \`.nexus/reviews/\`) will hang or fail the review flow.
 `.trim();
 
 function buildRoleSection(preset: CodeReviewPreset): string {
@@ -183,6 +154,19 @@ Architecture review is mandatory regardless of preset, but the depth of architec
 }
 
 export class CodeReviewPromptBuilder {
+  constructor(private readonly extensionRoot?: string) {}
+
+  private loadSection(name: string, fallback: string): string {
+    if (this.extensionRoot) {
+      try {
+        const filePath = path.join(this.extensionRoot, 'media', 'prompts', 'modes', 'review-code', `${name}.md`);
+        const content = fs.readFileSync(filePath, 'utf8').trim();
+        if (content) return content;
+      } catch { /* fall through to fallback */ }
+    }
+    return fallback;
+  }
+
   build(input: CodeReviewPromptInput): string {
     const { context, userPrompt, preset = 'architecture' } = input;
     const { target, baseBranch, compareBranch, changedFiles, diffStat, diff, diffTruncated, changedCodeContext, projectRules } = context;
@@ -249,10 +233,10 @@ export class CodeReviewPromptBuilder {
     }
 
     // Architecture review dimensions
-    sections.push(ARCHITECTURE_DIMENSIONS);
+    sections.push(this.loadSection('architecture-dimensions', ARCHITECTURE_DIMENSIONS));
 
     // Evidence and anti-hallucination rules
-    sections.push(EVIDENCE_AND_ACCURACY_RULES);
+    sections.push(this.loadSection('evidence-accuracy-rules', EVIDENCE_AND_ACCURACY_RULES));
 
     // User custom prompt
     const request = userPrompt?.trim() ||
@@ -260,8 +244,8 @@ export class CodeReviewPromptBuilder {
     sections.push(`## User Request\n${request}`);
 
     // Output contract
-    sections.push(READ_ONLY_REVIEW_CONSTRAINTS);
-    sections.push(OUTPUT_CONTRACT);
+    sections.push(this.loadSection('read-only-constraints', READ_ONLY_REVIEW_CONSTRAINTS));
+    sections.push(this.loadSection('json-output-contract', JSON_ONLY_OUTPUT_CONTRACT));
 
     return sections.join('\n\n');
   }

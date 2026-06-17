@@ -443,6 +443,13 @@
     "clearHistory": "Clear history",
     "confirmClear": "Confirm clear",
     "findings": "findings",
+    "overviewSection": "Overview",
+    "findingsSection": "Findings",
+    "colSeverity": "Severity",
+    "colCategory": "Category",
+    "colTitle": "Description",
+    "colLocation": "Location",
+    "selectHistory": "Select review history",
     "verdicts": {
       "approve": "Approve",
       "approve-with-comments": "Approve with comments",

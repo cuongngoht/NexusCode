@@ -22,12 +22,14 @@ export type CodeReviewRunnerFn = (prompt: string, workspaceRoot: string) => Prom
 
 export class CodeReviewExecutor {
   private readonly contextBuilder = new CodeReviewContextBuilder();
-  private readonly promptBuilder = new CodeReviewPromptBuilder();
+  private readonly promptBuilder: CodeReviewPromptBuilder;
   private readonly resultParser = new CodeReviewResultParser();
   private readonly policy = new CodeReviewPolicy();
   private readonly archPolicy = new CodeReviewArchitecturePolicy();
 
-  constructor(private readonly runnerFn: CodeReviewRunnerFn) {}
+  constructor(private readonly runnerFn: CodeReviewRunnerFn, private readonly extensionRoot?: string) {
+    this.promptBuilder = new CodeReviewPromptBuilder(extensionRoot);
+  }
 
   async run(input: RunCodeReviewInput): Promise<CodeReviewReport> {
     const {

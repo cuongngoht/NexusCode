@@ -376,7 +376,7 @@ export class RunTaskHandler {
             maxParallel: mode === 'review' ? 1 : subagentCfg.get<number>('subagents.maxParallel', 2),
             failOpen: subagentCfg.get<boolean>('subagents.failOpen', true),
             timeoutMs: mode === 'review'
-              ? subagentCfg.get<number>('review.subagentTimeoutMs', 60000)
+              ? subagentCfg.get<number>('review.subagentTimeoutMs', 120000)
               : subagentCfg.get<number>('subagents.timeoutMs', 30000),
             injectMaxChars: subagentCfg.get<number>('subagents.injectMaxChars', 8000),
           };
@@ -640,7 +640,7 @@ export class RunTaskHandler {
         this.post({ type: 'codeReviewProgress', reportId: 'pending', message: suggestion.reason });
       }
 
-      let reviewPrompt = new CodeReviewPromptBuilder().build({
+      let reviewPrompt = new CodeReviewPromptBuilder(this.extensionPath).build({
         context: reviewCtx,
         userPrompt: ctx.originalPrompt || undefined,
         preset,

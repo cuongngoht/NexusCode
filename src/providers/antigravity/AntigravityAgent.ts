@@ -22,8 +22,9 @@ export class AntigravityAgent extends BaseAgent {
 
   protected readonly executableName = 'agy';
 
-  // agy streams natural-language progress; hiding stdout in review mode leaves only a stuck ✏️ chip.
-  readonly suppressChatStreamModes: ReadonlyArray<string> = [];
+  // Review mode uses jsonOnly output (structured JSON, not natural-language narrative),
+  // so suppress the raw JSON from the chat stream — Report Panel parses it directly.
+  readonly suppressChatStreamModes: ReadonlyArray<string> = ['review'];
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];

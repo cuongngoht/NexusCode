@@ -47,6 +47,12 @@ export class ClaudeAgent extends BaseAgent {
   }
 
   protected doBuildCommand(task: AgentTask): AgentCommand {
+    if (task.mode === 'review') {
+      const args = task.model
+        ? ['--print', '--model', task.model, task.enhancedPrompt]
+        : ['--print', task.enhancedPrompt];
+      return new AgentCommand('claude', args, undefined, undefined, task.enhancedPrompt);
+    }
     const args = task.model
       ? ['--dangerously-skip-permissions', '--model', task.model, task.enhancedPrompt]
       : ['--dangerously-skip-permissions', task.enhancedPrompt];
