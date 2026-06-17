@@ -8,7 +8,7 @@ import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapU
 import { ChatController } from './ChatController';
 import { ChatHistoryStore } from './ChatHistoryStore';
 import { ConfigService } from '../config/ConfigService';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 
 export class ChatPanel {
   static readonly viewType = 'nexusChat';
@@ -79,6 +79,10 @@ export class ChatPanel {
       detector,
       globalState,
       new ChatHistoryStore(workspaceState),
+      extensionUri.fsPath,
+      extensionUri,
+      undefined, // subagentOrchestrator
+      workspaceState,
     );
 
     this.panel.webview.html = getHtml(this.panel.webview, extensionUri);

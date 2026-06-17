@@ -8,7 +8,8 @@ export type SubagentRole =
   | 'debugger'
   | 'docs'
   | 'product'
-  | 'research';
+  | 'research'
+  | 'architect';
 
 export type { SubagentFinding, SubagentFindingSeverity, ParsedSubagentOutput } from './SubagentOutputSchema';
 import type { SubagentFinding, ParsedSubagentOutput } from './SubagentOutputSchema';

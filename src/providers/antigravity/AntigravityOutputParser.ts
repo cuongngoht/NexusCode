@@ -54,4 +54,17 @@ export class AntigravityOutputParser extends BaseOutputParser {
     }
     return out;
   }
+
+  // Close the last pending activity when the stream ends.
+  // Without this override, the final "I will ..." activity stays as 'running'
+  // forever because there is no subsequent line to trigger its completion.
+  override flush(): ParsedActivity[] {
+    const remaining = super.flush(); // drain partial line buffer
+    if (this._pending) {
+      const done: ParsedActivity = { kind: this._pending.kind, status: 'done', label: this._pending.label, raw: this._pending.raw };
+      this._pending = null;
+      return [...remaining, done];
+    }
+    return remaining;
+  }
 }

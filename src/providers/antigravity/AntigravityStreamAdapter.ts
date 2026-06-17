@@ -8,8 +8,21 @@ const MD_LINK_RE = /\[([^\]]+)\]\([^)]+\)/g;
 const NL_I_RE = /^I(?:'ll| will)\s+(.+)/i;
 const CLI_GT_RE = /^>\s+(.+)/;
 
+// agy emits these startup banners to stdout (not only stderr); suppress them from the chat view.
+// Also suppress lines that are pure JavaScript object noise ([object Object]) which appear when
+// agy logs internal debug state without JSON.stringify.
+const AGY_NOISE_RE = [
+  /YOLO mode is enabled/i,
+  /All tool calls will be automatically approved/i,
+  /^\[object Object\]/,
+];
+
 const READ_RE   = /\b(read|open|view|inspect|check|look at|examine|load|fetch)\b/i;
 const EDIT_RE   = /\b(edit|update|modify|write|create|add|change|fix|implement|apply)\b/i;
+
+/** Model prose like "I'll write the report to …" — not a tool invocation. */
+const REPORT_NARRATION_RE =
+  /\b(write|create)\b.+\b(report|review|summary|findings)\b/i;
 const BASH_RE   = /\b(run|execute|compile|build|install|test|launch|start)\b/i;
 const SEARCH_RE = /\b(search|grep|find|look for|scan)\b/i;
 
@@ -32,6 +45,11 @@ export class AntigravityStreamAdapter implements IProviderStreamAdapter {
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
     const rawText = frame.data;
     const line = rawText.replace(ANSI_RE, '').trim();
+
+    if (AGY_NOISE_RE.some(re => re.test(line))) {
+      return [];
+    }
+
     const events: AgentStreamEvent[] = [{ kind: 'content_delta', text: rawText }];
 
     let action: string | null = null;
@@ -47,7 +65,7 @@ export class AntigravityStreamAdapter implements IProviderStreamAdapter {
       }
     }
 
-    if (action) {
+    if (action && !REPORT_NARRATION_RE.test(action)) {
       if (this._currentTool) {
         events.push({ kind: 'tool_result', toolName: this._currentTool.name, status: 'done', toolKind: this._currentTool.kind });
       }

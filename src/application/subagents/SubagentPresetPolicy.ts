@@ -1,4 +1,5 @@
-import type { SubagentMode, SubagentPreset, SubagentRoleId } from '../../config/NexusConfig';
+import type { SubagentMode, SubagentRoleId } from '../../config/NexusConfig';
+export type SubagentPreset = 'fast' | 'balanced' | 'architecture' | 'full' | 'safe';
 
 export interface ResolvedSubagentPolicy {
   mode: SubagentMode;
@@ -18,7 +19,7 @@ export interface ResolvedSubagentPolicy {
 
 export const SUBAGENT_ROLE_IDS: readonly SubagentRoleId[] = [
   'search', 'planner', 'coder', 'debugger', 'tester',
-  'reviewer', 'security', 'docs', 'product', 'research',
+  'reviewer', 'security', 'docs', 'product', 'research', 'architect',
 ] as const;
 
 export const SUBAGENT_PRESET_DEFAULTS: Record<SubagentPreset, {
@@ -29,11 +30,27 @@ export const SUBAGENT_PRESET_DEFAULTS: Record<SubagentPreset, {
   includeReviewer: boolean;
   includeTester: boolean;
 }> = {
-  fast:     { maxRuns: 2, maxParallel: 2, includeSecurity: false, includeDocs: false, includeReviewer: false, includeTester: false },
-  balanced: { maxRuns: 4, maxParallel: 2, includeSecurity: false, includeDocs: false, includeReviewer: true,  includeTester: true  },
-  full:     { maxRuns: 5, maxParallel: 2, includeSecurity: false, includeDocs: true,  includeReviewer: true,  includeTester: true  },
-  safe:     { maxRuns: 6, maxParallel: 2, includeSecurity: true,  includeDocs: true,  includeReviewer: true,  includeTester: true  },
+  fast:         { maxRuns: 2, maxParallel: 2, includeSecurity: false, includeDocs: false, includeReviewer: true,  includeTester: false },
+  balanced:     { maxRuns: 4, maxParallel: 2, includeSecurity: false, includeDocs: false, includeReviewer: true,  includeTester: true  },
+  architecture: { maxRuns: 3, maxParallel: 2, includeSecurity: false, includeDocs: false, includeReviewer: true,  includeTester: false },
+  full:         { maxRuns: 6, maxParallel: 2, includeSecurity: true,  includeDocs: true,  includeReviewer: true,  includeTester: true  },
+  safe:         { maxRuns: 6, maxParallel: 2, includeSecurity: true,  includeDocs: true,  includeReviewer: true,  includeTester: true  },
 };
+
+/**
+ * Returns the default subagent roles for a given review preset.
+ * Used specifically for code review flows.
+ */
+export function getReviewPresetRoles(preset: SubagentPreset): SubagentRoleId[] {
+  switch (preset) {
+    case 'fast':         return ['reviewer'];
+    case 'balanced':     return ['reviewer', 'tester', 'architect'];
+    case 'architecture': return ['architect', 'reviewer'];
+    case 'safe':         return ['reviewer', 'tester', 'security', 'architect'];
+    case 'full':         return ['reviewer', 'tester', 'security', 'architect'];
+    default:             return ['reviewer'];
+  }
+}
 
 export function clampHardCap(value: number | undefined): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 6;

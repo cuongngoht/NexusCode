@@ -4,7 +4,7 @@ import type { IEventBus } from '../core/events/IEventBus';
 import { RunAgentUseCase } from '../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../application/nexus/NexusOrchestrator';
 import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapUseCase';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import { ConfigService } from '../config/ConfigService';
 import type { IChatHistoryStore } from './IChatHistoryStore';
 import { RunTaskHandler } from './handlers/RunTaskHandler';
@@ -18,6 +18,7 @@ import { NavigationHandler } from './handlers/NavigationHandler';
 import { EventForwarder } from './handlers/EventForwarder';
 import { AgentPromptHandler } from './handlers/AgentPromptHandler';
 import { SkillPromptHandler } from './handlers/SkillPromptHandler';
+import { CommandPromptHandler } from './handlers/CommandPromptHandler';
 import { ResearchCommandHandler } from './handlers/ResearchCommandHandler';
 import { CompactCommandHandler } from './handlers/CompactCommandHandler';
 import { DiffHandler } from './handlers/DiffHandler';
@@ -34,10 +35,26 @@ import { MementoHistoryIndexRepository } from '../context/history-search/index/M
 import { Bm25HistorySearchStrategy } from '../context/history-search/bm25/Bm25HistorySearchStrategy';
 import { InMemoryBm25Engine } from '../context/history-search/bm25/InMemoryBm25Engine';
 import { RagContextBuilder } from '../context/history-search/rag/RagContextBuilder';
-import { RagPromptInjector } from '../context/history-search/rag/RagPromptInjector';
+import { createDefaultDebugOrchestrator } from '../debug/orchestrator/DebugOrchestratorFactory';
+import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
+import { ReviewPanel } from '../review/ReviewPanel';
+import { PermissionService } from '../application/permissions/PermissionService';
+import type { ProviderId } from '../core/types';
+
+const PROVIDER_IDS = new Set<ProviderId>([
+  'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
+]);
+
+function normalizeProviderId(value: string | undefined): ProviderId {
+  if (value === 'gemini') return 'antigravity';
+  return PROVIDER_IDS.has(value as ProviderId) ? value as ProviderId : 'auto';
+}
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly _workspaceState: vscode.Memento;
+  private readonly _extensionUri: vscode.Uri;
+  private readonly _post: (msg: ExtensionMessage) => void;
   private readonly runTaskHandler: RunTaskHandler;
   private readonly historyHandler: HistoryHandler;
   private readonly providerHandler: ProviderHandler;
@@ -47,6 +64,7 @@ export class ChatController {
   private readonly navigationHandler: NavigationHandler;
   private readonly agentPromptHandler: AgentPromptHandler;
   private readonly skillPromptHandler: SkillPromptHandler;
+  private readonly commandPromptHandler: CommandPromptHandler;
   private readonly researchCommandHandler: ResearchCommandHandler;
   private readonly compactCommandHandler: CompactCommandHandler;
   private readonly diffHandler: DiffHandler;
@@ -64,9 +82,10 @@ export class ChatController {
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
     detector: ProviderDetector,
-    globalState: vscode.Memento,
+    private readonly globalState: vscode.Memento,
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
+    extensionUri: vscode.Uri,
     subagentOrchestrator?: SubagentOrchestrator,
     workspaceState?: vscode.Memento,
     compactor?: ConversationCompactor,
@@ -74,29 +93,35 @@ export class ChatController {
     globalStorageUri?: vscode.Uri,
   ) {
     // Build history search / RAG infrastructure
+    this._workspaceState = workspaceState ?? globalState;
+    this._extensionUri = extensionUri;
+    this._post = post;
     const historyIndexRepo = new MementoHistoryIndexRepository(workspaceState ?? globalState);
     const historyIndexBuilder = new HistoryIndexBuilder();
     const bm25Engine = new InMemoryBm25Engine();
     const bm25Strategy = new Bm25HistorySearchStrategy(bm25Engine);
     const historySearchService = new HistorySearchService(bm25Strategy, historyIndexBuilder, historyIndexRepo);
     const ragContextBuilder = new RagContextBuilder();
-    const ragPromptInjector = new RagPromptInjector();
-    this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder, ragPromptInjector);
+    this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder);
     this.historySearchHandler = new HistorySearchHandler(
       this.historyRagFacade,
       post,
       () => this.historyHandler.latestHistory,
     );
 
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, subagentOrchestrator, this.historyRagFacade);
+    const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
+    const permissionService = new PermissionService(post as (msg: unknown) => void);
+    const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService);
     this.historyHandler  = new HistoryHandler(post, historyStore);
-    this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
-    this.reviewHandler   = new ReviewHandler(post, extensionPath, workspaceState);
+    this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
+    this.reviewHandler   = new ReviewHandler(post, workspaceState);
     this.attachmentHandler    = new AttachmentHandler(post);
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
     this.navigationHandler    = new NavigationHandler();
     this.agentPromptHandler      = new AgentPromptHandler(extensionPath, post);
     this.skillPromptHandler      = new SkillPromptHandler(extensionPath, post);
+    this.commandPromptHandler    = new CommandPromptHandler(extensionPath, post);
     this.researchCommandHandler  = new ResearchCommandHandler();
     this.compactCommandHandler   = new CompactCommandHandler(post, compactor);
     this.diffHandler             = new DiffHandler(post);
@@ -176,7 +201,12 @@ export class ChatController {
         await this.providerHandler.sendAvailable();
         await this.agentPromptHandler.sendAgentPrompts();
         await this.skillPromptHandler.sendSkillPrompts();
+        await this.commandPromptHandler.sendCommandDefs();
         void this.historySearchHandler.ensureIndex();
+        {
+          const reviewHistory = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history') ?? [];
+          this._post({ type: 'reviewHistoryLoaded', reports: reviewHistory });
+        }
         break;
       case 'runTask':
         await this.runTaskHandler.run(
@@ -186,6 +216,23 @@ export class ChatController {
           msg.attachments, msg.subagentsEnabled ?? false,
         );
         break;
+      case 'runCodeReview': {
+        const provider = normalizeProviderId(this.globalState.get<string>('nexus.lastProvider'));
+        await this.runTaskHandler.run(
+          msg.userPrompt ?? '',
+          provider,
+          'review',
+          undefined,
+          msg.target.baseBranch,
+          this.historyHandler.latestHistory,
+          undefined,
+          undefined,
+          true,
+          msg.target,
+          msg.preset,
+        );
+        break;
+      }
       case 'stopTask':            await this.runTaskHandler.stop(); break;
       case 'applyPlan':           await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath, msg.provider); break;
       case 'rejectPlan':          await this.runTaskHandler.rejectPlan(msg.planPath); break;
@@ -198,6 +245,19 @@ export class ChatController {
       case 'saveProvider':        await this.providerHandler.save(msg.provider); break;
       case 'getReviewContext':    await this.reviewHandler.getContext(msg.baseBranch); break;
       case 'openReviewAgentFile': await this.reviewHandler.openAgentFile(); break;
+      case 'openReviewReport':
+        void ReviewPanel.createOrShow(this._extensionUri, this._workspaceState, msg.report);
+        break;
+      case 'openReviewReportById': {
+        const history = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history', []);
+        const report = history.find(r => r.id === msg.reportId);
+        if (report) {
+          void ReviewPanel.createOrShow(this._extensionUri, this._workspaceState, report);
+        } else {
+          void vscode.window.showInformationMessage('Review report not found in history (may have been cleared).');
+        }
+        break;
+      }
       case 'pickPromptAttachment':   await this.attachmentHandler.pickAttachment(); break;
       case 'getWorkspaceFiles':      this.attachmentHandler.getWorkspaceFiles(); break;
       case 'resolveDroppedFiles':    await this.attachmentHandler.resolveDropped(msg.paths); break;
@@ -212,6 +272,8 @@ export class ChatController {
       case 'reloadAgents':           await this.agentPromptHandler.reload(); break;
       case 'getSkillPrompts':        await this.skillPromptHandler.sendSkillPrompts(); break;
       case 'reloadSkills':           await this.skillPromptHandler.reload(); break;
+      case 'getCommandDefs':         await this.commandPromptHandler.sendCommandDefs(); break;
+      case 'reloadCommands':         await this.commandPromptHandler.reload(); break;
       case 'researchCommand':        await this.researchCommandHandler.handle(msg.action); break;
       case 'compactConversation':
         await this.compactCommandHandler.handle(
@@ -257,6 +319,33 @@ export class ChatController {
         break;
       case 'clearAnalytics':
         await this.analyticsHandler?.clear();
+        break;
+      // Agent Mode approval messages
+      case 'approveAgentPlan':
+        await this.runTaskHandler.approveAgentPlan(msg.sessionId);
+        break;
+      case 'rejectAgentPlan':
+        await this.runTaskHandler.rejectAgentPlan_agent(msg.sessionId, msg.reason);
+        break;
+      case 'approveAgentCommand':
+        this.runTaskHandler.approvePermission(msg.requestId);
+        break;
+      case 'rejectAgentCommand':
+        this.runTaskHandler.rejectPermission(msg.requestId, msg.reason);
+        break;
+      case 'openAgentSession':
+      case 'listAgentSessions':
+        // These will be forwarded to the AgentExecutor when fully wired
+        break;
+      // Permission system messages
+      case 'approvePermission':
+        this.runTaskHandler.approvePermission(msg.requestId);
+        break;
+      case 'rejectPermission':
+        this.runTaskHandler.rejectPermission(msg.requestId, msg.reason);
+        break;
+      case 'autoApprovePermissionScope':
+        this.runTaskHandler.autoApprovePermission(msg.requestId, msg.scope);
         break;
     }
   }

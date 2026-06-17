@@ -8,10 +8,12 @@ import { BuildProjectMapUseCase } from '../application/usecases/BuildProjectMapU
 import { ChatController } from './ChatController';
 import { ChatHistoryStore } from './ChatHistoryStore';
 import { ConfigService } from '../config/ConfigService';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import type { SubagentOrchestrator } from '../application/subagents/SubagentOrchestrator';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
+import type { CodeReviewTarget } from '../application/code-review/CodeReviewTarget';
+import type { CodeReviewPreset } from '../application/code-review/CodeReviewPromptBuilder';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'nexus.chatView';
@@ -60,6 +62,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.globalState,
       new ChatHistoryStore(this.workspaceState),
       this.extensionUri.fsPath,
+      this.extensionUri,
       this.subagentOrchestrator,
       this.workspaceState,
       this.compactor,
@@ -83,5 +86,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   async reloadAgentPrompts(): Promise<void> {
     await this.controller?.reloadAgentPrompts();
+  }
+
+  async runCodeReview(target: CodeReviewTarget, preset: CodeReviewPreset, userPrompt?: string): Promise<void> {
+    if (!this.controller) {
+      await vscode.commands.executeCommand('nexus.chatView.focus');
+    }
+    if (!this.controller) {
+      void vscode.window.showInformationMessage('Open Nexus Chat and run the review again.');
+      return;
+    }
+    await this.controller.handleMessage({ type: 'runCodeReview', target, preset, userPrompt });
   }
 }

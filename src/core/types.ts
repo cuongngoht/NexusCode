@@ -9,7 +9,8 @@ export type TaskMode =
   | 'edit'
   | 'debug'
   | 'test'
-  | 'review';
+  | 'review'
+  | 'agent';
 
 export type ProviderModelSource = 'detected' | 'seeded' | 'configured' | 'cached';
 
@@ -39,6 +40,23 @@ export interface GitReviewContext {
   diff: string;
   diffTruncated: boolean;
   message?: string;
+}
+
+export type CodeReviewTargetType =
+  | 'working-tree'
+  | 'staged'
+  | 'branch'
+  | 'commit'
+  | 'file'
+  | 'selection';
+
+export interface CodeReviewTarget {
+  type: CodeReviewTargetType;
+  baseBranch?: string;
+  compareBranch?: string;
+  commitSha?: string;
+  filePath?: string;
+  selectedText?: string;
 }
 
 export interface PromptAttachment {

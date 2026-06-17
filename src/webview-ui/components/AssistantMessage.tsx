@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
-import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode } from '../messages';
+import type { AssistantMessage as AssistantMsg, PipelineStep, Activity, ProviderInfo, TaskMode, SubagentTraceState } from '../messages';
+import type { CodeReviewReport } from '../../application/code-review/CodeReviewReport';
 import { MarkdownRenderer } from './markdown/MarkdownRenderer';
 import type { CodeBlockActions } from './markdown/CodeBlockActionsContext';
 import { IconSparkle } from '../NexusIcons';
@@ -9,6 +10,8 @@ import { PlanReadyCard } from './PlanReadyCard';
 import { MessageActions } from './MessageActions';
 import { EnhancedPromptModal } from './EnhancedPromptModal';
 import { StreamingStatusBar } from './StreamingStatusBar';
+import { SubagentTraceView } from './SubagentTraceView';
+import { ReviewVerdictBadge } from './review/ReviewVerdictBadge';
 
 interface Props {
   message: AssistantMsg;
@@ -17,6 +20,8 @@ interface Props {
   availableProviders?: string[];
   conversationId: string;
   userMessageId?: string;
+  subagentTrace?: SubagentTraceState;
+  reviewHistory?: CodeReviewReport[];
   onFeedback: (messageId: string, rating: 'good' | 'bad' | null) => void;
   onRetry: (userMessageId: string, useCurrentSettings: boolean) => void;
 }
@@ -102,6 +107,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   availableProviders = [],
   conversationId: _conversationId,
   userMessageId,
+  subagentTrace,
+  reviewHistory,
   onFeedback,
   onRetry,
 }: Props) {
@@ -139,6 +146,15 @@ export const AssistantMessage = memo(function AssistantMessage({
     }
   };
 
+  const handleOpenReport = (reportId: string) => {
+    const report = reviewHistory?.find(r => r.id === reportId);
+    if (report) {
+      getVsCodeApi().postMessage({ type: 'openReviewReport', report });
+    } else {
+      getVsCodeApi().postMessage({ type: 'openReviewReportById', reportId });
+    }
+  };
+
   return (
     <div className="fl-row fl-row-asst" role="article" aria-label={t.agent.name}>
       <span className="fl-msg-avatar" aria-hidden="true">
@@ -160,6 +176,20 @@ export const AssistantMessage = memo(function AssistantMessage({
 
         <div className="fl-blocks">
           <PipelineSteps steps={message.steps} />
+          {subagentTrace && subagentTrace.items.length > 0 && (
+            <SubagentTraceView trace={subagentTrace} />
+          )}
+
+          {message.reasoning && message.reasoning.trim() && (
+            <details className="nx-reasoning" open={!!message.isStreaming}>
+              <summary className="nx-reasoning-summary">
+                🧠 { (message.providerLabel || '').toLowerCase().includes('grok') ? t.reasoning.titleGrok : t.reasoning.title }
+              </summary>
+              <div className="nx-reasoning-body">
+                <MarkdownRenderer content={message.reasoning} codeBlockActions={codeBlockActions} />
+              </div>
+            </details>
+          )}
 
           {message.lines.length > 0 && (() => {
             const stdoutText = message.lines
@@ -198,6 +228,9 @@ export const AssistantMessage = memo(function AssistantMessage({
             ? <StreamingStatusBar stage={message.streamingStage} label={message.streamingLabel} elapsed={message.elapsed} />
             : <StatusPill message={message} />
           }
+          {message.reviewProgressNote && (
+            <div className="nx-review-preset-note">{message.reviewProgressNote}</div>
+          )}
         </div>
 
         {!message.isStreaming && message.ragSources && message.ragSources.length > 0 && (
@@ -252,6 +285,47 @@ export const AssistantMessage = memo(function AssistantMessage({
             {(t.nexus as Record<string, string>).planRejectedNotice ?? 'Plan rejected — no changes will be made.'}
           </div>
         )}
+
+        {!message.isStreaming && message.mode === 'review' && message.reviewReportId && message.reviewReportSnapshot && (
+          <div className="nx-review-report-card">
+            <div className="nx-review-report-row">
+              <ReviewVerdictBadge verdict={message.reviewReportSnapshot.verdict as import('../../application/code-review/CodeReviewReport').CodeReviewVerdict} />
+              <span className="nx-review-finding-pill nx-pill-blocker" title="Blocker">B:{message.reviewReportSnapshot.blockerCount}</span>
+              <span className="nx-review-finding-pill nx-pill-critical" title="Critical">C:{message.reviewReportSnapshot.criticalCount}</span>
+              <span className="nx-review-finding-pill nx-pill-major" title="Major">M:{message.reviewReportSnapshot.majorCount}</span>
+              {message.reviewReportSnapshot.totalFindings > 0 && (
+                <span className="nx-review-finding-pill nx-pill-total" title="Total findings">{message.reviewReportSnapshot.totalFindings} findings</span>
+              )}
+            </div>
+            {message.reviewReportSnapshot.architectureScore !== undefined && (
+              <div className="nx-review-report-row">
+                <span
+                  className={[
+                    'nx-review-arch-pill',
+                    message.reviewReportSnapshot.architectureScore >= 70 ? 'nx-arch-good'
+                    : message.reviewReportSnapshot.architectureScore >= 50 ? 'nx-arch-warn'
+                    : 'nx-arch-bad',
+                  ].join(' ')}
+                  title="Architecture score"
+                >
+                  arch: {message.reviewReportSnapshot.architectureScore}
+                </span>
+                {message.reviewReportSnapshot.securityCount > 0 && (
+                  <span className="nx-review-finding-pill nx-pill-security" title="Security findings">
+                    sec: {message.reviewReportSnapshot.securityCount}
+                  </span>
+                )}
+              </div>
+            )}
+            <button
+              className="nx-review-open-btn"
+              type="button"
+              onClick={() => handleOpenReport(message.reviewReportId!)}
+            >
+              {(t.review as Record<string, string>).openReport ?? 'Open Report'}
+            </button>
+          </div>
+        )}
       </div>
 
       {showPromptModal && message.enhancedPromptSnapshot && (
@@ -266,6 +340,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   if (prev.message.id !== next.message.id) return false;
   if (prev.message.isStreaming !== next.message.isStreaming) return false;
   if (prev.message.isStreaming) return false; // always re-render while streaming
+  if (prev.subagentTrace !== next.subagentTrace) return false;
   if (prev.message.feedback !== next.message.feedback) return false;
+  if (prev.message.reviewReportId !== next.message.reviewReportId) return false;
   return true; // stable completed message — skip re-render
 });

@@ -15,6 +15,7 @@ export interface StreamState {
   phase: string;
   steps: TimelineStep[];
   assistantText: string;
+  reasoningText: string;
   fileChanges: Array<{ path: string; changeType: 'modified' | 'added' | 'deleted' }>;
   errors: string[];
   warnings: string[];
@@ -33,6 +34,7 @@ const INITIAL_STATE: StreamState = {
   phase: '',
   steps: [],
   assistantText: '',
+  reasoningText: '',
   fileChanges: [],
   errors: [],
   warnings: [],
@@ -121,6 +123,14 @@ export class StreamStore {
         this._state = {
           ...s,
           assistantText: s.assistantText + event.text,
+        };
+        break;
+      }
+
+      case 'step.reasoning': {
+        this._state = {
+          ...s,
+          reasoningText: s.reasoningText + event.text,
         };
         break;
       }

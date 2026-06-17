@@ -13,7 +13,9 @@ function isInternalLog(line: string): boolean {
     /^\s+at file:\/\//.test(line) ||      // stack trace: "    at file:///..."
     /^Error: exception \w/.test(line) ||  // JS Error wrapper around another error
     /YOLO mode is enabled/i.test(line) || // Antigravity CLI startup banner (also on stdout)
-    /All tool calls will be automatically approved/i.test(line)
+    /All tool calls will be automatically approved/i.test(line) ||
+    // Grok CLI structured log lines: "2026-06-15T04:43:24.041273Z ERROR ..."
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (ERROR|WARN|INFO|DEBUG) /.test(line)
   );
 }
 
@@ -84,13 +86,33 @@ export class ProcessRunner implements IProcessRunner {
       childStdout.setEncoding('utf8');
       childStderr.setEncoding('utf8');
 
+      // Idle-timeout: kill the process if it produces no output for idleTimeoutMs.
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+      const resetIdle = (): void => {
+        if (!options.idleTimeoutMs) return;
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          console.warn(`${label} idle timeout (${options.idleTimeoutMs}ms) — killing process`);
+          try {
+            if (process.platform === 'win32') {
+              spawn('taskkill', ['/F', '/T', '/PID', String(child.pid!)], { shell: false }).unref();
+            } else {
+              process.kill(-child.pid!, 'SIGTERM');
+            }
+          } catch { /* already dead */ }
+        }, options.idleTimeoutMs);
+      };
+      resetIdle();
+
       childStdout.on('data', (chunk: string) => {
+        resetIdle();
         stdout += chunk;
         if (DEBUG) console.log(`${label} stdout chunk (${chunk.length} chars):`, chunk.slice(0, 300));
         options.onStdout?.(chunk);
       });
 
       childStderr.on('data', (chunk: string) => {
+        resetIdle();
         stderr += chunk;
         if (DEBUG) console.log(`${label} stderr chunk:`, chunk.slice(0, 300));
         const filtered = filterNoise(chunk);
@@ -98,12 +120,14 @@ export class ProcessRunner implements IProcessRunner {
       });
 
       child.on('error', (err: Error) => {
+        clearTimeout(idleTimer);
         console.error(`${label} error:`, err.message);
         this.activeProcess = null;
         reject(err);
       });
 
       child.on('close', (code: number | null) => {
+        clearTimeout(idleTimer);
         console.log(`${label} closed, exit code=${code}, elapsed=${Date.now() - startedAt}ms`);
         childStdout.removeAllListeners();
         childStderr.removeAllListeners();

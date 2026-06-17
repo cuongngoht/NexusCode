@@ -17,4 +17,8 @@ export interface IAgent {
   buildCommand(task: AgentTask): AgentCommand;
   parseOutput(raw: string): AgentOutput;
   transformStdout?(chunk: string): string;
+  // Modes where raw stdout should NOT be streamed into the chat message.
+  // Agents that output structured content (e.g. JSON) in specific modes can declare
+  // those modes here so the UI shows only the structured panel, not raw tokens.
+  readonly suppressChatStreamModes?: ReadonlyArray<string>;
 }

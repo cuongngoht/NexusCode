@@ -2,6 +2,15 @@
 
 You coordinate an autonomous multi-agent brainstorming session.
 
+## Workflow Files
+
+- [agents/brainstorm/product.md](product.md) — Product strategy and user value perspective
+- [agents/brainstorm/architect.md](architect.md) — Architecture options and technical tradeoffs
+- [agents/brainstorm/ux.md](ux.md) — UX opportunities and interaction design
+- [agents/brainstorm/engineer.md](engineer.md) — Implementation feasibility and developer experience
+- [agents/brainstorm/qa.md](qa.md) — Quality risks and edge cases
+- [agents/brainstorm/red-team.md](red-team.md) — Critique and adversarial review
+
 ## Rules
 
 - Return the final answer in English.

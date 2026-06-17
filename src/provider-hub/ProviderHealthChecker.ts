@@ -1,4 +1,4 @@
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from './ProviderDetector';
 import type { ProviderAuthStatus } from './ProviderTypes';
 import type { ProviderId } from '../core/types';
 import { getAllProviderSpecs, getProviderSpec } from './ProviderSpecRegistry';

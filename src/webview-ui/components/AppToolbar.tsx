@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  IconAdd, IconHistory, IconMore, IconSettings, IconInfo,
+  IconAdd, IconHistory, IconMore, IconSettings, IconInfo, IconReviewList,
 } from '../NexusIcons';
 import type { Locale } from '../i18n';
 import { useT, interp } from '../i18n';
@@ -74,8 +74,11 @@ interface Props {
   showHistory: boolean;
   conversationCount: number;
   locale: Locale;
+  showReviewHistory: boolean;
+  reviewHistoryCount: number;
   onNewConversation: () => void;
   onToggleHistory: () => void;
+  onToggleReviewHistory: () => void;
   onLocaleChange: (l: Locale) => void;
   onOpenSettings: () => void;
   onAbout: () => void;
@@ -83,7 +86,8 @@ interface Props {
 
 export function AppToolbar({
   isRunning, showHistory, conversationCount, locale,
-  onNewConversation, onToggleHistory, onLocaleChange,
+  showReviewHistory, reviewHistoryCount,
+  onNewConversation, onToggleHistory, onToggleReviewHistory, onLocaleChange,
   onOpenSettings, onAbout,
 }: Props) {
   const t = useT();
@@ -116,6 +120,14 @@ export function AppToolbar({
           onClick={onToggleHistory}
         >
           <IconHistory size={16} />
+        </button>
+        <button
+          type="button"
+          className={`fl-iconbtn nx-hist-btn${showReviewHistory ? ' nx-hist-btn-on' : ''}`}
+          title={t.toolbar.reviewHistory}
+          onClick={onToggleReviewHistory}
+        >
+          <IconReviewList size={16} />
         </button>
         <MoreMenu onSettings={onOpenSettings} onAbout={onAbout} />
       </div>

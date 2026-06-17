@@ -1,5 +1,5 @@
 import type { TaskMode } from '../../core/types';
-import type { SubagentMode, SubagentPreset } from '../../config/NexusConfig';
+import type { SubagentMode, SubagentPreset, ReviewStepSettings } from '../../config/NexusConfig';
 import type { SubagentDefinition } from './SubagentDefinition';
 import type { SubagentRole } from './SubagentResultStore';
 import type { SubagentRegistry } from './SubagentRegistry';
@@ -23,11 +23,13 @@ export interface SubagentPlanConfig {
   includeTester?: boolean;
   selectedRoles?: string[];
   intent?: SubagentIntent;
+  /** Per-step toggles for review mode. Infrastructure roles (search, planner) are never filtered. */
+  enabledSteps?: ReviewStepSettings;
 }
 
 // Role lists for each mode × preset combination
 // Returns ordered list of roles (will be filtered through registry)
-function getRoleListForMode(mode: TaskMode, preset: SubagentPreset): SubagentRole[] {
+function getRoleListForMode(mode: TaskMode, preset: SubagentPreset, enabledSteps?: ReviewStepSettings): SubagentRole[] {
   switch (mode) {
     case 'debug':
       switch (preset) {
@@ -63,13 +65,28 @@ function getRoleListForMode(mode: TaskMode, preset: SubagentPreset): SubagentRol
         case 'safe':    return ['search', 'tester', 'debugger', 'reviewer', 'security', 'planner'];
         default:        return ['search', 'tester', 'debugger', 'reviewer']; // balanced
       }
-    case 'review':
+    case 'review': {
+      let roleList: SubagentRole[];
       switch (preset) {
-        case 'fast':    return ['search', 'reviewer'];
-        case 'full':    return ['search', 'reviewer', 'tester', 'security', 'planner'];
-        case 'safe':    return ['search', 'reviewer', 'tester', 'security', 'planner', 'docs'];
-        default:        return ['search', 'reviewer', 'tester', 'planner']; // balanced
+        case 'fast':         roleList = ['search', 'reviewer']; break;
+        case 'architecture': roleList = ['search', 'architect', 'reviewer']; break;
+        case 'full':         roleList = ['search', 'reviewer', 'tester', 'security', 'architect', 'planner']; break;
+        case 'safe':         roleList = ['search', 'reviewer', 'tester', 'security', 'architect', 'planner', 'docs']; break;
+        default:             roleList = ['search', 'reviewer', 'architect', 'tester', 'planner']; break; // balanced
       }
+      // Apply per-step toggles when provided — infrastructure roles (search, planner) are never filtered
+      if (enabledSteps) {
+        roleList = roleList.filter(r => {
+          if (r === 'search' || r === 'planner') return true;
+          if (r === 'reviewer' && !enabledSteps.reviewer) return false;
+          if (r === 'tester' && !enabledSteps.tester) return false;
+          if (r === 'security' && !enabledSteps.security) return false;
+          if (r === 'architect' && !enabledSteps.architect) return false;
+          return true;
+        });
+      }
+      return roleList;
+    }
     default:
       // fallback for ask, brainstorm, scan-project, etc.
       switch (preset) {
@@ -107,7 +124,7 @@ export class SubagentPlanner {
     // full mode: use 'full' preset
     const effectivePreset: SubagentPreset = cfg.subagentMode === 'full' ? 'full' : preset;
 
-    const roleList = getRoleListForMode(cfg.mode, effectivePreset);
+    const roleList = getRoleListForMode(cfg.mode, effectivePreset, cfg.enabledSteps);
     const presetDefaults = SUBAGENT_PRESET_DEFAULTS[effectivePreset];
 
     // Compute effective flags

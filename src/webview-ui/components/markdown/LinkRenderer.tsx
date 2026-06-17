@@ -34,6 +34,25 @@ export function LinkRenderer({ href, children, ...rest }: Props) {
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
+
+    // Route likely workspace file paths (relative or absolute, no scheme or file:) to the proper workspace open handler.
+    // This prevents trying to open non-existing files (e.g. "new file" references in plans) via openExternal,
+    // which can surface "The editor could not be opened because the file was not found."
+    // Also makes clicking file links in plans/outputs work for relative paths.
+    const lower = href.trim().toLowerCase();
+    const looksLikeFilePath =
+      !lower.includes('://') || lower.startsWith('file:') || lower.startsWith('./') || lower.startsWith('../') || /^[a-zA-Z]:\\/.test(href) || href.includes('/');
+
+    if (looksLikeFilePath) {
+      // Strip any file: prefix for the path handler
+      let p = href;
+      if (p.toLowerCase().startsWith('file:')) {
+        p = p.replace(/^file:\/+/i, '/');
+      }
+      getVsCodeApi().postMessage({ type: 'openWorkspaceFile', path: p });
+      return;
+    }
+
     getVsCodeApi().postMessage({ type: 'openExternal', url: href });
   };
 

@@ -1,7 +1,7 @@
 import type { ChatHistoryState, SerializedChatMessage } from '../core/chat/ChatHistory';
 
-const CONTEXT_CHAR_LIMIT = 12_000;
-const CONTEXT_MAX_MESSAGES = 8;
+const CONTEXT_CHAR_LIMIT_DEFAULT = 100_000;
+const CONTEXT_MAX_MESSAGES_DEFAULT = 20;
 const RECENT_MESSAGES_AFTER_COMPACT = 6;
 const ASSISTANT_CONTENT_LIMIT = 2_000;
 
@@ -16,7 +16,11 @@ const ASSISTANT_CONTENT_LIMIT = 2_000;
 export function buildConversationContext(
   history: ChatHistoryState | null,
   conversationId?: string,
+  options?: { maxChars?: number; maxMessages?: number },
 ): string | undefined {
+  const CONTEXT_CHAR_LIMIT = options?.maxChars ?? CONTEXT_CHAR_LIMIT_DEFAULT;
+  const CONTEXT_MAX_MESSAGES = options?.maxMessages ?? CONTEXT_MAX_MESSAGES_DEFAULT;
+
   if (!history) return undefined;
 
   const targetId = conversationId ?? history.activeConversationId;

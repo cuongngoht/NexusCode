@@ -2,13 +2,11 @@ import type { ChatHistoryState } from '../../core/chat/ChatHistory';
 import type { HistorySearchQuery, HistorySearchResult, HistoryIndexStatus } from './types';
 import type { HistorySearchService } from './HistorySearchService';
 import type { RagContextBuilder, RagContextOptions } from './rag/RagContextBuilder';
-import type { RagPromptInjector } from './rag/RagPromptInjector';
 
 export class HistoryRagFacade {
   constructor(
     private readonly service: HistorySearchService,
     private readonly ragBuilder: RagContextBuilder,
-    private readonly injector: RagPromptInjector,
   ) {}
 
   searchHistory(query: HistorySearchQuery): HistorySearchResult[] {

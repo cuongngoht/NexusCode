@@ -24,7 +24,7 @@ import { GrokAgent } from '../../providers/grok/GrokAgent';
 import * as fs from 'fs';
 import * as path from 'path';
 
-interface RunOptions {
+export interface RunOptions {
   root: string;
   mode: string;
   provider: string;
@@ -66,7 +66,7 @@ function buildRegistry(workspaceRoot: string): AgentRegistry {
   return registry;
 }
 
-export async function runCommand(options: RunOptions): Promise<void> {
+export async function runCommandCore(options: RunOptions): Promise<{ exitCode: number }> {
   const workspaceRoot = path.resolve(options.root);
   const mode = options.mode as TaskMode;
   const requestedStage = (options.stage as 'auto' | NexusStage) ?? 'auto';
@@ -132,10 +132,20 @@ export async function runCommand(options: RunOptions): Promise<void> {
     }
   } catch (err) {
     process.stderr.write(`Nexus run failed: ${err}\n`);
-    process.exit(1);
+    return { exitCode: 1 };
   }
 
-  process.exit(exitCode);
+  return { exitCode };
+}
+
+export async function runCommand(options: RunOptions): Promise<void> {
+  try {
+    const { exitCode } = await runCommandCore(options);
+    process.exit(exitCode);
+  } catch (err) {
+    process.stderr.write(`Nexus run failed: ${err}\n`);
+    process.exit(1);
+  }
 }
 
 async function runWithFallback(
@@ -156,8 +166,7 @@ async function runWithFallback(
       plan = ProviderRouteExpressionParser.parse(options.provider);
     } catch (err) {
       process.stderr.write(`Invalid provider expression: ${err}\n`);
-      process.exit(1);
-      return;
+      throw new Error(`Invalid provider expression: ${err}`);
     }
   }
 

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigService } from '../config/ConfigService';
-import { ProviderDetector } from '../core/providerDetector';
+import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import type { ProviderId } from '../core/types';
 import { getSettingsHtml } from './SettingsHtml';
 
@@ -60,7 +60,17 @@ export class SettingsPanel {
   private async _update(): Promise<void> {
     const config = await this.configService.loadConfig();
     const vsCfg = vscode.workspace.getConfiguration('nexus');
-    const vsCodeConfig = { historyRagEnabled: vsCfg.get<boolean>('historyRag.enabled', true) };
+    const vsCodeConfig = {
+      historyRagEnabled:       vsCfg.get<boolean>('historyRag.enabled', true),
+      reviewStepReviewer:      vsCfg.get<boolean>('review.steps.reviewer', true),
+      reviewStepTester:        vsCfg.get<boolean>('review.steps.tester', true),
+      reviewStepSecurity:      vsCfg.get<boolean>('review.steps.security', true),
+      reviewStepArchitect:     vsCfg.get<boolean>('review.steps.architect', true),
+      reviewMaxDiffChars:      vsCfg.get<number>('review.maxDiffChars', 60_000),
+      contextMaxChars:         vsCfg.get<number>('context.maxChars', 100_000),
+      contextMaxMessages:      vsCfg.get<number>('context.maxMessages', 20),
+      projectMapAddToGitignore: vsCfg.get<boolean>('projectMap.addToGitignore', false),
+    };
     this.panel.webview.html = getSettingsHtml(this.panel.webview, config, vsCodeConfig);
   }
 
@@ -91,12 +101,41 @@ export class SettingsPanel {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.configService.saveConfig(payload as any);
+      const vsCfg = vscode.workspace.getConfiguration('nexus');
       // Sync historyRag.enabled to VS Code workspace settings so RunTaskHandler picks it up
       const p = payload as Record<string, unknown>;
       const historyRag = p['historyRag'] as Record<string, unknown> | undefined;
       if (historyRag && typeof historyRag['enabled'] === 'boolean') {
-        const vsCfg = vscode.workspace.getConfiguration('nexus');
         await vsCfg.update('historyRag.enabled', historyRag['enabled'], vscode.ConfigurationTarget.Workspace);
+      }
+      // Sync review step toggles to VS Code workspace settings
+      const reviewSteps = (msg as Record<string, unknown>)['reviewSteps'] as Record<string, unknown> | undefined;
+      if (reviewSteps) {
+        for (const key of ['reviewer', 'tester', 'security', 'architect'] as const) {
+          if (typeof reviewSteps[key] === 'boolean') {
+            await vsCfg.update(`review.steps.${key}`, reviewSteps[key], vscode.ConfigurationTarget.Workspace);
+          }
+        }
+      }
+      // Sync review limit settings to VS Code workspace settings
+      const reviewSettings = (msg as Record<string, unknown>)['reviewSettings'] as Record<string, unknown> | undefined;
+      if (reviewSettings && typeof reviewSettings['maxDiffChars'] === 'number') {
+        await vsCfg.update('review.maxDiffChars', reviewSettings['maxDiffChars'], vscode.ConfigurationTarget.Workspace);
+      }
+      // Sync context window settings to VS Code workspace settings
+      const contextSettings = (msg as Record<string, unknown>)['contextSettings'] as Record<string, unknown> | undefined;
+      if (contextSettings) {
+        if (typeof contextSettings['maxChars'] === 'number') {
+          await vsCfg.update('context.maxChars', contextSettings['maxChars'], vscode.ConfigurationTarget.Workspace);
+        }
+        if (typeof contextSettings['maxMessages'] === 'number') {
+          await vsCfg.update('context.maxMessages', contextSettings['maxMessages'], vscode.ConfigurationTarget.Workspace);
+        }
+      }
+      // Sync project map settings to VS Code workspace settings
+      const projectMapSettings = (msg as Record<string, unknown>)['projectMapSettings'] as Record<string, unknown> | undefined;
+      if (projectMapSettings && typeof projectMapSettings['addToGitignore'] === 'boolean') {
+        await vsCfg.update('projectMap.addToGitignore', projectMapSettings['addToGitignore'], vscode.ConfigurationTarget.Workspace);
       }
       await this.panel.webview.postMessage({ type: 'settings.saved' });
       vscode.window.showInformationMessage('Nexus settings saved.');

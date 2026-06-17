@@ -30,6 +30,14 @@ describe('AntigravityStreamAdapter', () => {
     });
   });
 
+  it('does not open a tool chip for report narration ("write the report to …")', () => {
+    const line =
+      "I'll write the comprehensive architecture and code review report to the response.";
+    const events = adapter.adapt(lineFrame(line));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'content_delta', text: line });
+  });
+
   it("emits content_delta + tool_call for \"I will edit ...\"", () => {
     const events = adapter.adapt(lineFrame("I will edit the main.ts file"));
     expect(events).toHaveLength(2);
@@ -115,5 +123,26 @@ describe('AntigravityStreamAdapter', () => {
     if (toolCall && toolCall.kind === 'tool_call') {
       expect(toolCall.toolKind).toBe('search');
     }
+  });
+
+  it('suppresses agy YOLO startup banner from stdout', () => {
+    const events = adapter.adapt(lineFrame('YOLO mode is enabled'));
+    expect(events).toHaveLength(0);
+  });
+
+  it('suppresses "All tool calls will be automatically approved" banner', () => {
+    const events = adapter.adapt(lineFrame('All tool calls will be automatically approved'));
+    expect(events).toHaveLength(0);
+  });
+
+  it('suppresses [object Object] noise lines from agy debug output', () => {
+    const events = adapter.adapt(lineFrame('[object Object], input = ,[object Object],;'));
+    expect(events).toHaveLength(0);
+  });
+
+  it('does not suppress normal lines that happen to contain "object"', () => {
+    const events = adapter.adapt(lineFrame('I will read the object definition in types.ts'));
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].kind).toBe('content_delta');
   });
 });

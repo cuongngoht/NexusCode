@@ -23,6 +23,7 @@ export class SubagentExecutor {
     agent: IAgent,
     ctx: PipelineContext,
     maxChars: number,
+    idleTimeoutMs?: number,
   ): Promise<SubagentResult> {
     const start = Date.now();
     try {
@@ -44,6 +45,7 @@ export class SubagentExecutor {
         cwd: ctx.workspaceRoot,
         onStdout: chunk => { chunks.push(chunk); },
         onStderr: () => { /* discard subagent stderr */ },
+        idleTimeoutMs,
       });
 
       const raw = chunks.join('');
@@ -64,6 +66,23 @@ export class SubagentExecutor {
     }
   }
 
+  async runRawPrompt(agent: IAgent, prompt: string, cwd: string, idleTimeoutMs?: number): Promise<string> {
+    const task = new AgentTask(prompt, prompt, agent.id, 'ask', undefined, cwd);
+    const command = agent.buildCommand(task);
+    const chunks: string[] = [];
+    await this.runner.run(command, {
+      cwd,
+      onStdout: chunk => { chunks.push(chunk); },
+      onStderr: () => {},
+      idleTimeoutMs,
+    });
+    return chunks.join('');
+  }
+
+  async stop(): Promise<void> {
+    await this.runner.stop();
+  }
+
   private loadTemplate(promptFile: string): string {
     const filePath = path.join(this.extensionPath, 'media', promptFile);
     try {
@@ -79,6 +98,10 @@ export class SubagentExecutor {
     if (ctx.projectMap) {
       const preview = ctx.projectMap.slice(0, PROJECT_MAP_PREVIEW_CHARS);
       parts.push(`\n# Project Overview\n${preview}`);
+    }
+
+    if (ctx.reviewFileContents && ctx.mode === 'review') {
+      parts.push(`\n# Changed Files\n${ctx.reviewFileContents}`);
     }
 
     parts.push(`\n# Task\n${ctx.originalPrompt}`);

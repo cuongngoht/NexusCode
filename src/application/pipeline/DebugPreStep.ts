@@ -4,7 +4,7 @@ import { spawnSync } from 'child_process';
 import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import { parseDebugInput, hasNoEditFlag } from '../../debug/DebugInputParser';
-import type { DebugContext } from '../../debug/DebugContext';
+import type { DebugContext } from '../../core/debug/DebugContext';
 
 function loadPackageScripts(workspaceRoot: string): Record<string, string> {
   try {

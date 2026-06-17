@@ -15,7 +15,17 @@ const PROVIDER_LABELS: Record<string, string> = {
 export function getSettingsHtml(
   webview: vscode.Webview,
   config: NexusConfig,
-  vsCodeConfig?: { historyRagEnabled?: boolean },
+  vsCodeConfig?: {
+    historyRagEnabled?: boolean;
+    reviewStepReviewer?: boolean;
+    reviewStepTester?: boolean;
+    reviewStepSecurity?: boolean;
+    reviewStepArchitect?: boolean;
+    reviewMaxDiffChars?: number;
+    contextMaxChars?: number;
+    contextMaxMessages?: number;
+    projectMapAddToGitignore?: boolean;
+  },
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
 
@@ -58,7 +68,16 @@ export function getSettingsHtml(
   const mcpContext7 = mergedConfig.mcp.presets.context7.enabled;
   const mcpMaxChars = mergedConfig.mcp.maxResultChars;
   const mcpMaxRounds = mergedConfig.mcp.maxRoundsPerTask;
+  const projectMapAddToGitignore = vsCodeConfig?.projectMapAddToGitignore ?? false;
   const historyRagEnabled = vsCodeConfig?.historyRagEnabled ?? mergedConfig.historyRag?.enabled ?? true;
+  const contextMaxChars    = vsCodeConfig?.contextMaxChars    ?? 100_000;
+  const contextMaxMessages = vsCodeConfig?.contextMaxMessages ?? 20;
+
+  const reviewStepReviewer  = vsCodeConfig?.reviewStepReviewer  ?? true;
+  const reviewStepTester    = vsCodeConfig?.reviewStepTester    ?? true;
+  const reviewStepSecurity  = vsCodeConfig?.reviewStepSecurity  ?? true;
+  const reviewStepArchitect = vsCodeConfig?.reviewStepArchitect ?? true;
+  const reviewMaxDiffChars  = vsCodeConfig?.reviewMaxDiffChars  ?? 60_000;
 
   const safeSubagents = { ...(DEFAULT_CONFIG.subagents ?? {}), ...(mergedConfig.subagents ?? {}) };
   const subagentsEnabled = safeSubagents.enabled ?? false;
@@ -371,6 +390,17 @@ export function getSettingsHtml(
     </label>
   </section>
 
+  <section class="settings-section" id="project-map-section">
+    <hr />
+    <h2>Project Scan (.nexus)</h2>
+    <p class="section-desc">Controls how the project scan writes the <code>.nexus/</code> folder.</p>
+    <label class="toggle-row">
+      <input type="checkbox" id="projectmap-add-gitignore" ${projectMapAddToGitignore ? 'checked' : ''} />
+      <span>Add <code>.nexus/</code> to <code>.gitignore</code></span>
+    </label>
+    <p class="description">When enabled, Nexus automatically appends <code>.nexus/</code> to the root <code>.gitignore</code> after each project scan so the folder is not tracked by git.</p>
+  </section>
+
   <section class="settings-section">
     <hr />
     <h2>History RAG</h2>
@@ -380,6 +410,24 @@ export function getSettingsHtml(
       <span>Enable History RAG</span>
     </label>
     <p class="description">When enabled, Nexus searches previous conversations and injects relevant snippets into every prompt automatically.</p>
+  </section>
+
+  <section class="settings-section" id="context-section">
+    <hr />
+    <h2>Context Window</h2>
+    <p class="section-description">Controls how much conversation history is injected into each prompt. Higher values give the agent more memory but use more tokens per request.</p>
+
+    <div class="setting-row">
+      <label>Max Context (chars)</label>
+      <input type="number" id="context-maxChars" min="10000" max="500000" step="10000" value="${contextMaxChars}" />
+      <span class="setting-hint">Characters of conversation history sent to the agent per task. Default: 100,000.</span>
+    </div>
+
+    <div class="setting-row">
+      <label>Max Messages</label>
+      <input type="number" id="context-maxMessages" min="4" max="50" value="${contextMaxMessages}" />
+      <span class="setting-hint">Number of past messages included in context. Default: 20.</span>
+    </div>
   </section>
 
   <section class="settings-section" id="subagents-section">
@@ -481,6 +529,48 @@ export function getSettingsHtml(
       <label>Timeout (ms)</label>
       <input type="number" id="subagents-timeoutMs" min="5000" max="120000" value="${subagentsTimeoutMs}" />
       <span class="setting-hint">Timeout per subagent run in milliseconds.</span>
+    </div>
+  </section>
+
+  <section class="settings-section" id="review-steps-section">
+    <hr />
+    <h2>Review Steps</h2>
+    <p class="section-description">
+      Choose which analysis agents run during code review.
+      All steps are enabled by default (best practice).
+    </p>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-reviewer" ${reviewStepReviewer ? 'checked' : ''} />
+        Reviewer &mdash; Bug &amp; Correctness
+      </label>
+      <span class="setting-hint">Checks for bugs, regressions, and logic errors</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-tester" ${reviewStepTester ? 'checked' : ''} />
+        Test Analyst &mdash; Test Coverage
+      </label>
+      <span class="setting-hint">Identifies missing or weak test cases</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-security" ${reviewStepSecurity ? 'checked' : ''} />
+        Security &mdash; Security Analysis
+      </label>
+      <span class="setting-hint">Scans for security vulnerabilities and risky patterns</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="review-step-architect" ${reviewStepArchitect ? 'checked' : ''} />
+        Architect &mdash; Architecture &amp; OOP/OOD
+      </label>
+      <span class="setting-hint">Reviews layer structure, coupling, design patterns, technical debt</span>
+    </div>
+    <div class="setting-row">
+      <label class="setting-label" for="review-maxDiffChars">Max Diff Size (characters)</label>
+      <input type="number" id="review-maxDiffChars" value="${reviewMaxDiffChars}" min="5000" max="500000" step="5000" style="width:120px" />
+      <span class="setting-hint">Maximum characters of git diff loaded for review. Larger values cover more of the diff but increase prompt size. (5,000 – 500,000)</span>
     </div>
   </section>
 
@@ -624,8 +714,24 @@ export function getSettingsHtml(
           selectedRoles: base.subagents ? (base.subagents.selectedRoles || []) : [],
           modeOverrides: base.subagents ? (base.subagents.modeOverrides || {}) : {},
         };
+        const reviewSteps = {
+          reviewer:  document.getElementById('review-step-reviewer').checked,
+          tester:    document.getElementById('review-step-tester').checked,
+          security:  document.getElementById('review-step-security').checked,
+          architect: document.getElementById('review-step-architect').checked,
+        };
+        const reviewSettings = {
+          maxDiffChars: parseInt(document.getElementById('review-maxDiffChars').value, 10) || 60000,
+        };
+        const contextSettings = {
+          maxChars:    parseInt(document.getElementById('context-maxChars').value, 10) || 100000,
+          maxMessages: parseInt(document.getElementById('context-maxMessages').value, 10) || 20,
+        };
+        const projectMapSettings = {
+          addToGitignore: document.getElementById('projectmap-add-gitignore').checked,
+        };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config });
+        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, reviewSettings: reviewSettings, contextSettings: contextSettings, projectMapSettings: projectMapSettings });
       });
 
       window.addEventListener('message', function (event) {

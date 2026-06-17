@@ -7,7 +7,8 @@
     "settings": "Cài đặt",
     "about": "Giới thiệu",
     "switchLang": "Switch to English",
-    "chat": "Chat"
+    "chat": "Chat",
+    "reviewHistory": "Lịch sử review"
   },
   "provider": {
     "autoDetect": "Tự động phát hiện",
@@ -75,6 +76,10 @@
     "scan-project": {
       "label": "Quét dự án",
       "desc": "Phân tích workspace"
+    },
+    "agent": {
+      "label": "Chế độ Agent",
+      "desc": "Agent lập trình toàn diện với phê duyệt kế hoạch"
     }
   },
   "agent": {
@@ -88,7 +93,8 @@
       "plan": "Lập kế hoạch",
       "test": "Agent kiểm thử",
       "scan-project": "Quét dự án",
-      "brainstorm": "Brainstorm"
+      "brainstorm": "Brainstorm",
+      "agent": "Chế độ Agent"
     },
     "statusRunning": "Đang chạy",
     "statusDone": "✓ Xong",
@@ -172,6 +178,7 @@
     "cmdCompact": "Tóm tắt cuộc trò chuyện để giảm context",
     "cmdShowCompact": "Hiển thị tóm tắt compact hiện tại",
     "cmdClearCompact": "Xóa tóm tắt compact",
+    "cmdReloadCommands": "Tải lại danh sách workflow command",
     "charCount": "{{n}} ký tự",
     "promptTooLong": "Prompt quá dài ({{n}} ký tự) — cân nhắc dùng đính kèm file",
     "formAriaLabel": "Khung soạn tin nhắn",
@@ -254,6 +261,16 @@
       "summarize": "Tóm tắt AI",
       "read-source-context": "Đọc source code",
       "debug-prepare": "Phân tích tín hiệu lỗi",
+      "debug-parse": "Phân tích tín hiệu lỗi",
+      "debug-bm25-retrieval": "Tìm kiếm cục bộ (BM25)",
+      "debug-strategy": "Truy xuất chiến lược",
+      "debug-tool-select": "Chọn lệnh xác minh",
+      "debug-investigate": "Điều tra (ReAct)",
+      "debug-plan": "Xây dựng kế hoạch sửa lỗi",
+      "debug-approval-gate": "Chờ phê duyệt",
+      "debug-apply-fix": "Áp dụng bản sửa",
+      "debug-verify": "Xác minh",
+      "debug-summary": "Tóm tắt debug",
       "review-files": "Đọc file thay đổi",
       "search": "Tìm kiếm",
       "plan": "Lên kế hoạch",
@@ -266,7 +283,19 @@
       "subagent-debugger": "Phân tích lỗi",
       "subagent-docs": "Tài liệu",
       "subagent-product": "Ngữ cảnh sản phẩm",
-      "subagent-research": "Nghiên cứu"
+      "subagent-research": "Nghiên cứu",
+      "agent-scan": "Quét dự án",
+      "agent-plan": "Tạo kế hoạch thực hiện",
+      "agent-approval": "Chờ phê duyệt",
+      "agent-checkpoint": "Tạo checkpoint",
+      "agent-edit": "Thực hiện thay đổi",
+      "agent-test": "Chạy kiểm thử",
+      "agent-fix": "Sửa lỗi kiểm thử",
+      "agent-review": "Đánh giá thay đổi",
+      "agent-diff": "Thu thập diff",
+      "agent-summary": "Tạo báo cáo cuối",
+      "code-review-context": "Xây dựng ngữ cảnh review",
+      "subagent-architect": "Đánh giá kiến trúc"
     },
     "activities": {
       "read": "Đọc tệp",
@@ -365,6 +394,107 @@
       "tokens": "Tokens"
     }
   },
+  "codeReview": {
+    "panelTitle": "Báo cáo review code",
+    "tabSummary": "Tổng quan",
+    "tabFindings": "Phát hiện",
+    "tabFiles": "Tệp thay đổi",
+    "verdict": "Kết luận",
+    "architectureVerdict": "Kiến trúc",
+    "architectureSummary": "Tóm tắt kiến trúc",
+    "architectureFindings": "Vấn đề kiến trúc",
+    "changedFiles": "Tệp thay đổi",
+    "noChangedFiles": "Không có tệp thay đổi.",
+    "evidence": "Bằng chứng",
+    "whyItMatters": "Tại sao quan trọng",
+    "violatedPrinciple": "Nguyên tắc vi phạm",
+    "recommendation": "Đề xuất",
+    "refactorRecommendation": "Đề xuất tái cấu trúc",
+    "suggestedPattern": "Pattern đề xuất",
+    "migrationRisk": "Rủi ro di chuyển",
+    "priority": "Ưu tiên",
+    "blocking": "Chặn merge",
+    "openFile": "Mở tệp",
+    "copyRecommendation": "Sao chép đề xuất",
+    "copyPatch": "Sao chép patch",
+    "createFixTask": "Tạo task sửa",
+    "createFixTaskHint": "Tạo task sửa lỗi từ phát hiện này",
+    "applyFixWithApproval": "Áp dụng (cần phê duyệt)",
+    "applyFixApprovalHint": "Tạo kế hoạch sửa, cần phê duyệt trước khi áp dụng",
+    "exportReport": "Xuất báo cáo",
+    "filterBySeverity": "Lọc theo mức độ",
+    "filterByCategory": "Lọc theo loại",
+    "filterByFile": "Lọc theo tệp",
+    "allSeverities": "Tất cả mức độ",
+    "allCategories": "Tất cả loại",
+    "allFiles": "Tất cả tệp",
+    "subagentSection": "Phân tích Subagent",
+    "subagentConfidence": "Độ tin cậy",
+    "subagentRisks": "Rủi ro",
+    "subagentTopFindings": "Phát hiện chính",
+    "tabArchitecture": "Kiến trúc",
+    "searchPlaceholder": "Tìm kiếm phát hiện...",
+    "generatedAt": "Tạo lúc",
+    "target": "Mục tiêu",
+    "noFindings": "Không có phát hiện nào.",
+    "openReport": "Mở Report",
+    "historyTitle": "Lịch sử Code Review",
+    "noHistory": "Chưa có review nào",
+    "clearHistory": "Xóa lịch sử",
+    "confirmClear": "Xác nhận xóa",
+    "findings": "phát hiện",
+    "overviewSection": "Tổng quan",
+    "findingsSection": "Danh sách lỗi",
+    "colSeverity": "Mức độ",
+    "colCategory": "Loại",
+    "colTitle": "Mô tả",
+    "colLocation": "Vị trí",
+    "selectHistory": "Chọn lịch sử review",
+    "verdicts": {
+      "approve": "Phê duyệt",
+      "approve-with-comments": "Phê duyệt có nhận xét",
+      "request-changes": "Yêu cầu sửa đổi"
+    },
+    "architectureVerdicts": {
+      "healthy": "Tốt",
+      "acceptable-with-debt": "Chấp nhận được (có nợ kỹ thuật)",
+      "needs-refactor": "Cần tái cấu trúc",
+      "architecture-blocker": "Chặn do kiến trúc"
+    },
+    "architectureScore": {
+      "title": "Điểm kiến trúc",
+      "riskLevel": "Mức rủi ro",
+      "coupling": "Coupling",
+      "cohesion": "Cohesion",
+      "abstraction": "Abstraction",
+      "testability": "Testability",
+      "extensibility": "Extensibility",
+      "readability": "Readability"
+    },
+    "categories": {
+      "bug": "Bug",
+      "security": "Bảo mật",
+      "performance": "Hiệu năng",
+      "test": "Kiểm thử",
+      "maintainability": "Bảo trì",
+      "architecture": "Kiến trúc",
+      "oop": "OOP",
+      "ood": "OOD",
+      "design-pattern": "Design Pattern",
+      "coupling": "Coupling",
+      "cohesion": "Cohesion",
+      "dependency-direction": "Hướng phụ thuộc",
+      "abstraction": "Abstraction",
+      "complexity": "Độ phức tạp",
+      "technical-debt": "Nợ kỹ thuật",
+      "style": "Phong cách",
+      "docs": "Tài liệu",
+      "typing": "Typing",
+      "dependency": "Dependency",
+      "config": "Config",
+      "ux": "UX"
+    }
+  },
   "streaming": {
     "queued": "Đang chờ",
     "planning": "Đang lên kế hoạch",
@@ -400,6 +530,11 @@
     "toggle": "Output thô",
     "ariaLabel": "Output thô từ provider"
   },
+  "reasoning": {
+    "title": "Quá trình suy luận",
+    "titleGrok": "Suy luận của Grok",
+    "toggle": "Hiện/ẩn suy luận"
+  },
   "historySearch": {
     "ragBadge": "{{count}} nguồn lịch sử",
     "ragOn": "Auto-RAG: Bật",
@@ -412,5 +547,151 @@
     "statusFailed": "Thất bại",
     "tooltipBalanced": "Tự động · Cân bằng · tối đa 4",
     "tooltipDefault": "Chạy các pre-agent chuyên biệt trước agent chính. Cần bật Nexus Subagents trong Settings."
+  },
+  "agentMode": {
+    "panelTitle": "Chế độ Agent",
+    "sessionStatus": {
+      "created": "Phiên đã tạo",
+      "scanning": "Đang quét dự án",
+      "planning": "Đang lên kế hoạch",
+      "waiting_approval": "Chờ phê duyệt",
+      "checkpointing": "Đang tạo checkpoint",
+      "executing": "Đang thực hiện thay đổi",
+      "testing": "Đang chạy kiểm thử",
+      "recovering": "Đang khắc phục lỗi",
+      "reviewing": "Đang đánh giá thay đổi",
+      "collecting_diff": "Đang thu thập diff",
+      "completed": "Hoàn thành",
+      "failed": "Thất bại",
+      "cancelled": "Đã hủy"
+    },
+    "stepStatus": {
+      "pending": "Chờ",
+      "running": "Đang chạy",
+      "completed": "Xong",
+      "failed": "Thất bại",
+      "skipped": "Bỏ qua"
+    },
+    "timeline": {
+      "title": "Dòng thời gian",
+      "empty": "Chưa có sự kiện"
+    },
+    "approval": {
+      "title": "Xem xét kế hoạch thực hiện",
+      "description": "Agent Mode sẽ không chỉnh sửa file cho đến khi bạn phê duyệt kế hoạch này.",
+      "summary": "Tóm tắt",
+      "filesToRead": "File cần đọc",
+      "filesToEdit": "File cần chỉnh sửa",
+      "filesToCreate": "File cần tạo",
+      "filesToDelete": "File cần xóa",
+      "commands": "Lệnh cần chạy",
+      "risks": "Rủi ro",
+      "assumptions": "Giả định",
+      "testStrategy": "Chiến lược kiểm thử",
+      "rollback": "Chiến lược khôi phục",
+      "docsImpact": "Ảnh hưởng tài liệu",
+      "securityImpact": "Ảnh hưởng bảo mật",
+      "complexity": "Độ phức tạp ước tính",
+      "complexityLow": "Thấp",
+      "complexityMedium": "Trung bình",
+      "complexityHigh": "Cao",
+      "approveButton": "Phê duyệt & Chạy",
+      "rejectButton": "Từ chối",
+      "copyPlan": "Sao chép kế hoạch",
+      "planText": "Nội dung kế hoạch"
+    },
+    "commandApproval": {
+      "title": "Cần phê duyệt lệnh",
+      "command": "Lệnh",
+      "cwd": "Thư mục làm việc",
+      "risk": "Mức rủi ro",
+      "reason": "Lý do",
+      "riskLow": "Thấp",
+      "riskMedium": "Trung bình",
+      "riskHigh": "Cao",
+      "riskBlocked": "Bị chặn",
+      "approveButton": "Phê duyệt",
+      "rejectButton": "Từ chối"
+    },
+    "checkpoint": {
+      "title": "Checkpoint đã tạo",
+      "id": "ID checkpoint",
+      "type": "Loại"
+    },
+    "testResult": {
+      "title": "Kết quả kiểm thử",
+      "passed": "Tất cả test đã qua",
+      "failed": "Test thất bại",
+      "duration": "Thời gian",
+      "commands": "Lệnh đã chạy"
+    },
+    "review": {
+      "title": "Đánh giá code",
+      "passed": "Đánh giá đạt",
+      "failed": "Đánh giá tìm thấy vấn đề",
+      "findings": "Phát hiện",
+      "severity": {
+        "info": "Thông tin",
+        "warning": "Cảnh báo",
+        "error": "Lỗi"
+      },
+      "category": {
+        "bug": "Bug",
+        "security": "Bảo mật",
+        "test": "Kiểm thử",
+        "docs": "Tài liệu",
+        "maintainability": "Khả năng bảo trì",
+        "scope": "Phạm vi"
+      }
+    },
+    "diff": {
+      "title": "File đã thay đổi",
+      "added": "thêm",
+      "deleted": "xóa",
+      "modified": "sửa",
+      "renamed": "đổi tên",
+      "truncated": "Diff bị cắt ngắn do kích thước",
+      "lines": "{{added}} thêm, {{deleted}} xóa"
+    },
+    "finalSummary": {
+      "title": "Chế độ Agent hoàn thành",
+      "statusCompleted": "Hoàn thành",
+      "statusFailed": "Thất bại",
+      "statusWarnings": "Hoàn thành với cảnh báo",
+      "task": "Nhiệm vụ",
+      "implementation": "Tóm tắt thực hiện",
+      "changedFiles": "File đã thay đổi",
+      "warnings": "Cảnh báo",
+      "nextSteps": "Bước tiếp theo"
+    }
+  },
+  "subagentTrace": {
+    "title": "Review Agents",
+    "running": "đang phân tích...",
+    "completed": "hoàn thành",
+    "failed": "lỗi",
+    "waiting": "đang chờ...",
+    "findingsCount": "{{count}} phát hiện",
+    "confidence": "{{value}}%"
+  },
+  "permission": {
+    "waitingStatus": "Đang chờ xác nhận...",
+    "riskLow": "Rủi ro thấp",
+    "riskMedium": "Rủi ro trung bình",
+    "riskHigh": "Rủi ro cao",
+    "riskBlocked": "Bị chặn",
+    "labelAction": "Hành động",
+    "labelTarget": "Mục tiêu",
+    "labelCommand": "Lệnh",
+    "labelDirectory": "Thư mục",
+    "labelReason": "Lý do",
+    "showDiff": "Hiển thị xem trước diff",
+    "hideDiff": "Ẩn xem trước diff",
+    "blockedMsg": "Hành động này bị chặn theo chính sách và không thể được phê duyệt.",
+    "approve": "Phê duyệt",
+    "autoApproveSession": "Tự động phê duyệt phiên",
+    "autoApproveSessionTitle": "Tự động phê duyệt loại hành động này cho phần còn lại của phiên",
+    "reject": "Từ chối",
+    "dismiss": "Bỏ qua"
   }
 }

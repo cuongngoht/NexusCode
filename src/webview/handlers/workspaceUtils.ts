@@ -28,5 +28,9 @@ export function normalizeDroppedPath(raw: string): string {
     p = p.slice(7);
   }
   try { p = decodeURIComponent(p); } catch { /* ignore */ }
+  // Webview may send /C:/... (leading slash) for Windows paths already stripped of file://
+  if (process.platform === 'win32' && /^\/[A-Za-z]:[\\/]/.test(p)) {
+    p = p.slice(1);
+  }
   return path.normalize(p);
 }

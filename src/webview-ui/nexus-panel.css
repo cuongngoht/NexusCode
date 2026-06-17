@@ -1044,6 +1044,59 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* Pure-CSS drag indicator — shows immediately via direct DOM classList, no React re-render needed */
+.nx-panel.nx-drag-active::after {
+  content: '';
+  position: fixed;
+  inset: 4px;
+  z-index: 9998;
+  border: 2px dashed var(--colorBrandStroke1);
+  border-radius: 6px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--colorBrandBackground) 8%, transparent);
+}
+
+.nx-global-drop-overlay {
+  position: fixed;
+  inset: 4px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--colorBrandBackground) 12%, transparent);
+  border: 2px dashed var(--colorBrandStroke1);
+  border-radius: 6px;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--colorBrandForeground1);
+  gap: 10px;
+}
+
+.nx-drop-icon-badge-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nx-drop-plus-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--colorBrandBackground);
+  color: var(--colorNeutralForegroundOnBrand);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  display: block;
+}
+
 .fl-cmp-box--drag {
   border-color: var(--colorBrandStroke1);
   box-shadow: 0 0 0 1px var(--colorBrandStroke1);
@@ -1546,6 +1599,96 @@ html, body, #root {
 }
 
 /* ============================================================
+   REVIEW HISTORY PANEL
+   ============================================================ */
+.nx-review-history-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-bottom: 1px solid var(--vscode-panel-border);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.nx-review-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  position: sticky;
+  top: 0;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  z-index: 1;
+}
+.nx-review-history-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+}
+.nx-review-history-clear {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.nx-review-history-clear:hover {
+  color: var(--vscode-errorForeground);
+}
+.nx-review-history-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  justify-content: center;
+  align-items: center;
+}
+.nx-review-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  transition: background 0.1s;
+}
+.nx-review-history-item:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.nx-review-history-item-active {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+.nx-review-history-item-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.nx-review-history-item-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.nx-review-history-branch {
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-descriptionForeground);
+}
+.nx-review-history-date {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+.nx-review-history-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ============================================================
    GIT STATUS PANEL
    ============================================================ */
 .nx-git {
@@ -1843,6 +1986,47 @@ html, body, #root {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 260px;
+}
+
+/* Per-agent differentiated response: reasoning / thought trace (collapsible) */
+.nx-reasoning {
+  margin: 6px 0 8px;
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: 6px;
+  background: var(--colorNeutralBackground2);
+  font-size: 12.5px;
+}
+.nx-reasoning[open] {
+  background: var(--colorNeutralBackground1);
+}
+.nx-reasoning-summary {
+  cursor: pointer;
+  padding: 4px 8px;
+  user-select: none;
+  font-weight: 500;
+  color: var(--colorNeutralForeground2);
+  list-style: none;
+}
+.nx-reasoning-summary::-webkit-details-marker {
+  display: none;
+}
+.nx-reasoning-summary::before {
+  content: '▸ ';
+  display: inline-block;
+  width: 1em;
+  transition: transform 0.1s ease;
+}
+.nx-reasoning[open] .nx-reasoning-summary::before {
+  transform: rotate(90deg);
+}
+.nx-reasoning-body {
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--colorNeutralStroke1);
+  max-height: 320px;
+  overflow: auto;
+}
+.nx-reasoning-body .nx-markdown {
+  font-size: 12.5px;
 }
 
 /* ============================================================
@@ -4798,6 +4982,74 @@ html, body, #root {
   user-select: none;
 }
 
+/* Review report card inline in assistant message */
+.nx-review-report-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--nx-radius-sm, 4px);
+  background: var(--nx-bg-muted);
+  border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+}
+
+.nx-review-report-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nx-review-finding-pill {
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.nx-pill-blocker  { background: rgba(220, 50, 50, 0.18); color: #e05555; }
+.nx-pill-critical { background: rgba(220, 120, 50, 0.18); color: #d47a40; }
+.nx-pill-major    { background: rgba(200, 160, 50, 0.18); color: #c8a040; }
+.nx-pill-total    { background: var(--nx-bg-subtle, rgba(128,128,128,0.1)); color: var(--nx-text-muted); }
+.nx-pill-security { background: rgba(180, 50, 180, 0.18); color: #b040b0; }
+
+.nx-review-arch-pill {
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.nx-arch-good { background: rgba(50, 180, 80, 0.18); color: #3ab050; }
+.nx-arch-warn { background: rgba(200, 160, 50, 0.18); color: #c8a040; }
+.nx-arch-bad  { background: rgba(220, 50, 50, 0.18); color: #e05555; }
+
+.nx-review-preset-note {
+  font-size: 11px;
+  color: var(--nx-text-muted);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.nx-review-open-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--nx-radius-sm, 4px);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nx-review-open-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
 /* Subagent trace panel */
 .subagent-trace-panel {
   font-size: 11px;
@@ -4848,4 +5100,53 @@ html, body, #root {
 .subagent-trace-agent {
   opacity: 0.5;
   font-size: 10px;
+}
+
+/* SubagentTraceView */
+.nx-subagent-trace {
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
+  background: var(--vscode-editor-background);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.nx-subagent-trace-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+}
+.nx-subagent-trace-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.nx-subagent-trace-status {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.nx-subagent-trace-item--running .nx-subagent-trace-status { color: var(--vscode-progressBar-background); }
+.nx-subagent-trace-item--completed .nx-subagent-trace-status { color: var(--vscode-testing-iconPassed, #73c991); }
+.nx-subagent-trace-item--failed .nx-subagent-trace-status { color: var(--vscode-testing-iconFailed, #f14c4c); }
+.nx-subagent-trace-name {
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  min-width: 100px;
+}
+.nx-subagent-trace-meta {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Review Report Container */
+.nx-review-report-container {
+  margin: 0 8px 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
 }

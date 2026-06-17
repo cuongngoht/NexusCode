@@ -42,6 +42,17 @@
       }
     },
     {
+      // Build CLI + cài global + mở nexus console với breakpoint
+      "name": "Debug: nexus console",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/out/cli/index.js",
+      "args": [],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "sourceMaps": true,
+      "preLaunchTask": "install:cli:global"
+    },
+    {
       // Debug nexus map CLI với breakpoint trên TypeScript source
       "name": "Debug: nexus map",
       "type": "node",

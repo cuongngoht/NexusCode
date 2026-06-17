@@ -2,10 +2,11 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { Menu, MenuTrigger, MenuList, MenuItem, MenuPopover } from '@fluentui/react-components';
 import { IconAdd, IconStop, IconDoc, IconClose, IconArrowUp, IconAgent } from '../NexusIcons';
 import { useT, interp } from '../i18n';
-import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState } from '../messages';
+import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, ProviderInfo, GitReviewContext, PromptAttachment, AgentPrompt, AgentMentionState, SkillPrompt, SkillMentionState, CommandDef } from '../messages';
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 import { ErrorBanner } from './ErrorBanner';
+import { filterPromptReferenceCandidates } from '../../context/promptReferenceCompletion';
 
 type RiskLevel = 'readonly' | 'plan' | 'mutate';
 
@@ -19,6 +20,7 @@ const MODE_RISK: Record<TaskMode, RiskLevel> = {
   edit: 'mutate',
   debug: 'mutate',
   test: 'mutate',
+  agent: 'mutate',
 };
 
 const RISK_DOT_CLASS: Record<RiskLevel, string> = {
@@ -63,6 +65,8 @@ interface Props {
   onReloadSkills: () => void;
   onResearchCommand: (action: 'done' | 'current' | 'next' | 'list' | 'reload') => void;
   onCompactCommand: (action: 'compact' | 'show' | 'clear') => void;
+  commandDefs: CommandDef[];
+  onReloadCommands: () => void;
 }
 
 interface SlashCommand {
@@ -74,6 +78,11 @@ interface SlashCommand {
 interface SlashMention {
   query: string;
   selectedIndex: number;
+}
+
+function nextSelectionIndex(current: number, delta: 1 | -1, length: number): number {
+  if (length <= 0) return 0;
+  return (current + delta + length) % length;
 }
 
 export interface ComposerRef {
@@ -96,6 +105,7 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   skillPrompts, skillMention, onSkillMentionChange, onReloadSkills,
   onResearchCommand,
   onCompactCommand,
+  commandDefs, onReloadCommands,
 }: Props, ref) {
   const t = useT();
   const [prompt, setPrompt] = useState('');
@@ -104,7 +114,6 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [slashMention, setSlashMention] = useState<SlashMention | undefined>(undefined);
-  const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileSearchRef = useRef<HTMLInputElement>(null);
 
@@ -220,13 +229,26 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       description: t.composer.cmdClearCompact,
       run: () => { onCompactCommand('clear'); setPrompt(''); },
     },
+    {
+      id: 'reload-commands',
+      description: t.composer.cmdReloadCommands,
+      run: () => { onReloadCommands(); setPrompt(''); },
+    },
+    // Dynamic workflow commands loaded from media/commands/ files
+    ...commandDefs.map(def => ({
+      id: def.id,
+      description: def.description,
+      run: () => { onRun(def.promptTemplate, undefined, []); setPrompt(''); },
+    })),
   ], [
     onReloadAgents, onReloadSkills, onResearchCommand, onCompactCommand,
+    onReloadCommands, commandDefs, onRun,
     t.composer.cmdReloadAgents, t.composer.cmdReloadSkills,
     t.composer.cmdResearchDone, t.composer.cmdResearchCurrent,
     t.composer.cmdResearchNext, t.composer.cmdResearchList,
     t.composer.cmdResearchReload,
     t.composer.cmdCompact, t.composer.cmdShowCompact, t.composer.cmdClearCompact,
+    t.composer.cmdReloadCommands,
   ]);
 
   const handleRun = useCallback(() => {
@@ -252,22 +274,39 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   const filteredSlash = useMemo(() => {
     if (!slashMention) return [];
     const q = slashMention.query.toLowerCase();
-    return slashCommands.filter(c => c.id.startsWith(q));
+    return filterPromptReferenceCandidates(
+      slashCommands.map(command => ({
+        ...command,
+        title: command.description,
+      })),
+      q,
+      12,
+    );
   }, [slashCommands, slashMention]);
 
   const filteredAgents = useMemo(() => {
     if (!agentMention) return [];
-    const q = agentMention.query.toLowerCase();
-    return agentPrompts.filter(a =>
-      a.id.toLowerCase().startsWith(q) || a.displayName.toLowerCase().includes(q),
+    return filterPromptReferenceCandidates(
+      agentPrompts.map(agent => ({
+        ...agent,
+        title: agent.displayName,
+        description: agent.fileName,
+      })),
+      agentMention.query,
+      12,
     );
   }, [agentPrompts, agentMention]);
 
   const filteredSkills = useMemo(() => {
     if (!skillMention) return [];
-    const q = skillMention.query.toLowerCase();
-    return skillPrompts.filter(s =>
-      s.id.toLowerCase().startsWith(q) || s.displayName.toLowerCase().includes(q),
+    return filterPromptReferenceCandidates(
+      skillPrompts.map(skill => ({
+        ...skill,
+        title: skill.displayName,
+        description: skill.fileName,
+      })),
+      skillMention.query,
+      12,
     );
   }, [skillPrompts, skillMention]);
 
@@ -319,12 +358,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       if (slashMention && filteredSlash.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setSlashMention({ ...slashMention, selectedIndex: Math.min(slashMention.selectedIndex + 1, filteredSlash.length - 1) });
+          setSlashMention({ ...slashMention, selectedIndex: nextSelectionIndex(slashMention.selectedIndex, 1, filteredSlash.length) });
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setSlashMention({ ...slashMention, selectedIndex: Math.max(slashMention.selectedIndex - 1, 0) });
+          setSlashMention({ ...slashMention, selectedIndex: nextSelectionIndex(slashMention.selectedIndex, -1, filteredSlash.length) });
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
@@ -341,12 +380,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       if (agentMention && filteredAgents.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          onAgentMentionChange({ ...agentMention, selectedIndex: Math.min(agentMention.selectedIndex + 1, filteredAgents.length - 1) });
+          onAgentMentionChange({ ...agentMention, selectedIndex: nextSelectionIndex(agentMention.selectedIndex, 1, filteredAgents.length) });
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          onAgentMentionChange({ ...agentMention, selectedIndex: Math.max(agentMention.selectedIndex - 1, 0) });
+          onAgentMentionChange({ ...agentMention, selectedIndex: nextSelectionIndex(agentMention.selectedIndex, -1, filteredAgents.length) });
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
@@ -363,12 +402,12 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       if (skillMention && filteredSkills.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          onSkillMentionChange({ ...skillMention, selectedIndex: Math.min(skillMention.selectedIndex + 1, filteredSkills.length - 1) });
+          onSkillMentionChange({ ...skillMention, selectedIndex: nextSelectionIndex(skillMention.selectedIndex, 1, filteredSkills.length) });
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          onSkillMentionChange({ ...skillMention, selectedIndex: Math.max(skillMention.selectedIndex - 1, 0) });
+          onSkillMentionChange({ ...skillMention, selectedIndex: nextSelectionIndex(skillMention.selectedIndex, -1, filteredSkills.length) });
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
@@ -431,24 +470,29 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
-    dragCounter.current++;
+    e.stopPropagation();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = () => {
-    if (--dragCounter.current === 0) setIsDragOver(false);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
+    const next = (e.relatedTarget as Node) || null;
+    if (next && (e.currentTarget as Node).contains(next)) return;
+    setIsDragOver(false);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    dragCounter.current = 0;
+    e.stopPropagation();
     setIsDragOver(false);
-    const paths = extractDroppedPaths(e);
+    const paths = extractDroppedPaths(e.dataTransfer);
+    console.log('[Composer] handleDrop extracted paths:', paths);
     if (paths.length > 0) onResolveDroppedFiles(paths);
   };
 
@@ -672,7 +716,10 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       >
         {isDragOver && (
           <div className="fl-cmp-drop-overlay" aria-hidden="true">
-            <IconDoc size={16} />
+            <div className="nx-drop-icon-badge-wrap">
+              <IconDoc size={20} />
+              <span className="nx-drop-plus-badge">+</span>
+            </div>
             <span>{t.composer.dropHere}</span>
           </div>
         )}
@@ -732,7 +779,7 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
               </MenuTrigger>
               <MenuPopover>
                 <MenuList>
-                  {(['ask', 'edit', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
+                  {(['ask', 'edit', 'agent', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project'] as TaskMode[]).map(m => {
                     const modeT = (t.mode as Record<string, { label: string; desc: string }>)[m];
                     const fit = modeFitMap.get(m);
                     const isUnsupported = fit === 'unsupported';
@@ -836,23 +883,67 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   );
 });
 
-function extractDroppedPaths(e: React.DragEvent): string[] {
+export function extractDroppedPaths(dt: DataTransfer): string[] {
   const paths: string[] = [];
-  // Electron File objects expose an absolute .path property
-  for (const file of Array.from(e.dataTransfer.files)) {
+
+  // 1. Electron File objects (when available) expose absolute .path
+  for (const file of Array.from(dt.files)) {
     const p = (file as unknown as { path?: string }).path;
     if (p) paths.push(p);
   }
-  // Fallback: text/uri-list (VS Code Explorer drag or non-Electron)
-  if (paths.length === 0) {
-    const uriList = e.dataTransfer.getData('text/uri-list');
-    for (const line of uriList.split(/\r?\n/)) {
-      const uri = line.trim();
-      if (!uri || uri.startsWith('#')) continue;
-      if (uri.startsWith('file://')) {
-        try { paths.push(decodeURIComponent(uri.replace(/^file:\/\//, ''))); } catch { /* ignore */ }
+
+  // 2. VS Code Explorer uses application/vnd.code.uri-list internally
+  try {
+    const codeUriList = dt.getData('application/vnd.code.uri-list') || '';
+    if (codeUriList) {
+      for (const line of codeUriList.split(/\r?\n/)) {
+        const uri = line.trim();
+        if (!uri || uri.startsWith('#')) continue;
+        if (/^(?:file|vscode-file):\/\//i.test(uri)) {
+          let p = uri.replace(/^(?:file|vscode-file):\/+/i, '/');
+          try { p = decodeURIComponent(p); } catch { /* keep original */ }
+          if (p && !paths.includes(p)) paths.push(p);
+        }
       }
     }
+  } catch { /* ignore */ }
+
+  // 3. Always also harvest from text/uri-list (Explorer drags, Finder, non-Electron webviews, folders)
+  //    Merge with primary so we don't lose anything.
+  try {
+    const uriList = dt.getData('text/uri-list') || '';
+    for (const line of uriList.split(/\r?\n/)) {
+      let uri = line.trim();
+      if (!uri || uri.startsWith('#')) continue;
+
+      // Support file://, file:///, file://localhost/, and vscode-file: variants
+      if (/^file:\/\//i.test(uri) || /^vscode-file:\/\//i.test(uri)) {
+        // Strip scheme + optional authority
+        let p = uri.replace(/^(?:file|vscode-file):\/+/i, '/');
+        // On Windows the result may be /C:/... — keep the leading / for path.normalize later
+        try {
+          p = decodeURIComponent(p);
+        } catch {
+          /* keep original if decode fails */
+        }
+        if (p && !paths.includes(p)) paths.push(p);
+      } else if (uri && !paths.includes(uri)) {
+        // Rare: plain path in the list
+        paths.push(uri);
+      }
+    }
+  } catch {
+    /* ignore getData errors */
   }
-  return paths;
+
+  // Deduplicate while preserving order
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const p of paths) {
+    if (!seen.has(p)) {
+      seen.add(p);
+      unique.push(p);
+    }
+  }
+  return unique;
 }

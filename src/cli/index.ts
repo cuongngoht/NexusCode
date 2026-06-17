@@ -6,6 +6,7 @@ import { runCommand } from './commands/runCommand';
 import { modelCommand } from './commands/modelCommand';
 import { doctorCommand } from './commands/doctorCommand';
 import { providerCommand } from './commands/providerCommand';
+import { startNexusConsole } from './console/NexusConsole';
 
 const program = new Command();
 
@@ -62,4 +63,11 @@ program
   .option('--json', 'Output JSON')
   .action(providerCommand);
 
-program.parse();
+if (process.argv.length <= 2) {
+  startNexusConsole().catch(err => {
+    process.stderr.write(`nexus console error: ${err}\n`);
+    process.exit(1);
+  });
+} else {
+  program.parse();
+}

@@ -38,6 +38,7 @@ const TASK_MODES: readonly TaskMode[] = [
   'debug',
   'test',
   'review',
+  'agent',
 ];
 
 type FitRanking = Partial<Record<AgentModeFit, readonly DirectAgentId[]>>;
@@ -86,6 +87,11 @@ const MODE_RANKINGS: Record<TaskMode, FitRanking> = {
     best: ['antigravity', 'codex'],
     good: ['grok', 'claude'],
     limited: ['copilot', 'aider', 'custom'],
+  },
+  agent: {
+    best: ['claude', 'codex'],
+    good: ['grok', 'aider'],
+    limited: ['antigravity', 'copilot', 'custom'],
   },
 };
 

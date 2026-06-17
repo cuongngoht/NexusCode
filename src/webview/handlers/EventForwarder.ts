@@ -31,7 +31,32 @@ export class EventForwarder {
         });
         break;
       case 'stdout':
-        this.post({ type: 'stdout', chunk: event.chunk });
+        if (!event.suppressChat) {
+          this.post({ type: 'stdout', chunk: event.chunk });
+        }
+        this._postNexus({
+          kind: 'provider.raw',
+          taskId: event.task.id,
+          timestamp: Date.now(),
+          provider: event.task.agentId,
+          mode: event.task.mode,
+          model: event.task.model,
+          chunk: event.chunk,
+          stream: 'stdout',
+        });
+        break;
+      case 'reasoning':
+        this.post({ type: 'reasoning', chunk: event.chunk });
+        this._postNexus({
+          kind: 'step.reasoning',
+          taskId: event.task.id,
+          timestamp: Date.now(),
+          provider: event.task.agentId,
+          mode: event.task.mode,
+          model: event.task.model,
+          text: event.chunk,
+        });
+        // Also surface in raw log for full fidelity (extracted reasoning tokens)
         this._postNexus({
           kind: 'provider.raw',
           taskId: event.task.id,
@@ -191,6 +216,59 @@ export class EventForwarder {
       case 'summarize_completed':
       case 'summarize_error':
         // These events do not have corresponding webview messages — handled elsewhere if needed
+        break;
+      case 'debug_state_changed':
+        // Internal state machine telemetry — not user-visible for now.
+        break;
+
+      case 'debug_bm25_results': {
+        const lines = event.results.map(r => `  - ${r.path} (score ${r.score.toFixed(2)}${r.reason ? ` — ${r.reason}` : ''})`).join('\n');
+        this.post({ type: 'stdout', chunk: `\n[BM25] Top results:\n${lines}\n` });
+        break;
+      }
+
+      case 'debug_evidence_found': {
+        const lines = event.evidence.map(e => `  - ${e}`).join('\n');
+        this.post({ type: 'stdout', chunk: `\n[Evidence collected]\n${lines}\n` });
+        break;
+      }
+
+      case 'debug_plan_ready':
+      case 'debug_approval_required':
+        // These drive the shared PlanReadyCard via the dual 'plan_ready_for_approval' emit
+        // done inside DebugPlanStep. No extra action here.
+        break;
+
+      case 'debug_verification_started':
+        this.post({ type: 'stdout', chunk: `\n[Verification] Running: ${event.command ?? '(unknown)'}\n` });
+        break;
+
+      case 'debug_verification_completed': {
+        const status = event.succeeded ? 'succeeded' : 'failed';
+        const out = event.output ? `\n${event.output}\n` : '';
+        this.post({ type: 'stdout', chunk: `\n[Verification ${status}]${out}` });
+        break;
+      }
+
+      case 'debug_summary_ready':
+        this.post({ type: 'stdout', chunk: `\n${event.summary}\n` });
+        break;
+
+      case 'subagent_started':
+        this.post({ type: 'subagentStarted', runId: event.runId, role: event.role, displayName: event.displayName });
+        break;
+      case 'subagent_completed':
+        this.post({
+          type: 'subagentCompleted',
+          runId: event.runId,
+          role: event.role,
+          durationMs: event.durationMs,
+          confidence: event.confidence,
+          findingCount: event.findingCount,
+        });
+        break;
+      case 'subagent_failed':
+        this.post({ type: 'subagentFailed', runId: event.runId, role: event.role, durationMs: event.durationMs, error: event.error });
         break;
     }
   }

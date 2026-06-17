@@ -22,9 +22,17 @@ export class AntigravityAgent extends BaseAgent {
 
   protected readonly executableName = 'agy';
 
+  // Review mode uses jsonOnly output (structured JSON, not natural-language narrative),
+  // so suppress the raw JSON from the chat stream — Report Panel parses it directly.
+  readonly suppressChatStreamModes: ReadonlyArray<string> = ['review'];
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];
     if (task.model) args.push('--model', task.model);
+    if (task.mode === 'review') {
+      // Large diffs + many reads; default agy print timeout is 5m.
+      args.push('--print-timeout', '20m');
+    }
     args.push('--prompt', task.enhancedPrompt, '--dangerously-skip-permissions');
     if (process.env.NEXUS_DEBUG === '1') {
       console.log('[AntigravityAgent] buildCommand', {
