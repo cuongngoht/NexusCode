@@ -43,7 +43,8 @@ describe('ensureWorkspaceSkills', () => {
     const dir = getWorkspaceSkillsDir(tmpDir);
     const files = fs.readdirSync(dir);
     expect(files.length).toBeGreaterThan(0);
-    expect(files.every(f => f.endsWith('.md'))).toBe(true);
+    // bundled skills include both .md files and subdirectory-based skills
+    expect(files.some(f => f.endsWith('.md'))).toBe(true);
   });
 
   it('does not overwrite existing workspace skill files', () => {

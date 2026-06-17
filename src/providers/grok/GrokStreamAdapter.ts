@@ -116,10 +116,6 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
   private _currentPhase: string | null = null;
   // Track whether we've transitioned from thought → text phase (to close Thinking chip once).
   private _inTextPhase = false;
-  // Buffer partial text tokens until a newline, ensuring code fences (```lang) arrive as
-  // a single line. Without this, Grok emits ` `` + `csharp` + `\n` as separate tokens,
-  // which the line-based renderer joins as `\n`\n`\ncsharp — breaking markdown fences.
-  private _lineBuffer = '';
 
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
     const rawText = frame.data;
@@ -202,9 +198,6 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
       // ── Grok final text tokens (streamed one token at a time) ──────────────
       // Grok streaming-json emits {"type":"text","data":"word"} for each output token.
       // Close the Thinking chip on the first text token (thought→text transition).
-      // Buffer tokens until we see \n so that code fences (```lang) arrive as one
-      // complete line — the UI joins OutputLines with \n, so each OutputLine must be
-      // a logically complete unit (not half of a code-fence marker).
       if (type === 'text') {
         const text = typeof obj.data === 'string' ? obj.data : extractText(obj);
         if (text === null) return [];
@@ -216,19 +209,7 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
             this._currentPhase = null;
           }
         }
-        if (text) {
-          this._lineBuffer += text;
-          const lastNl = this._lineBuffer.lastIndexOf('\n');
-          if (lastNl !== -1) {
-            // Emit everything up to and including the last newline as one delta.
-            events.push({ kind: 'content_delta', text: this._lineBuffer.slice(0, lastNl + 1) });
-            this._lineBuffer = this._lineBuffer.slice(lastNl + 1);
-          } else if (this._lineBuffer.length > 120) {
-            // Fallback: flush long lines without newline so streaming feels responsive.
-            events.push({ kind: 'content_delta', text: this._lineBuffer });
-            this._lineBuffer = '';
-          }
-        }
+        if (text) events.push({ kind: 'content_delta', text });
         return events;
       }
 
@@ -246,19 +227,10 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
   }
 
   flush(): AgentStreamEvent[] {
-    const events: AgentStreamEvent[] = [];
-    if (this._lineBuffer) {
-      events.push({ kind: 'content_delta', text: this._lineBuffer });
-      this._lineBuffer = '';
-    }
-    if (!this._currentPhase) {
-      events.push({ kind: 'stream_done' });
-      return events;
-    }
+    if (!this._currentPhase) return [{ kind: 'stream_done' }];
     const name = this._currentPhase;
     this._currentPhase = null;
     return [
-      ...events,
       { kind: 'tool_result', toolName: name, status: 'done', toolKind: undefined },
       { kind: 'stream_done' },
     ];
