@@ -32,3 +32,10 @@ Avoid:
 - vague comments, formatting nitpicks, subjective preferences
 - large refactor suggestions without concrete evidence
 - recommending patterns just because they are popular
+
+Evaluate Performance:
+- N+1 query patterns (loops that issue a query per iteration)
+- unbounded loops or unconstrained data fetching with no limit/pagination
+- synchronous operations that block the event loop and should be async
+- unnecessary re-renders in UI components (missing memoization, unstable references)
+- missing pagination on list endpoints that could return unbounded result sets
