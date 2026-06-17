@@ -9,6 +9,7 @@ import { readNexusConsoleLine } from './NexusConsoleInput';
 import { ensureWorkspaceAgents } from '../../context/agentPromptLibrary';
 import { ensureWorkspaceSkills } from '../../context/skillPromptLibrary';
 import { ensureWorkspaceCommands } from '../../context/commandPromptLibrary';
+import { ensureWorkspacePrompts } from '../../context/promptLibrary';
 
 export interface StartNexusConsoleOptions {
   root?: string;
@@ -39,6 +40,7 @@ function ensureConsolePromptReferences(workspaceRoot: string): void {
   ensureWorkspaceAgents(workspaceRoot, extensionRoot);
   ensureWorkspaceSkills(workspaceRoot, extensionRoot);
   ensureWorkspaceCommands(workspaceRoot, extensionRoot);
+  ensureWorkspacePrompts(workspaceRoot, extensionRoot, 'modes/review-code');
 }
 
 export async function startNexusConsole(options: StartNexusConsoleOptions = {}): Promise<void> {

@@ -18,6 +18,7 @@ import { buildPromptAttachmentContext } from '../../context/promptAttachments';
 import { listAgentPrompts, loadAgentPromptBundle } from '../../context/agentPromptLibrary';
 import { parseAgentMentions } from '../../context/agentMentionParser';
 import { listSkillPrompts, loadSkillPromptBundle } from '../../context/skillPromptLibrary';
+import { ensureWorkspacePrompts } from '../../context/promptLibrary';
 import { parseSkillMentions } from '../../context/skillMentionParser';
 import { scanWorkspace } from '../../context/workspaceScanner';
 import { detectPackageInfo } from '../../context/packageDetector';
@@ -640,7 +641,8 @@ export class RunTaskHandler {
         this.post({ type: 'codeReviewProgress', reportId: 'pending', message: suggestion.reason });
       }
 
-      let reviewPrompt = new CodeReviewPromptBuilder(this.extensionPath).build({
+      ensureWorkspacePrompts(workspaceRoot, this.extensionPath, 'modes/review-code');
+      let reviewPrompt = new CodeReviewPromptBuilder(this.extensionPath, workspaceRoot).build({
         context: reviewCtx,
         userPrompt: ctx.originalPrompt || undefined,
         preset,
@@ -760,15 +762,15 @@ export class RunTaskHandler {
 
       // Synthesize from subagent results when available — skip main agent if successful
       if (ctx.subagentResults && ctx.subagentResults.length > 0) {
-        this.eventBus.emit({ kind: 'activity_started', activityKind: 'tool_call', label: 'Synthesizing findings' });
+        this.eventBus.emit({ kind: 'activity_started', task, activityKind: 'tool_call', label: 'Synthesizing findings' });
         const report = new CodeReviewSynthesizer().synthesize(ctx.subagentResults, reviewTarget);
         if (report) {
-          this.eventBus.emit({ kind: 'activity_done', activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
+          this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
           this.emitFinalReport(report, cfg);
           this.eventBus.emit({ kind: 'step_completed', stepLabel });
           return; // Report is complete — no need to run the main agent
         }
-        this.eventBus.emit({ kind: 'activity_done', activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
+        this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
       }
 
       // Fall back to streaming parser (no subagents or synthesis produced no findings)

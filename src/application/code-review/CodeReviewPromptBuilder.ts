@@ -154,9 +154,20 @@ Architecture review is mandatory regardless of preset, but the depth of architec
 }
 
 export class CodeReviewPromptBuilder {
-  constructor(private readonly extensionRoot?: string) {}
+  constructor(
+    private readonly extensionRoot?: string,
+    private readonly workspaceRoot?: string,
+  ) {}
 
   private loadSection(name: string, fallback: string): string {
+    // Workspace override: users can edit .nexus/prompts/modes/review-code/{name}.md
+    if (this.workspaceRoot) {
+      try {
+        const wsPath = path.join(this.workspaceRoot, '.nexus', 'prompts', 'modes', 'review-code', `${name}.md`);
+        const content = fs.readFileSync(wsPath, 'utf8').trim();
+        if (content) return content;
+      } catch { /* not customised — try bundled */ }
+    }
     if (this.extensionRoot) {
       try {
         const filePath = path.join(this.extensionRoot, 'media', 'prompts', 'modes', 'review-code', `${name}.md`);
