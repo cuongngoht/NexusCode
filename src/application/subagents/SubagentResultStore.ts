@@ -24,7 +24,6 @@ export interface SubagentResult {
   readonly confidence?: number;
   readonly files?: string[];
   readonly findings?: SubagentFinding[];
-  readonly rawOutput?: string;
 }
 
 export interface SubagentRunTrace {

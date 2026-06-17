@@ -1,10 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
-import type { PipelineContext } from '../../core/pipeline/PipelineContext';
-import type { NexusEvent } from '../../core/events/IEventBus';
-import { detectDefaultBaseBranch } from '../../git/gitBranch';
+import type { IPipelineStep } from '../../../core/pipeline/IPipelineStep';
+import type { PipelineContext } from '../../../core/pipeline/PipelineContext';
+import type { NexusEvent } from '../../../core/events/IEventBus';
+import { detectDefaultBaseBranch } from '../../../git/gitBranch';
 
 const MAX_FILE_CHARS = 5_000;
 const MAX_TOTAL_CHARS = 25_000;

@@ -27,8 +27,8 @@ export class SubagentExecutor {
   ): Promise<SubagentResult> {
     const start = Date.now();
     try {
-      const template = this.loadTemplate(def.promptFile, ctx.mode, def.role);
-      const prompt = this.buildPrompt(template, ctx, def.role);
+      const template = this.loadTemplate(def.promptFile);
+      const prompt = this.buildPrompt(template, ctx);
 
       const task = new AgentTask(
         prompt,
@@ -53,7 +53,6 @@ export class SubagentExecutor {
         role: def.role,
         agentId: agent.id,
         compactOutput: this.summary.compact(raw.trim(), maxChars),
-        rawOutput: def.role === 'reviewer' ? raw : undefined,
         durationMs: Date.now() - start,
       };
     } catch (err) {
@@ -84,11 +83,8 @@ export class SubagentExecutor {
     await this.runner.stop();
   }
 
-  private loadTemplate(promptFile: string, mode?: string, role?: string): string {
-    const file = (mode === 'review' && role === 'reviewer')
-      ? 'subagents/reviewer-code-review.md'
-      : promptFile;
-    const filePath = path.join(this.extensionPath, 'media', file);
+  private loadTemplate(promptFile: string): string {
+    const filePath = path.join(this.extensionPath, 'media', promptFile);
     try {
       return fs.readFileSync(filePath, 'utf8');
     } catch {
@@ -96,7 +92,7 @@ export class SubagentExecutor {
     }
   }
 
-  private buildPrompt(template: string, ctx: PipelineContext, role?: string): string {
+  private buildPrompt(template: string, ctx: PipelineContext): string {
     const parts = [template.trim()];
 
     if (ctx.projectMap) {
@@ -104,7 +100,7 @@ export class SubagentExecutor {
       parts.push(`\n# Project Overview\n${preview}`);
     }
 
-    if (ctx.reviewFileContents && role === 'reviewer') {
+    if (ctx.reviewFileContents && ctx.mode === 'review') {
       parts.push(`\n# Changed Files\n${ctx.reviewFileContents}`);
     }
 

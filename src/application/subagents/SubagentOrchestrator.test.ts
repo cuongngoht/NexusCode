@@ -91,7 +91,7 @@ describe('SubagentOrchestrator', () => {
     expect(planner.plan).toHaveBeenNthCalledWith(2, { ...cfg, maxCharsPerResult: 1000 });
   });
 
-  it('sets ctx.codeReviewRawOutput when reviewer subagent returns rawOutput', async () => {
+  it('returns reviewer subagent result in results array', async () => {
     const { orchestrator } = makeOrchestrator({
       plan: [reviewerDef],
       agent: makeAgent(),
@@ -100,7 +100,6 @@ describe('SubagentOrchestrator', () => {
       role: 'reviewer',
       agentId: 'codex',
       compactOutput: '{"summary":"ok","verdict":"approve","findings":[]}',
-      rawOutput: '{"summary":"ok","verdict":"approve","findings":[]}',
       durationMs: 1,
     });
 
@@ -126,8 +125,10 @@ describe('SubagentOrchestrator', () => {
       maxCharsPerResult: 1000,
     };
 
-    await orchestrator.run(ctx, vi.fn(), cfg, 0, 1);
+    const results = await orchestrator.run(ctx, vi.fn(), cfg, 0, 1);
 
-    expect(ctx.codeReviewRawOutput).toBe('{"summary":"ok","verdict":"approve","findings":[]}');
+    expect(results).toHaveLength(1);
+    expect(results[0].role).toBe('reviewer');
+    expect(results[0].compactOutput).toBe('{"summary":"ok","verdict":"approve","findings":[]}');
   });
 });

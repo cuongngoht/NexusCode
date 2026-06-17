@@ -112,10 +112,6 @@ export class SubagentOrchestrator {
             const elapsed = Date.now() - subagentStartMs;
             results.push(result);
 
-            if (result.rawOutput && def.role === 'reviewer') {
-              ctx.codeReviewRawOutput = result.rawOutput;
-            }
-
             if (result.error) {
               emit({ kind: 'subagent_failed', role: def.role, runId: ctx.providerId + '-' + def.role, durationMs: elapsed, error: result.error });
               emit({ kind: 'step_error', stepLabel, error: result.error });

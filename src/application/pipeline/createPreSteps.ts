@@ -4,7 +4,7 @@ import { ScanProjectStep } from './ScanProjectStep';
 import { ReadSourceContextStep } from './ReadSourceContextStep';
 import { BrainstormAgentsStep } from './BrainstormAgentsStep';
 import { DebugPreStep } from './DebugPreStep';
-import { ReviewFileContextStep } from './ReviewFileContextStep';
+import { ReviewFileContextStep } from './review/ReviewFileContextStep';
 
 export type PreStepDeps = {
   extensionPath: string;

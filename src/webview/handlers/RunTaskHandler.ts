@@ -30,6 +30,7 @@ import { CodeReviewResultParser } from '../../application/code-review/CodeReview
 import { materializeReviewOutput } from '../../application/code-review/materializeReviewOutput';
 import { CodeReviewPolicy } from '../../application/code-review/CodeReviewPolicy';
 import { CodeReviewArchitecturePolicy } from '../../application/code-review/CodeReviewArchitecturePolicy';
+import { CodeReviewSynthesizer } from '../../application/code-review/synthesis/CodeReviewSynthesizer';
 import type { CodeReviewPreset } from '../../application/code-review/CodeReviewPromptBuilder';
 import type { CodeReviewTarget } from '../../application/code-review/CodeReviewTarget';
 import type { CodeReviewReport } from '../../application/code-review/CodeReviewReport';
@@ -735,7 +736,21 @@ export class RunTaskHandler {
     }
 
     if (mode === 'review') {
-      this.setupCodeReviewListener(task, cfg, ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' }, ctx.codeReviewRawOutput);
+      const reviewTarget = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
+
+      // Synthesize from subagent results when available
+      if (ctx.subagentResults && ctx.subagentResults.length > 0) {
+        const report = new CodeReviewSynthesizer().synthesize(ctx.subagentResults, reviewTarget);
+        if (report) {
+          this.emitFinalReport(report, cfg);
+          ctx.codeReviewRawOutput = '__synthesized__';
+        }
+      }
+
+      // Only fall back to streaming parser when synthesis did not run
+      if (ctx.codeReviewRawOutput !== '__synthesized__') {
+        this.setupCodeReviewListener(task, cfg, reviewTarget);
+      }
     }
 
     try {
@@ -750,7 +765,6 @@ export class RunTaskHandler {
     task: AgentTask,
     cfg: vscode.WorkspaceConfiguration,
     target: CodeReviewTarget,
-    prebuiltOutput?: string,
   ): void {
     const stdoutChunks: string[] = [];
     const stderrChunks: string[] = [];
@@ -781,14 +795,13 @@ export class RunTaskHandler {
       ) {
         cleanup();
         if (event.kind === 'task_completed') {
-          const rawFromStream = materializeReviewOutput({
+          const rawOutput = materializeReviewOutput({
             stdoutText: stdoutChunks.join(''),
             stderrText: stderrChunks.join(''),
             reasoningText: reasoningChunks.join(''),
             processStdout: event.result.stdout,
             agentId: task.agentId,
           });
-          const rawOutput = prebuiltOutput || rawFromStream;
           this.emitCodeReviewReport(rawOutput, cfg, target);
         }
       }
@@ -812,6 +825,18 @@ export class RunTaskHandler {
     this.eventBus.on('task_completed', doneListener);
     this.eventBus.on('task_stopped', doneListener);
     this.eventBus.on('task_error', doneListener);
+  }
+
+  private emitFinalReport(report: CodeReviewReport, _cfg?: vscode.WorkspaceConfiguration): void {
+    this.post({ type: 'codeReviewReport', report });
+
+    // Save to review history (max 10)
+    const history = this.workspaceState.get<CodeReviewReport[]>('nexus.review.history') ?? [];
+    const updated = [report, ...history.filter(r => r.id !== report.id)].slice(0, 10);
+    void this.workspaceState.update('nexus.review.history', updated);
+    this.post({ type: 'reviewHistoryLoaded', reports: updated });
+
+    void ReviewPanel.createOrShow(this.extensionUri, this.workspaceState, report);
   }
 
   private emitCodeReviewReport(
@@ -843,37 +868,9 @@ export class RunTaskHandler {
         : undefined;
       const stats = policy.calculateStats(sorted);
 
-      const finalReport = {
-        ...report,
-        findings: sorted,
-        verdict,
-        architectureVerdict,
-        architectureScore,
-        stats,
-      };
-
-      // Update history state in webview (for history panel)
-      this.post({
-        type: 'codeReviewReport',
-        report: finalReport,
-      });
-
-      // Save to review history (max 10)
-      const history = this.workspaceState.get<CodeReviewReport[]>('nexus.review.history') ?? [];
-      const updated = [finalReport, ...history.filter(r => r.id !== finalReport.id)].slice(0, 10);
-      void this.workspaceState.update('nexus.review.history', updated);
-      this.post({ type: 'reviewHistoryLoaded', reports: updated });
-
-      // Always open the dedicated side panel
-      void ReviewPanel.createOrShow(
-        this.extensionUri,
-        this.workspaceState,
-        finalReport,
-      );
+      this.emitFinalReport({ ...report, findings: sorted, verdict, architectureVerdict, architectureScore, stats }, cfg);
     } catch (err) {
-      // Non-fatal — review report parsing failed, streaming output already shown
       console.error('[RunTaskHandler] Code review report parsing failed:', err);
-      // On error, fallback to chat display with error message
       this.post({
         type: 'codeReviewError',
         message: err instanceof Error ? err.message : String(err),
