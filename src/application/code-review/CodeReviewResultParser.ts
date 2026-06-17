@@ -106,11 +106,113 @@ function parseFindings(raw: unknown, policy: CodeReviewPolicy): CodeReviewFindin
   return findings;
 }
 
+interface ReviewFailureInfo {
+  title: string;
+  description: string;
+  recommendation: string;
+  severity: CodeReviewFinding['severity'];
+  blocking: boolean;
+}
+
+function detectReviewRunnerFailure(rawOutput: string): ReviewFailureInfo | null {
+  const text = rawOutput.trim();
+  if (!text) return null;
+
+  if (/session limit/i.test(text) || /hit your .*limit/i.test(text)) {
+    return {
+      title: 'Grok session limit reached',
+      description:
+        'The Grok CLI stopped before completing the review because the account session limit was reached.',
+      recommendation:
+        'Wait until the limit resets (see the message in Evidence), then run review again — or switch to another provider (Claude, Codex, etc.).',
+      severity: 'major',
+      blocking: true,
+    };
+  }
+
+  if (/rate limit/i.test(text) || /too many requests/i.test(text)) {
+    return {
+      title: 'AI reviewer rate limited',
+      description: 'The provider rejected the review request due to rate limiting.',
+      recommendation: 'Retry after a short wait or use a different model/provider.',
+      severity: 'major',
+      blocking: true,
+    };
+  }
+
+  if (/^Runner failed:/i.test(text)) {
+    return {
+      title: 'Review agent failed',
+      description: text.slice(0, 500),
+      recommendation: 'Check provider login, CLI installation, and extension logs, then retry.',
+      severity: 'critical',
+      blocking: true,
+    };
+  }
+
+  return null;
+}
+
+function looksLikeNarrativeReview(rawOutput: string): boolean {
+  const text = rawOutput.trim();
+  if (text.length < 80) return false;
+  return (
+    /```json/i.test(text) === false &&
+    (/(^|\n)#+\s/m.test(text) ||
+      /\*\*Correctness/i.test(text) ||
+      /Part 1|Narrative Review|Architecture & OOP/i.test(text))
+  );
+}
+
+function buildNarrativeOnlyReport(target: CodeReviewTarget, rawOutput: string): CodeReviewReport {
+  const policy = new CodeReviewPolicy();
+  const summary = rawOutput.trim().slice(0, 2000) || 'Review completed.';
+  return {
+    id: generateId(),
+    target,
+    summary,
+    verdict: 'approve-with-comments',
+    findings: [],
+    changedFiles: [],
+    stats: policy.calculateStats([]),
+    generatedAt: Date.now(),
+  };
+}
+
 function buildFallbackReport(
   target: CodeReviewTarget,
   rawOutput: string,
   errorMessage: string,
 ): CodeReviewReport {
+  const runnerFailure = detectReviewRunnerFailure(rawOutput);
+  if (runnerFailure) {
+    const policy = new CodeReviewPolicy();
+    const finding = policy.normalizeFinding({
+      severity: runnerFailure.severity,
+      category: 'maintainability',
+      title: runnerFailure.title,
+      description: runnerFailure.description,
+      recommendation: runnerFailure.recommendation,
+      evidence: rawOutput.slice(0, 500),
+      confidence: 1.0,
+      blocking: runnerFailure.blocking,
+    });
+    return {
+      id: generateId(),
+      target,
+      summary: runnerFailure.description,
+      verdict: 'request-changes',
+      findings: [finding],
+      changedFiles: [],
+      stats: policy.calculateStats([finding]),
+      generatedAt: Date.now(),
+    };
+  }
+
+  if (looksLikeNarrativeReview(rawOutput)) {
+    return buildNarrativeOnlyReport(target, rawOutput);
+  }
+
   const policy = new CodeReviewPolicy();
   const infoFinding = policy.normalizeFinding({
     severity: 'info',

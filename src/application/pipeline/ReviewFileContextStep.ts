@@ -111,8 +111,14 @@ export class ReviewFileContextStep implements IPipelineStep {
   readonly label = 'review-files';
 
   async execute(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
+    if (ctx.reviewTarget && ctx.reviewTarget.type !== 'branch') return;
+
     const base = ctx.baseBranch || detectDefaultBaseBranch(ctx.workspaceRoot);
     if (!base) return;
+    ctx.baseBranch = base;
+    ctx.reviewTarget = ctx.reviewTarget
+      ? { ...ctx.reviewTarget, baseBranch: ctx.reviewTarget.baseBranch ?? base }
+      : { type: 'branch', baseBranch: base };
 
     const changedFiles = getChangedFileStatuses(ctx.workspaceRoot, base);
     if (changedFiles.length === 0) return;

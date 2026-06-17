@@ -35,11 +35,20 @@ import { MementoHistoryIndexRepository } from '../context/history-search/index/M
 import { Bm25HistorySearchStrategy } from '../context/history-search/bm25/Bm25HistorySearchStrategy';
 import { InMemoryBm25Engine } from '../context/history-search/bm25/InMemoryBm25Engine';
 import { RagContextBuilder } from '../context/history-search/rag/RagContextBuilder';
-import { RagPromptInjector } from '../context/history-search/rag/RagPromptInjector';
 import { createDefaultDebugOrchestrator } from '../debug/orchestrator/DebugOrchestratorFactory';
 import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../review/ReviewPanel';
 import { PermissionService } from '../application/permissions/PermissionService';
+import type { ProviderId } from '../core/types';
+
+const PROVIDER_IDS = new Set<ProviderId>([
+  'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
+]);
+
+function normalizeProviderId(value: string | undefined): ProviderId {
+  if (value === 'gemini') return 'antigravity';
+  return PROVIDER_IDS.has(value as ProviderId) ? value as ProviderId : 'auto';
+}
 
 export class ChatController {
   private readonly disposables: vscode.Disposable[] = [];
@@ -73,7 +82,7 @@ export class ChatController {
     buildProjectMap: BuildProjectMapUseCase,
     configService: ConfigService,
     detector: ProviderDetector,
-    globalState: vscode.Memento,
+    private readonly globalState: vscode.Memento,
     historyStore: IChatHistoryStore,
     extensionPath: string = '',
     extensionUri: vscode.Uri,
@@ -93,8 +102,7 @@ export class ChatController {
     const bm25Strategy = new Bm25HistorySearchStrategy(bm25Engine);
     const historySearchService = new HistorySearchService(bm25Strategy, historyIndexBuilder, historyIndexRepo);
     const ragContextBuilder = new RagContextBuilder();
-    const ragPromptInjector = new RagPromptInjector();
-    this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder, ragPromptInjector);
+    this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder);
     this.historySearchHandler = new HistorySearchHandler(
       this.historyRagFacade,
       post,
@@ -106,7 +114,7 @@ export class ChatController {
     const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService);
     this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService);
     this.historyHandler  = new HistoryHandler(post, historyStore);
-    this.providerHandler = new ProviderHandler(post, detector, configService, globalState);
+    this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
     this.reviewHandler   = new ReviewHandler(post, workspaceState);
     this.attachmentHandler    = new AttachmentHandler(post);
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
@@ -208,6 +216,23 @@ export class ChatController {
           msg.attachments, msg.subagentsEnabled ?? false,
         );
         break;
+      case 'runCodeReview': {
+        const provider = normalizeProviderId(this.globalState.get<string>('nexus.lastProvider'));
+        await this.runTaskHandler.run(
+          msg.userPrompt ?? '',
+          provider,
+          'review',
+          undefined,
+          msg.target.baseBranch,
+          this.historyHandler.latestHistory,
+          undefined,
+          undefined,
+          true,
+          msg.target,
+          msg.preset,
+        );
+        break;
+      }
       case 'stopTask':            await this.runTaskHandler.stop(); break;
       case 'applyPlan':           await this.runTaskHandler.applyPlan(msg.mode, msg.model, msg.planPath, msg.provider); break;
       case 'rejectPlan':          await this.runTaskHandler.rejectPlan(msg.planPath); break;

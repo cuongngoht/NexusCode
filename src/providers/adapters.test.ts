@@ -72,6 +72,16 @@ describe('provider agents', () => {
     expect(cmd.args).toEqual(['--prompt', 'fix it', '--dangerously-skip-permissions']);
   });
 
+  it('extends print timeout for Antigravity review mode', () => {
+    const task = new AgentTask('review', 'review', 'antigravity', 'review');
+    const cmd = new AntigravityAgent().buildCommand(task);
+    expect(cmd.args).toEqual([
+      '--print-timeout', '20m',
+      '--prompt', 'review',
+      '--dangerously-skip-permissions',
+    ]);
+  });
+
   it('uses non-interactive prompt args for Copilot', () => {
     const cmd = new CopilotAgent().buildCommand(makeTask('fix it', 'gpt-5.2'));
     expect(cmd.executable).toBe('copilot');
@@ -87,7 +97,7 @@ describe('provider agents', () => {
   it('passes selected model to Grok', () => {
     const cmd = new GrokAgent().buildCommand(makeTask('fix it', 'grok-3'));
     expect(cmd.executable).toBe('grok');
-    expect(cmd.args).toEqual(['--output-format', 'streaming-json', '--disallowed-tools', 'run_terminal_cmd', '--model', 'grok-3', '--single', 'fix it']);
+    expect(cmd.args).toEqual(['--output-format', 'streaming-json', '--disallowed-tools', 'run_terminal_cmd,kill_task,get_task_output', '--model', 'grok-3', '--single', 'fix it']);
   });
 
   it('omits --model when no model is selected for Claude', () => {
@@ -112,7 +122,7 @@ describe('provider agents', () => {
   it('omits --model when no model is selected for Grok', () => {
     const cmd = new GrokAgent().buildCommand(makeTask('fix it'));
     expect(cmd.executable).toBe('grok');
-    expect(cmd.args).toEqual(['--output-format', 'streaming-json', '--disallowed-tools', 'run_terminal_cmd', '--single', 'fix it']);
+    expect(cmd.args).toEqual(['--output-format', 'streaming-json', '--disallowed-tools', 'run_terminal_cmd,kill_task,get_task_output', '--single', 'fix it']);
   });
 });
 

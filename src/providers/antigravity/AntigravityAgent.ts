@@ -22,9 +22,16 @@ export class AntigravityAgent extends BaseAgent {
 
   protected readonly executableName = 'agy';
 
+  // agy streams natural-language progress; hiding stdout in review mode leaves only a stuck ✏️ chip.
+  readonly suppressChatStreamModes: ReadonlyArray<string> = [];
+
   protected doBuildCommand(task: AgentTask): AgentCommand {
     const args: string[] = [];
     if (task.model) args.push('--model', task.model);
+    if (task.mode === 'review') {
+      // Large diffs + many reads; default agy print timeout is 5m.
+      args.push('--print-timeout', '20m');
+    }
     args.push('--prompt', task.enhancedPrompt, '--dangerously-skip-permissions');
     if (process.env.NEXUS_DEBUG === '1') {
       console.log('[AntigravityAgent] buildCommand', {

@@ -418,6 +418,8 @@ function detectCommunication(files: string[], folders: string[], allDeps: string
     protocol = 'gRPC (protobuf)';
   } else if (graphqlFiles.length > 0) {
     protocol = 'GraphQL';
+  } else if (swaggerFiles.length > 0) {
+    protocol = 'OpenAPI/Swagger';
   } else if (hasWebSocket) {
     protocol = 'WebSocket';
   } else if (apiFiles.length > 0) {

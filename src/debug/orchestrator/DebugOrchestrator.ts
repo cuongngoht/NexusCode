@@ -23,7 +23,6 @@ export interface DebugOrchestratorInput {
 }
 
 export class DebugOrchestrator {
-  private cancelled = false;
   private activeCtx: DebugChainContext | null = null;
 
   constructor(
@@ -32,7 +31,6 @@ export class DebugOrchestrator {
   ) {}
 
   async run(input: DebugOrchestratorInput): Promise<void> {
-    this.cancelled = false;
     const ctx = this.createContext(input);
     this.activeCtx = ctx;
     try {
@@ -43,7 +41,6 @@ export class DebugOrchestrator {
   }
 
   async stop(): Promise<void> {
-    this.cancelled = true;
     if (this.activeCtx) {
       this.activeCtx.cancelled = true;
     }

@@ -19,6 +19,10 @@ const AGY_NOISE_RE = [
 
 const READ_RE   = /\b(read|open|view|inspect|check|look at|examine|load|fetch)\b/i;
 const EDIT_RE   = /\b(edit|update|modify|write|create|add|change|fix|implement|apply)\b/i;
+
+/** Model prose like "I'll write the report to …" — not a tool invocation. */
+const REPORT_NARRATION_RE =
+  /\b(write|create)\b.+\b(report|review|summary|findings)\b/i;
 const BASH_RE   = /\b(run|execute|compile|build|install|test|launch|start)\b/i;
 const SEARCH_RE = /\b(search|grep|find|look for|scan)\b/i;
 
@@ -61,7 +65,7 @@ export class AntigravityStreamAdapter implements IProviderStreamAdapter {
       }
     }
 
-    if (action) {
+    if (action && !REPORT_NARRATION_RE.test(action)) {
       if (this._currentTool) {
         events.push({ kind: 'tool_result', toolName: this._currentTool.name, status: 'done', toolKind: this._currentTool.kind });
       }

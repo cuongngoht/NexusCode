@@ -30,6 +30,14 @@ describe('AntigravityStreamAdapter', () => {
     });
   });
 
+  it('does not open a tool chip for report narration ("write the report to …")', () => {
+    const line =
+      "I'll write the comprehensive architecture and code review report to the response.";
+    const events = adapter.adapt(lineFrame(line));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'content_delta', text: line });
+  });
+
   it("emits content_delta + tool_call for \"I will edit ...\"", () => {
     const events = adapter.adapt(lineFrame("I will edit the main.ts file"));
     expect(events).toHaveLength(2);

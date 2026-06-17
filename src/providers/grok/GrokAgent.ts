@@ -41,11 +41,14 @@ export class GrokAgent extends BaseAgent {
     //   get_task_output   — same dependency chain, crashes on spawn.
     const args: string[] = [
       '--output-format', 'streaming-json',
-      '--disallowed-tools', 'run_terminal_cmd',
-      '--disallowed-tools', 'kill_task',
-      '--disallowed-tools', 'get_task_output',
+      // CLI accepts a single --disallowed-tools with comma-separated names.
+      '--disallowed-tools', 'run_terminal_cmd,kill_task,get_task_output',
     ];
     if (task.model) args.push('--model', task.model);
+    if (task.mode === 'review') {
+      // Review prompts are large and multi-step; allow more agent turns before the CLI stops.
+      args.push('--max-turns', '80');
+    }
     args.push('--single', task.enhancedPrompt);
     return new AgentCommand('grok', args, undefined, undefined, task.enhancedPrompt, 'grok');
   }

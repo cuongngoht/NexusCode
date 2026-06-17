@@ -27,6 +27,7 @@ import { getGitStatus } from '../../git/gitStatus';
 import { CodeReviewContextBuilder } from '../../application/code-review/CodeReviewContextBuilder';
 import { CodeReviewPromptBuilder } from '../../application/code-review/CodeReviewPromptBuilder';
 import { CodeReviewResultParser } from '../../application/code-review/CodeReviewResultParser';
+import { materializeReviewOutput } from '../../application/code-review/materializeReviewOutput';
 import { CodeReviewPolicy } from '../../application/code-review/CodeReviewPolicy';
 import { CodeReviewArchitecturePolicy } from '../../application/code-review/CodeReviewArchitecturePolicy';
 import type { CodeReviewPreset } from '../../application/code-review/CodeReviewPromptBuilder';
@@ -78,6 +79,7 @@ const REVIEW_DEFAULT =
 
 export class RunTaskHandler {
   private _pipelineActive = false;
+  private _stopRequested = false;
 
   constructor(
     private readonly runAgent: RunAgentUseCase,
@@ -109,6 +111,8 @@ export class RunTaskHandler {
     conversationContext: string | undefined,
     attachments?: PromptAttachment[],
     subagentsEnabled = false,
+    reviewTarget?: CodeReviewTarget,
+    reviewPreset?: CodeReviewPreset,
   ): Promise<void> {
     if (!prompt.trim() && mode !== 'scan-project' && mode !== 'review') {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
@@ -130,6 +134,7 @@ export class RunTaskHandler {
     const enableEnhancement = cfg.get<boolean>('enablePromptEnhancement', true);
     const contextMaxChars = cfg.get<number>('context.maxChars', 100_000);
     const contextMaxMessages = cfg.get<number>('context.maxMessages', 20);
+    const resolvedReviewTarget = this.resolveReviewTarget(mode, baseBranch, cfg, reviewTarget);
 
     const ctx: PipelineContext = {
       workspaceRoot,
@@ -140,7 +145,9 @@ export class RunTaskHandler {
       enableEnhancement,
       enhancedPrompt: effectivePrompt,
       conversationContext: conversationContext ?? (latestHistory ? buildConversationContext(latestHistory, undefined, { maxChars: contextMaxChars, maxMessages: contextMaxMessages }) : undefined),
-      baseBranch: baseBranch || undefined,
+      baseBranch: resolvedReviewTarget?.baseBranch ?? baseBranch ?? undefined,
+      reviewTarget: resolvedReviewTarget,
+      isCancellationRequested: () => this._stopRequested,
     };
 
     const resolvedAttachments = attachments ?? [];
@@ -187,6 +194,7 @@ export class RunTaskHandler {
       }
     }
 
+    this._stopRequested = false;
     this._pipelineActive = true;
     try {
       // Agent Mode takes precedence over normal routing
@@ -253,7 +261,7 @@ export class RunTaskHandler {
 
       if (providerId === 'nexus') {
         if (enableEnhancement) {
-          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
+          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot);
         }
         // Route debug mode through the dedicated DebugOrchestrator
         if (mode === 'debug' && this.debugOrchestrator) {
@@ -305,11 +313,7 @@ export class RunTaskHandler {
         }
         await this.orchestrator.run(ctx, 'auto');
       } else {
-        const preSteps = createPreSteps(mode, {
-          extensionPath: this.extensionPath,
-        });
-
-        const subagentCfg = vscode.workspace.getConfiguration('nexus');
+        const subagentCfg = cfg;
         const subagentMode = subagentCfg.get<SubagentMode>('subagents.mode', 'auto');
         const subagentsOn = subagentsEnabled
           && !!this.subagentOrchestrator
@@ -333,6 +337,10 @@ export class RunTaskHandler {
           security:  reviewStepsCfg.get<boolean>('review.steps.security', true),
           architect: reviewStepsCfg.get<boolean>('review.steps.architect', true),
         } : undefined;
+
+        const preSteps = createPreSteps(mode, {
+          extensionPath: this.extensionPath,
+        });
 
         const planCfg: SubagentPlanConfig = {
           mode,
@@ -361,16 +369,12 @@ export class RunTaskHandler {
 
         if (subagentsOn && subagentCount > 0) {
           const runCfg: SubagentRunConfig = {
-            mode,
-            maxRuns: effectiveMaxRuns,
-            includeSecurity: subagentCfg.get<boolean>('subagents.includeSecurity', false),
-            includeDocs: subagentCfg.get<boolean>('subagents.includeDocs', false),
+            ...planCfg,
             maxCharsPerResult: 6000,
-            maxParallel: subagentCfg.get<number>('subagents.maxParallel', 2),
+            maxParallel: mode === 'review' ? 1 : subagentCfg.get<number>('subagents.maxParallel', 2),
             failOpen: subagentCfg.get<boolean>('subagents.failOpen', true),
             timeoutMs: subagentCfg.get<number>('subagents.timeoutMs', 30000),
             injectMaxChars: subagentCfg.get<number>('subagents.injectMaxChars', 8000),
-            intent,
           };
           const subResults = await this.subagentOrchestrator!.run(
             ctx,
@@ -379,12 +383,19 @@ export class RunTaskHandler {
             preSteps.length,
             totalSteps,
           );
-          ctx.subagentResults = subResults;
+          ctx.subagentResults = [
+            ...(ctx.subagentResults ?? []),
+            ...subResults,
+          ];
         }
 
+        if (this._stopRequested) return;
+
         if (enableEnhancement) {
-          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, baseBranch);
+          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, reviewPreset);
         }
+
+        if (this._stopRequested) return;
 
         await this.executeAgent(ctx, providerId, mode, model, preSteps.length + subagentCount, totalSteps, workspaceRoot, cfg);
       }
@@ -463,7 +474,11 @@ export class RunTaskHandler {
 
   async stop(): Promise<void> {
     if (!this.hasActive()) return; // no-op — no task is running
+    this._stopRequested = true;
     await this.runAgent.stop();
+    if (this.subagentOrchestrator) {
+      await this.subagentOrchestrator.stop();
+    }
     // Also cancel any in-flight debug orchestrator (ReAct investigation, searches, verification commands).
     // The debug path uses its own chain and does not go through runAgent for the investigation phase.
     if (this.debugOrchestrator) {
@@ -527,6 +542,32 @@ export class RunTaskHandler {
 
   // ─── Private pipeline helpers ──────────────────────────────────────────────
 
+  private resolveReviewTarget(
+    mode: TaskMode,
+    baseBranch: string | undefined,
+    cfg: vscode.WorkspaceConfiguration,
+    target?: CodeReviewTarget,
+  ): CodeReviewTarget | undefined {
+    if (mode !== 'review') return undefined;
+
+    if (target) {
+      if (target.type === 'branch') {
+        return {
+          ...target,
+          baseBranch: target.baseBranch ?? baseBranch ?? cfg.get<string>('review.defaultBaseBranch', 'main'),
+        };
+      }
+      return baseBranch && !target.baseBranch
+        ? { ...target, baseBranch }
+        : target;
+    }
+
+    return {
+      type: 'branch',
+      baseBranch: baseBranch ?? cfg.get<string>('review.defaultBaseBranch', 'main'),
+    };
+  }
+
   private async runPreSteps(
     steps: ReturnType<typeof createPreSteps>,
     ctx: PipelineContext,
@@ -536,6 +577,7 @@ export class RunTaskHandler {
     totalSteps: number,
   ): Promise<boolean> {
     for (let i = 0; i < steps.length; i++) {
+      if (this._stopRequested) return false;
       const step = steps[i];
       this.eventBus.emit({
         kind: 'step_started',
@@ -546,36 +588,57 @@ export class RunTaskHandler {
         mode: String(mode),
         model,
       });
+      const warningCountBefore = ctx.stepWarnings?.length ?? 0;
       try {
         await step.execute(ctx, e => this.eventBus.emit(e));
       } catch (err) {
+        if (this._stopRequested) {
+          this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: 'Task cancelled' });
+          return false;
+        }
         this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: String(err) });
         this.post({ type: 'taskError', taskId: 'pipeline', message: `${step.label} failed: ${String(err)}` });
         return false;
       }
-      this.eventBus.emit({ kind: 'step_completed', stepLabel: step.label });
+      if (this._stopRequested) {
+        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: 'Task cancelled' });
+        return false;
+      }
+      const warnings = (ctx.stepWarnings ?? []).slice(warningCountBefore)
+        .filter(w => w.stepLabel === step.label);
+      if (warnings.length > 0) {
+        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: warnings.map(w => w.message).join('\n') });
+      } else {
+        this.eventBus.emit({ kind: 'step_completed', stepLabel: step.label });
+      }
     }
     return true;
   }
 
-  private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, baseBranch?: string): string {
+  private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, reviewPreset?: CodeReviewPreset): string {
     const workspace = scanWorkspace(workspaceRoot);
     const packages = detectPackageInfo(workspaceRoot);
     const rules = loadRules(workspaceRoot);
 
     if (mode === 'review') {
       const vsCfg = vscode.workspace.getConfiguration('nexus');
-      const preset = (vsCfg.get<string>('review.defaultPreset', 'architecture')) as CodeReviewPreset;
+      const preset = reviewPreset ?? (vsCfg.get<string>('review.defaultPreset', 'architecture')) as CodeReviewPreset;
       const maxDiffChars = vsCfg.get<number>('review.maxDiffChars', 60000);
       const maxFileContextChars = vsCfg.get<number>('review.maxFileContextChars', 25000);
 
-      const target: CodeReviewTarget = { type: 'branch', baseBranch: baseBranch || 'main' };
+      const target: CodeReviewTarget = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
       const reviewCtx = new CodeReviewContextBuilder().build(workspaceRoot, target, { maxDiffChars, maxFileContextChars });
-      return new CodeReviewPromptBuilder().build({
+      let reviewPrompt = new CodeReviewPromptBuilder().build({
         context: reviewCtx,
         userPrompt: ctx.originalPrompt || undefined,
         preset,
       });
+      if (ctx.subagentResults && ctx.subagentResults.length > 0) {
+        const injectMaxChars = vscode.workspace.getConfiguration('nexus').get<number>('subagents.injectMaxChars', 8000);
+        const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults, { maxChars: injectMaxChars });
+        if (block) reviewPrompt = `${reviewPrompt}\n\n${block}`;
+      }
+      return reviewPrompt;
     }
 
     const planContent = loadPlanContent(workspaceRoot) || undefined;
@@ -672,7 +735,7 @@ export class RunTaskHandler {
     }
 
     if (mode === 'review') {
-      this.setupCodeReviewListener(task, workspaceRoot, cfg);
+      this.setupCodeReviewListener(task, cfg, ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' }, ctx.codeReviewRawOutput);
     }
 
     try {
@@ -685,14 +748,29 @@ export class RunTaskHandler {
 
   private setupCodeReviewListener(
     task: AgentTask,
-    workspaceRoot: string,
     cfg: vscode.WorkspaceConfiguration,
+    target: CodeReviewTarget,
+    prebuiltOutput?: string,
   ): void {
-    const chunks: string[] = [];
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    const reasoningChunks: string[] = [];
 
     const stdoutListener = (event: NexusEvent) => {
       if (event.kind === 'stdout' && event.task.id === task.id) {
-        chunks.push(event.chunk);
+        stdoutChunks.push(event.chunk);
+      }
+    };
+
+    const stderrListener = (event: NexusEvent) => {
+      if (event.kind === 'stderr' && event.task.id === task.id) {
+        stderrChunks.push(event.chunk);
+      }
+    };
+
+    const reasoningListener = (event: NexusEvent) => {
+      if (event.kind === 'reasoning' && event.task.id === task.id) {
+        reasoningChunks.push(event.chunk);
       }
     };
 
@@ -703,7 +781,15 @@ export class RunTaskHandler {
       ) {
         cleanup();
         if (event.kind === 'task_completed') {
-          this.emitCodeReviewReport(chunks.join(''), workspaceRoot, task, cfg);
+          const rawFromStream = materializeReviewOutput({
+            stdoutText: stdoutChunks.join(''),
+            stderrText: stderrChunks.join(''),
+            reasoningText: reasoningChunks.join(''),
+            processStdout: event.result.stdout,
+            agentId: task.agentId,
+          });
+          const rawOutput = prebuiltOutput || rawFromStream;
+          this.emitCodeReviewReport(rawOutput, cfg, target);
         }
       }
       if (event.kind === 'task_error' && event.task.id === task.id) {
@@ -713,12 +799,16 @@ export class RunTaskHandler {
 
     const cleanup = () => {
       this.eventBus.off('stdout', stdoutListener);
+      this.eventBus.off('stderr', stderrListener);
+      this.eventBus.off('reasoning', reasoningListener);
       this.eventBus.off('task_completed', doneListener);
       this.eventBus.off('task_stopped', doneListener);
       this.eventBus.off('task_error', doneListener);
     };
 
     this.eventBus.on('stdout', stdoutListener);
+    this.eventBus.on('stderr', stderrListener);
+    this.eventBus.on('reasoning', reasoningListener);
     this.eventBus.on('task_completed', doneListener);
     this.eventBus.on('task_stopped', doneListener);
     this.eventBus.on('task_error', doneListener);
@@ -726,13 +816,10 @@ export class RunTaskHandler {
 
   private emitCodeReviewReport(
     rawOutput: string,
-    workspaceRoot: string,
-    task: AgentTask,
     cfg: vscode.WorkspaceConfiguration,
+    target: CodeReviewTarget,
   ): void {
     try {
-      const baseBranch = cfg.get<string>('review.defaultBaseBranch', 'main');
-      const target: CodeReviewTarget = { type: 'branch', baseBranch };
       const blockBelow = cfg.get<number>('review.architectureScore.blockBelow', 50);
       const warnBelow = cfg.get<number>('review.architectureScore.warnBelow', 70);
 

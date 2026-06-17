@@ -14,21 +14,7 @@ function postReviewMessage(
   target: CodeReviewTarget,
   preset: CodeReviewPreset,
 ): void {
-  // Route through the existing webview message handler
-  // The ChatController already handles runTask which will route to review mode
-  // We use the direct code review flow via a dedicated message
-  const panel = (provider as unknown as { controller?: { post?: (msg: unknown) => void } }).controller;
-  if (panel?.post) {
-    panel.post({
-      type: 'runCodeReview',
-      target,
-      preset,
-    });
-  } else {
-    // Fallback: open the chat and let user trigger review manually
-    void vscode.commands.executeCommand('nexus.chatView.focus');
-    vscode.window.showInformationMessage('Open Nexus Chat and run a Review from there.');
-  }
+  void provider.runCodeReview(target, preset);
 }
 
 /**

@@ -63,4 +63,5 @@ describe('i18n key sync', () => {
     const viKeys = collectKeys(viMessages as Record<string, unknown>);
     expect(enKeys.length).toBe(viKeys.length);
   });
+
 });

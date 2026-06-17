@@ -42,6 +42,23 @@ export interface GitReviewContext {
   message?: string;
 }
 
+export type CodeReviewTargetType =
+  | 'working-tree'
+  | 'staged'
+  | 'branch'
+  | 'commit'
+  | 'file'
+  | 'selection';
+
+export interface CodeReviewTarget {
+  type: CodeReviewTargetType;
+  baseBranch?: string;
+  compareBranch?: string;
+  commitSha?: string;
+  filePath?: string;
+  selectedText?: string;
+}
+
 export interface PromptAttachment {
   type: 'file' | 'folder';
   /** Workspace-relative path — never absolute, never contains `..` */

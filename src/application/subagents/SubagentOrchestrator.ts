@@ -1,40 +1,46 @@
 import type { NexusEvent } from '../../core/events/IEventBus';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
-import type { TaskMode } from '../../core/types';
 import type { SubagentPlanner, SubagentPlanConfig } from './SubagentPlanner';
 import type { SubagentRouter } from './SubagentRouter';
 import type { SubagentExecutor } from './SubagentExecutor';
 import type { SubagentResult } from './SubagentResultStore';
-import type { SubagentIntent } from './SubagentIntentClassifier';
 import { buildDagPlan } from './SubagentDagPlanner';
-import { clampMaxParallel } from './SubagentPresetPolicy';
 
-export interface SubagentRunConfig {
-  mode: TaskMode;
-  maxRuns: number;
-  includeSecurity: boolean;
-  includeDocs: boolean;
+export interface SubagentRunConfig extends SubagentPlanConfig {
   maxCharsPerResult: number;
-  // New fields
-  maxParallel?: number;
   failOpen?: boolean;
   timeoutMs?: number;
   injectMaxChars?: number;
-  intent?: SubagentIntent;
 }
 
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   label: string,
+  onTimeout?: () => void | Promise<void>,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
+    let settled = false;
     const timer = setTimeout(() => {
-      reject(new Error(`Subagent '${label}' timed out after ${timeoutMs}ms`));
+      if (settled) return;
+      settled = true;
+      void Promise.resolve(onTimeout?.()).finally(() => {
+        reject(new Error(`Subagent '${label}' timed out after ${timeoutMs}ms`));
+      });
     }, timeoutMs);
     promise.then(
-      v => { clearTimeout(timer); resolve(v); },
-      e => { clearTimeout(timer); reject(e); },
+      v => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      e => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
+      },
     );
   });
 }
@@ -57,17 +63,13 @@ export class SubagentOrchestrator {
     stepOffset: number,
     totalSteps: number,
   ): Promise<SubagentResult[]> {
-    const defs = this.planner.plan({
-      mode: config.mode,
-      maxRuns: config.maxRuns,
-      includeSecurity: config.includeSecurity,
-      includeDocs: config.includeDocs,
-      intent: config.intent,
-    });
+    const defs = this.planner.plan(config);
 
     if (defs.length === 0) return [];
 
-    const maxParallel = clampMaxParallel(config.maxParallel ?? 2);
+    // SubagentExecutor is wired with one ProcessRunner today, so run serially to avoid
+    // competing child processes and cross-cancelling on timeout.
+    const maxParallel = 1;
     const failOpen = config.failOpen !== false;
     const timeoutMs = typeof config.timeoutMs === 'number' && config.timeoutMs > 0
       ? config.timeoutMs
@@ -105,10 +107,15 @@ export class SubagentOrchestrator {
 
           const subagentStartMs = Date.now();
           try {
-            const resultPromise = this.executor.execute(def, agent, ctx, config.maxCharsPerResult);
-            const result = await withTimeout(resultPromise, timeoutMs, role);
+            const resultPromise = this.executor.execute(def, agent, ctx, config.maxCharsPerResult, timeoutMs);
+            const result = await withTimeout(resultPromise, timeoutMs, role, () => this.executor.stop());
             const elapsed = Date.now() - subagentStartMs;
             results.push(result);
+
+            if (result.rawOutput && def.role === 'reviewer') {
+              ctx.codeReviewRawOutput = result.rawOutput;
+            }
+
             if (result.error) {
               emit({ kind: 'subagent_failed', role: def.role, runId: ctx.providerId + '-' + def.role, durationMs: elapsed, error: result.error });
               emit({ kind: 'step_error', stepLabel, error: result.error });

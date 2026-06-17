@@ -61,11 +61,20 @@ describe('CodeReviewResultParser', () => {
     expect(report.findings[0].title).toBe('Structured review parsing failed');
   });
 
-  it('markdown-only output creates fallback report', () => {
+  it('markdown-only output uses narrative summary without parse-failed finding', () => {
     const raw = '# Code Review\n\n## Findings\n\n- Major issue in foo.ts\n- Minor style issue in bar.ts';
     const report = parser.parse(raw, target);
     expect(report.verdict).toBe('approve-with-comments');
-    expect(report.findings[0].title).toBe('Structured review parsing failed');
+    expect(report.findings).toHaveLength(0);
+    expect(report.summary).toContain('Code Review');
+  });
+
+  it('detects Grok session limit and returns blocking finding', () => {
+    const raw = "You've hit your session limit · resets 2:20pm (Asia/Saigon)";
+    const report = parser.parse(raw, target);
+    expect(report.verdict).toBe('request-changes');
+    expect(report.findings[0].title).toBe('Grok session limit reached');
+    expect(report.findings[0].blocking).toBe(true);
   });
 
   it('confidence is clamped to 0-1', () => {

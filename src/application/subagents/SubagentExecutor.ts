@@ -23,11 +23,12 @@ export class SubagentExecutor {
     agent: IAgent,
     ctx: PipelineContext,
     maxChars: number,
+    idleTimeoutMs?: number,
   ): Promise<SubagentResult> {
     const start = Date.now();
     try {
-      const template = this.loadTemplate(def.promptFile);
-      const prompt = this.buildPrompt(template, ctx);
+      const template = this.loadTemplate(def.promptFile, ctx.mode, def.role);
+      const prompt = this.buildPrompt(template, ctx, def.role);
 
       const task = new AgentTask(
         prompt,
@@ -44,6 +45,7 @@ export class SubagentExecutor {
         cwd: ctx.workspaceRoot,
         onStdout: chunk => { chunks.push(chunk); },
         onStderr: () => { /* discard subagent stderr */ },
+        idleTimeoutMs,
       });
 
       const raw = chunks.join('');
@@ -51,6 +53,7 @@ export class SubagentExecutor {
         role: def.role,
         agentId: agent.id,
         compactOutput: this.summary.compact(raw.trim(), maxChars),
+        rawOutput: def.role === 'reviewer' ? raw : undefined,
         durationMs: Date.now() - start,
       };
     } catch (err) {
@@ -64,8 +67,28 @@ export class SubagentExecutor {
     }
   }
 
-  private loadTemplate(promptFile: string): string {
-    const filePath = path.join(this.extensionPath, 'media', promptFile);
+  async runRawPrompt(agent: IAgent, prompt: string, cwd: string, idleTimeoutMs?: number): Promise<string> {
+    const task = new AgentTask(prompt, prompt, agent.id, 'ask', undefined, cwd);
+    const command = agent.buildCommand(task);
+    const chunks: string[] = [];
+    await this.runner.run(command, {
+      cwd,
+      onStdout: chunk => { chunks.push(chunk); },
+      onStderr: () => {},
+      idleTimeoutMs,
+    });
+    return chunks.join('');
+  }
+
+  async stop(): Promise<void> {
+    await this.runner.stop();
+  }
+
+  private loadTemplate(promptFile: string, mode?: string, role?: string): string {
+    const file = (mode === 'review' && role === 'reviewer')
+      ? 'subagents/reviewer-code-review.md'
+      : promptFile;
+    const filePath = path.join(this.extensionPath, 'media', file);
     try {
       return fs.readFileSync(filePath, 'utf8');
     } catch {
@@ -73,12 +96,16 @@ export class SubagentExecutor {
     }
   }
 
-  private buildPrompt(template: string, ctx: PipelineContext): string {
+  private buildPrompt(template: string, ctx: PipelineContext, role?: string): string {
     const parts = [template.trim()];
 
     if (ctx.projectMap) {
       const preview = ctx.projectMap.slice(0, PROJECT_MAP_PREVIEW_CHARS);
       parts.push(`\n# Project Overview\n${preview}`);
+    }
+
+    if (ctx.reviewFileContents && role === 'reviewer') {
+      parts.push(`\n# Changed Files\n${ctx.reviewFileContents}`);
     }
 
     parts.push(`\n# Task\n${ctx.originalPrompt}`);
