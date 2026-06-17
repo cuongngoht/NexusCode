@@ -228,6 +228,9 @@ export const AssistantMessage = memo(function AssistantMessage({
             ? <StreamingStatusBar stage={message.streamingStage} label={message.streamingLabel} elapsed={message.elapsed} />
             : <StatusPill message={message} />
           }
+          {message.reviewProgressNote && (
+            <div className="nx-review-preset-note">{message.reviewProgressNote}</div>
+          )}
         </div>
 
         {!message.isStreaming && message.ragSources && message.ragSources.length > 0 && (
@@ -285,12 +288,35 @@ export const AssistantMessage = memo(function AssistantMessage({
 
         {!message.isStreaming && message.mode === 'review' && message.reviewReportId && message.reviewReportSnapshot && (
           <div className="nx-review-report-card">
-            <ReviewVerdictBadge verdict={message.reviewReportSnapshot.verdict as import('../../application/code-review/CodeReviewReport').CodeReviewVerdict} />
-            <span className="nx-review-report-stats">
-              B:{message.reviewReportSnapshot.blockerCount}
-              {' '}C:{message.reviewReportSnapshot.criticalCount}
-              {' '}M:{message.reviewReportSnapshot.majorCount}
-            </span>
+            <div className="nx-review-report-row">
+              <ReviewVerdictBadge verdict={message.reviewReportSnapshot.verdict as import('../../application/code-review/CodeReviewReport').CodeReviewVerdict} />
+              <span className="nx-review-finding-pill nx-pill-blocker" title="Blocker">B:{message.reviewReportSnapshot.blockerCount}</span>
+              <span className="nx-review-finding-pill nx-pill-critical" title="Critical">C:{message.reviewReportSnapshot.criticalCount}</span>
+              <span className="nx-review-finding-pill nx-pill-major" title="Major">M:{message.reviewReportSnapshot.majorCount}</span>
+              {message.reviewReportSnapshot.totalFindings > 0 && (
+                <span className="nx-review-finding-pill nx-pill-total" title="Total findings">{message.reviewReportSnapshot.totalFindings} findings</span>
+              )}
+            </div>
+            {message.reviewReportSnapshot.architectureScore !== undefined && (
+              <div className="nx-review-report-row">
+                <span
+                  className={[
+                    'nx-review-arch-pill',
+                    message.reviewReportSnapshot.architectureScore >= 70 ? 'nx-arch-good'
+                    : message.reviewReportSnapshot.architectureScore >= 50 ? 'nx-arch-warn'
+                    : 'nx-arch-bad',
+                  ].join(' ')}
+                  title="Architecture score"
+                >
+                  arch: {message.reviewReportSnapshot.architectureScore}
+                </span>
+                {message.reviewReportSnapshot.securityCount > 0 && (
+                  <span className="nx-review-finding-pill nx-pill-security" title="Security findings">
+                    sec: {message.reviewReportSnapshot.securityCount}
+                  </span>
+                )}
+              </div>
+            )}
             <button
               className="nx-review-open-btn"
               type="button"

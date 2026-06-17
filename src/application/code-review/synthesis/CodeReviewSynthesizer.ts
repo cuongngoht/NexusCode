@@ -29,15 +29,22 @@ export class CodeReviewSynthesizer {
     const architectureVerdict = this.archPolicy.calculateArchitectureVerdict(sorted, undefined);
     const stats = this.policy.calculateStats(sorted);
 
-    const roleNames = results
+    const successRoles = results
       .filter(r => !r.error && ReviewDimensionFactory.forRole(r.role))
-      .map(r => r.role)
-      .join(', ');
+      .map(r => r.role);
+    const timedOutRoles = results
+      .filter(r => r.error && /timed out/i.test(r.error))
+      .map(r => r.role);
+
+    const roleNames = successRoles.join(', ') || 'none';
+    const timeoutNote = timedOutRoles.length > 0
+      ? ` Note: ${timedOutRoles.join(', ')} timed out.`
+      : '';
 
     return {
       id: `synth-${Date.now()}`,
       target,
-      summary: `Multi-agent review (${roleNames}): ${sorted.length} finding(s).`,
+      summary: `Multi-agent review (${roleNames}): ${sorted.length} finding(s).${timeoutNote}`,
       verdict,
       architectureVerdict,
       findings: sorted,

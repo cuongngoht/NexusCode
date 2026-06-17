@@ -18,9 +18,14 @@ export class ReviewPanel {
     extensionUri: vscode.Uri,
     workspaceState: vscode.Memento,
     report: CodeReviewReport,
+    columnStr?: string,
   ): Promise<void> {
+    const column = columnStr === 'One' ? vscode.ViewColumn.One
+      : columnStr === 'Active' ? vscode.ViewColumn.Active
+      : vscode.ViewColumn.Two;
+
     if (ReviewPanel.instance) {
-      ReviewPanel.instance.panel.reveal(vscode.ViewColumn.Two);
+      ReviewPanel.instance.panel.reveal(column);
       await ReviewPanel.instance.updateReport(report);
       return;
     }
@@ -28,7 +33,7 @@ export class ReviewPanel {
     const panel = vscode.window.createWebviewPanel(
       ReviewPanel.viewType,
       'Code Review Report',
-      vscode.ViewColumn.Two,
+      column,
       {
         enableScripts: true,
         retainContextWhenHidden: true,

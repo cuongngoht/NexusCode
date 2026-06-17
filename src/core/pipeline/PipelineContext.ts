@@ -24,6 +24,7 @@ export type PipelineContext = {
   promptAttachments?: PromptAttachment[];
   attachmentContext?: string;
   subagentResults?: SubagentContextEntry[];
+  reviewEmptyDiff?: boolean;
   enhancedPrompt: string;
   codeReviewRawOutput?: string;
   stepWarnings?: Array<{ stepLabel: string; message: string }>;

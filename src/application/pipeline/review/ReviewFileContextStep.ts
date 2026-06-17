@@ -121,7 +121,10 @@ export class ReviewFileContextStep implements IPipelineStep {
       : { type: 'branch', baseBranch: base };
 
     const changedFiles = getChangedFileStatuses(ctx.workspaceRoot, base);
-    if (changedFiles.length === 0) return;
+    if (changedFiles.length === 0) {
+      ctx.reviewEmptyDiff = true;
+      return;
+    }
 
     const sections: string[] = [];
     let totalChars = 0;

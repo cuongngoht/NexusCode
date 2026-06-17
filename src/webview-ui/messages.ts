@@ -373,11 +373,16 @@ export interface AssistantMessage {
   elapsedMs?: number;
   taskId?: string;
   reviewReportId?: string;
+  reviewProgressNote?: string;
   reviewReportSnapshot?: {
     verdict: string;
     blockerCount: number;
     criticalCount: number;
     majorCount: number;
+    architectureScore?: number;
+    architectureVerdict?: string;
+    securityCount: number;
+    totalFindings: number;
   };
 }
 
@@ -1216,7 +1221,16 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       retrySourceMessageId: m.retrySourceMessageId,
       elapsed: m.elapsed,
       reviewReportId: m.reviewReportId,
-      reviewReportSnapshot: m.reviewReportSnapshot,
+      reviewReportSnapshot: m.reviewReportSnapshot ? {
+        verdict: m.reviewReportSnapshot.verdict,
+        blockerCount: m.reviewReportSnapshot.blockerCount,
+        criticalCount: m.reviewReportSnapshot.criticalCount,
+        majorCount: m.reviewReportSnapshot.majorCount,
+        architectureScore: (m.reviewReportSnapshot as { architectureScore?: number }).architectureScore,
+        architectureVerdict: (m.reviewReportSnapshot as { architectureVerdict?: string }).architectureVerdict,
+        securityCount: (m.reviewReportSnapshot as { securityCount?: number }).securityCount ?? 0,
+        totalFindings: (m.reviewReportSnapshot as { totalFindings?: number }).totalFindings ?? 0,
+      } : undefined,
     } satisfies AssistantMessage;
   });
   return {
@@ -1305,6 +1319,7 @@ function stageFromStepLabel(label: string): StreamingStage {
   const l = label.toLowerCase();
   if (l.includes('research')) return 'researching';
   if (l.includes('scan') || l.includes('read')) return 'reading';
+  if (l.includes('synthesize') || l.includes('synth')) return 'summarizing';
   if (l.includes('review')) return 'reviewing';
   if (l.includes('summar')) return 'summarizing';
   return 'planning';
@@ -2139,6 +2154,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
             blockerCount: report.findings.filter(f => f.severity === 'blocker').length,
             criticalCount: report.findings.filter(f => f.severity === 'critical').length,
             majorCount: report.findings.filter(f => f.severity === 'major').length,
+            architectureScore: report.architectureScore?.overall,
+            architectureVerdict: report.architectureVerdict,
+            securityCount: report.findings.filter(f => f.category === 'security').length,
+            totalFindings: report.findings.length,
           };
           updatedConversations = state.conversations.map(c =>
             c.id !== runConvId ? c : {
@@ -2163,9 +2182,28 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'codeReviewStarted':
-    case 'codeReviewProgress':
     case 'codeReviewError':
       return state;
+
+    case 'codeReviewProgress': {
+      // Store the preset suggestion note on the last streaming review message so the user can see it
+      const progressNote = msg.message;
+      if (!progressNote) return state;
+      const runConvId2 = getRunConvId(state);
+      const conv2 = state.conversations.find(c => c.id === runConvId2);
+      if (!conv2) return state;
+      const updatedConvs = state.conversations.map(c =>
+        c.id !== runConvId2 ? c : {
+          ...c,
+          messages: c.messages.map(m =>
+            m.role === 'assistant' && (m as AssistantMessage).isStreaming
+              ? { ...m, reviewProgressNote: progressNote } as AssistantMessage
+              : m,
+          ),
+        },
+      );
+      return { ...state, conversations: updatedConvs };
+    }
 
     case 'reviewHistoryLoaded':
       return { ...state, reviewHistory: msg.reports };

@@ -488,6 +488,13 @@
           "default": true,
           "description": "Run the Architect agent (architecture & OOP/OOD) during code review."
         },
+        "nexus.review.subagentTimeoutMs": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 10000,
+          "maximum": 300000,
+          "description": "Timeout (ms) for each review subagent. Defaults to 60 s — longer than the global timeout because review subagents process a full diff."
+        },
         "nexus.review.openPanelOnCompletion": {
           "type": "boolean",
           "default": true,
@@ -706,6 +713,7 @@
     "watch": "node esbuild.js --watch",
     "watch:webview": "vite build --watch",
     "test:webview": "vitest run",
+    "test:webview:watch": "vitest --reporter=verbose",
     "vscode:prepublish": "npm run compile",
     "package:list": "vsce ls",
     "package:vsix": "vsce package --no-dependencies",

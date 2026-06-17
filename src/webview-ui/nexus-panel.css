@@ -4985,20 +4985,54 @@ html, body, #root {
 /* Review report card inline in assistant message */
 .nx-review-report-card {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 8px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border-radius: var(--nx-radius-sm, 4px);
   background: var(--nx-bg-muted);
   border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
 }
 
-.nx-review-report-stats {
-  font-size: 11px;
+.nx-review-report-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nx-review-finding-pill {
+  font-size: 10px;
   font-family: var(--vscode-editor-font-family, monospace);
-  color: var(--nx-text-muted);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.nx-pill-blocker  { background: rgba(220, 50, 50, 0.18); color: #e05555; }
+.nx-pill-critical { background: rgba(220, 120, 50, 0.18); color: #d47a40; }
+.nx-pill-major    { background: rgba(200, 160, 50, 0.18); color: #c8a040; }
+.nx-pill-total    { background: var(--nx-bg-subtle, rgba(128,128,128,0.1)); color: var(--nx-text-muted); }
+.nx-pill-security { background: rgba(180, 50, 180, 0.18); color: #b040b0; }
+
+.nx-review-arch-pill {
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.nx-arch-good { background: rgba(50, 180, 80, 0.18); color: #3ab050; }
+.nx-arch-warn { background: rgba(200, 160, 50, 0.18); color: #c8a040; }
+.nx-arch-bad  { background: rgba(220, 50, 50, 0.18); color: #e05555; }
+
+.nx-review-preset-note {
+  font-size: 11px;
+  color: var(--nx-text-muted);
+  font-style: italic;
+  margin-top: 2px;
 }
 
 .nx-review-open-btn {

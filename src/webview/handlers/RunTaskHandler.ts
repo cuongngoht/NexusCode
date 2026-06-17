@@ -31,6 +31,7 @@ import { materializeReviewOutput } from '../../application/code-review/materiali
 import { CodeReviewPolicy } from '../../application/code-review/CodeReviewPolicy';
 import { CodeReviewArchitecturePolicy } from '../../application/code-review/CodeReviewArchitecturePolicy';
 import { CodeReviewSynthesizer } from '../../application/code-review/synthesis/CodeReviewSynthesizer';
+import { suggestPreset } from '../../application/code-review/CodeReviewPresetSuggester';
 import type { CodeReviewPreset } from '../../application/code-review/CodeReviewPromptBuilder';
 import type { CodeReviewTarget } from '../../application/code-review/CodeReviewTarget';
 import type { CodeReviewReport } from '../../application/code-review/CodeReviewReport';
@@ -374,7 +375,9 @@ export class RunTaskHandler {
             maxCharsPerResult: 6000,
             maxParallel: mode === 'review' ? 1 : subagentCfg.get<number>('subagents.maxParallel', 2),
             failOpen: subagentCfg.get<boolean>('subagents.failOpen', true),
-            timeoutMs: subagentCfg.get<number>('subagents.timeoutMs', 30000),
+            timeoutMs: mode === 'review'
+              ? subagentCfg.get<number>('review.subagentTimeoutMs', 60000)
+              : subagentCfg.get<number>('subagents.timeoutMs', 30000),
             injectMaxChars: subagentCfg.get<number>('subagents.injectMaxChars', 8000),
           };
           const subResults = await this.subagentOrchestrator!.run(
@@ -623,12 +626,20 @@ export class RunTaskHandler {
 
     if (mode === 'review') {
       const vsCfg = vscode.workspace.getConfiguration('nexus');
-      const preset = reviewPreset ?? (vsCfg.get<string>('review.defaultPreset', 'architecture')) as CodeReviewPreset;
+      const configPreset = (reviewPreset ?? vsCfg.get<string>('review.defaultPreset', 'architecture')) as CodeReviewPreset;
       const maxDiffChars = vsCfg.get<number>('review.maxDiffChars', 60000);
       const maxFileContextChars = vsCfg.get<number>('review.maxFileContextChars', 25000);
 
       const target: CodeReviewTarget = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
       const reviewCtx = new CodeReviewContextBuilder().build(workspaceRoot, target, { maxDiffChars, maxFileContextChars });
+
+      // Suggest optimal preset when user did not explicitly choose one
+      const suggestion = reviewPreset ? { preset: reviewPreset, reason: '' } : suggestPreset(reviewCtx, configPreset);
+      const preset = suggestion.preset;
+      if (suggestion.reason) {
+        this.post({ type: 'codeReviewProgress', reportId: 'pending', message: suggestion.reason });
+      }
+
       let reviewPrompt = new CodeReviewPromptBuilder().build({
         context: reviewCtx,
         userPrompt: ctx.originalPrompt || undefined,
@@ -712,9 +723,11 @@ export class RunTaskHandler {
     workspaceRoot: string,
     cfg: vscode.WorkspaceConfiguration,
   ): Promise<void> {
+    const stepLabel = mode === 'review' ? 'review-analyze' : RUN_STEP_LABEL;
+
     this.eventBus.emit({
       kind: 'step_started',
-      stepLabel: RUN_STEP_LABEL,
+      stepLabel,
       stepIndex: preStepCount,
       totalSteps,
       provider: String(providerId),
@@ -736,28 +749,37 @@ export class RunTaskHandler {
     }
 
     if (mode === 'review') {
+      // Abort early if there is nothing to review (no changed files between HEAD and base)
+      if (ctx.reviewEmptyDiff) {
+        this.post({ type: 'taskError', taskId: task.id, message: 'Nothing to review: no changed files found between the current branch and the base branch. Commit your changes or select a different base branch.' });
+        this.eventBus.emit({ kind: 'step_completed', stepLabel });
+        return;
+      }
+
       const reviewTarget = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
 
-      // Synthesize from subagent results when available
+      // Synthesize from subagent results when available — skip main agent if successful
       if (ctx.subagentResults && ctx.subagentResults.length > 0) {
+        this.eventBus.emit({ kind: 'activity_started', activityKind: 'tool_call', label: 'Synthesizing findings' });
         const report = new CodeReviewSynthesizer().synthesize(ctx.subagentResults, reviewTarget);
         if (report) {
+          this.eventBus.emit({ kind: 'activity_done', activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
           this.emitFinalReport(report, cfg);
-          ctx.codeReviewRawOutput = '__synthesized__';
+          this.eventBus.emit({ kind: 'step_completed', stepLabel });
+          return; // Report is complete — no need to run the main agent
         }
+        this.eventBus.emit({ kind: 'activity_done', activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
       }
 
-      // Only fall back to streaming parser when synthesis did not run
-      if (ctx.codeReviewRawOutput !== '__synthesized__') {
-        this.setupCodeReviewListener(task, cfg, reviewTarget);
-      }
+      // Fall back to streaming parser (no subagents or synthesis produced no findings)
+      this.setupCodeReviewListener(task, cfg, reviewTarget);
     }
 
     try {
       await this.runAgent.execute(task);
-      this.eventBus.emit({ kind: 'step_completed', stepLabel: RUN_STEP_LABEL });
+      this.eventBus.emit({ kind: 'step_completed', stepLabel });
     } catch {
-      this.eventBus.emit({ kind: 'step_error', stepLabel: RUN_STEP_LABEL, error: '' });
+      this.eventBus.emit({ kind: 'step_error', stepLabel, error: '' });
     }
   }
 
@@ -827,7 +849,7 @@ export class RunTaskHandler {
     this.eventBus.on('task_error', doneListener);
   }
 
-  private emitFinalReport(report: CodeReviewReport, _cfg?: vscode.WorkspaceConfiguration): void {
+  private emitFinalReport(report: CodeReviewReport, cfg?: vscode.WorkspaceConfiguration): void {
     this.post({ type: 'codeReviewReport', report });
 
     // Save to review history (max 10)
@@ -836,7 +858,31 @@ export class RunTaskHandler {
     void this.workspaceState.update('nexus.review.history', updated);
     this.post({ type: 'reviewHistoryLoaded', reports: updated });
 
-    void ReviewPanel.createOrShow(this.extensionUri, this.workspaceState, report);
+    const reviewCfg = cfg ?? vscode.workspace.getConfiguration('nexus');
+    const openPanel = reviewCfg.get<boolean>('review.openPanelOnCompletion', true);
+    const columnStr = reviewCfg.get<string>('review.panelColumn', 'Two');
+
+    if (openPanel) {
+      void ReviewPanel.createOrShow(this.extensionUri, this.workspaceState, report, columnStr);
+    }
+
+    // Show a VS Code notification with the verdict and a quick-action button
+    const blockerCount = (report.stats?.blocker ?? 0) + (report.stats?.critical ?? 0);
+    const verdictLabel = report.verdict === 'approve' ? 'Approved'
+      : report.verdict === 'approve-with-comments' ? 'Approved with comments'
+      : 'Changes requested';
+    const notifParts = [`Code review: ${verdictLabel}`];
+    if (blockerCount > 0) notifParts.push(`(${blockerCount} blocker/critical)`);
+
+    if (!openPanel) {
+      void vscode.window.showInformationMessage(notifParts.join(' '), 'Open Report').then(choice => {
+        if (choice === 'Open Report') {
+          void ReviewPanel.createOrShow(this.extensionUri, this.workspaceState, report, columnStr);
+        }
+      });
+    } else if (blockerCount > 0) {
+      void vscode.window.showWarningMessage(notifParts.join(' '));
+    }
   }
 
   private emitCodeReviewReport(

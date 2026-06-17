@@ -20,5 +20,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: [],
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    reporters: ['verbose'],
   },
 });

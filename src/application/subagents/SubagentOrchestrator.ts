@@ -99,7 +99,7 @@ export class SubagentOrchestrator {
           });
           emit({ kind: 'subagent_started', role: def.role, runId: ctx.providerId + '-' + def.role, displayName: def.displayName });
 
-          const agent = await this.router.resolve(def);
+          const agent = await this.router.resolve(def, ctx.providerId);
           if (!agent) {
             emit({ kind: 'step_completed', stepLabel });
             return;
