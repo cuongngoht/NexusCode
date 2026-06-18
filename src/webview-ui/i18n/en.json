@@ -433,6 +433,7 @@
     "subagentRisks": "Risks",
     "subagentTopFindings": "Top Findings",
     "tabArchitecture": "Architecture",
+    "tabPerformance": "Performance",
     "searchPlaceholder": "Search findings...",
     "generatedAt": "Generated",
     "target": "Target",
