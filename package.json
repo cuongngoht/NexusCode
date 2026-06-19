@@ -378,6 +378,26 @@
           "default": "main",
           "description": "Default base branch for code review."
         },
+        "nexus.review.autoUseDefaultBaseBranch": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true and a default base branch is configured, skip the branch selection popup and use it automatically for chat-driven reviews."
+        },
+        "nexus.review.requireExplicitTarget": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, always ask for the review target (branch, staged, file, etc.) before running a review triggered from chat."
+        },
+        "nexus.review.autoOpenReportPanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically open the Review Report panel after a code review completes."
+        },
+        "nexus.agents.inferReviewCapability": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, infer that an agent is review-capable from its name/description if no explicit purpose metadata is set."
+        },
         "nexus.review.defaultPreset": {
           "type": "string",
           "default": "architecture",

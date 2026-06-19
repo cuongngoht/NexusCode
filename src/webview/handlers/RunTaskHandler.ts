@@ -555,11 +555,21 @@ export class RunTaskHandler {
   ): CodeReviewTarget | undefined {
     if (mode !== 'review') return undefined;
 
+    // Determine whether the default base branch is user-configured (not just package default)
+    const inspected = cfg.inspect<string>('review.defaultBaseBranch');
+    const hasUserConfiguredDefault =
+      inspected?.globalValue !== undefined ||
+      inspected?.workspaceValue !== undefined ||
+      inspected?.workspaceFolderValue !== undefined;
+    const autoUseDefault = cfg.get<boolean>('review.autoUseDefaultBaseBranch', false);
+    const configuredDefault = hasUserConfiguredDefault ? cfg.get<string>('review.defaultBaseBranch') : undefined;
+    const effectiveDefault = (autoUseDefault && configuredDefault) ? configuredDefault : (baseBranch ?? 'main');
+
     if (target) {
       if (target.type === 'branch') {
         return {
           ...target,
-          baseBranch: target.baseBranch ?? baseBranch ?? cfg.get<string>('review.defaultBaseBranch', 'main'),
+          baseBranch: target.baseBranch ?? baseBranch ?? effectiveDefault,
         };
       }
       return baseBranch && !target.baseBranch
@@ -569,7 +579,7 @@ export class RunTaskHandler {
 
     return {
       type: 'branch',
-      baseBranch: baseBranch ?? cfg.get<string>('review.defaultBaseBranch', 'main'),
+      baseBranch: baseBranch ?? effectiveDefault,
     };
   }
 
@@ -861,7 +871,8 @@ export class RunTaskHandler {
     this.post({ type: 'reviewHistoryLoaded', reports: updated });
 
     const reviewCfg = cfg ?? vscode.workspace.getConfiguration('nexus');
-    const openPanel = reviewCfg.get<boolean>('review.openPanelOnCompletion', true);
+    const openPanel = reviewCfg.get<boolean>('review.autoOpenReportPanel',
+      reviewCfg.get<boolean>('review.openPanelOnCompletion', true));
     const columnStr = reviewCfg.get<string>('review.panelColumn', 'Two');
 
     if (openPanel) {

@@ -1,3 +1,19 @@
+---
+name: code-reviewer-1
+description: Comprehensive code review guidelines covering security, performance, correctness, and maintainability. Includes detailed rules and examples.
+purpose: code_review
+capabilities:
+  - code_review
+  - diff_analysis
+reviewTargets:
+  - branch
+  - working-tree
+  - staged
+  - file
+  - selection
+requiresExplicitTarget: true
+---
+
 # Code Review Guidelines
 
 **A comprehensive guide for AI agents performing code reviews**, organized by priority and impact.

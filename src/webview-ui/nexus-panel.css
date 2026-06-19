@@ -5150,3 +5150,174 @@ html, body, #root {
   overflow: hidden;
   border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
 }
+
+/* ── ReviewTargetSelectorCard ─────────────────────────────────────────── */
+.nx-review-target-card {
+  margin: 0 8px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.15));
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+.nx-review-target-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.nx-review-target-card__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.nx-review-target-card__title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.nx-review-target-card__close {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.nx-review-target-card__close:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+}
+
+.nx-review-target-card__agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.nx-review-target-card__agent-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--vscode-badge-background, rgba(100,120,220,0.2));
+  color: var(--vscode-badge-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
+}
+
+.nx-review-target-card__targets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nx-review-target-card__target-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.nx-review-target-card__target-btn:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.nx-review-target-card__branch-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nx-review-target-card__branch-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nx-review-target-card__branch-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+.nx-review-target-card__branch-btn:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.nx-review-target-card__branch-btn--selected {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+
+.nx-review-target-card__branch-custom {
+  display: flex;
+}
+
+.nx-review-target-card__branch-input {
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-input-border, rgba(255,255,255,0.15));
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 13px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  outline: none;
+}
+.nx-review-target-card__branch-input:focus {
+  border-color: var(--vscode-focusBorder, var(--vscode-button-background));
+}
+
+.nx-review-target-card__actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.nx-review-target-card__btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.15));
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  cursor: pointer;
+}
+.nx-review-target-card__btn:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.nx-review-target-card__btn--primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+.nx-review-target-card__btn--primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+.nx-review-target-card__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.nx-review-target-card__btn--cancel {
+  margin-top: 4px;
+  color: var(--vscode-descriptionForeground);
+  border-color: transparent;
+}

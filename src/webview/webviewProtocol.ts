@@ -140,6 +140,24 @@ export type ExtensionMessage =
   | { type: 'codeReviewReport'; report: CodeReviewReport }
   | { type: 'codeReviewError'; message: string }
   | { type: 'reviewHistoryLoaded'; reports: CodeReviewReport[] }
+  | {
+      type: 'reviewTargetSelectionRequired';
+      requestId: string;
+      reason:
+        | 'ambiguous-review-target'
+        | 'missing-base-branch'
+        | 'missing-active-file'
+        | 'missing-selection'
+        | 'no-staged-changes'
+        | 'no-working-tree-changes';
+      currentBranch?: string;
+      suggestedTargets: Array<'branch' | 'working-tree' | 'staged' | 'file' | 'selection'>;
+      selectedAgentIds: string[];
+      selectedReviewAgentIds: string[];
+      availableBranches?: string[];
+      defaultBaseBranch?: string;
+    }
+  | { type: 'reviewTargetSelectionCancelled'; requestId: string }
   // Subagent trace messages
   | { type: 'subagentStarted'; runId: string; role: string; agentId?: string; displayName?: string }
   | { type: 'subagentCompleted'; runId: string; role: string; agentId?: string; durationMs: number; confidence?: number; findingCount?: number }
@@ -354,6 +372,18 @@ export type WebviewMessage =
   | { type: 'exportCodeReviewReport'; reportId: string }
   | { type: 'openReviewReport'; report: CodeReviewReport }
   | { type: 'openReviewReportById'; reportId: string }
+  | {
+      type: 'resolveReviewTargetSelection';
+      requestId: string;
+      selectedTarget:
+        | { type: 'branch'; baseBranch: string }
+        | { type: 'working-tree' }
+        | { type: 'staged' }
+        | { type: 'file'; path?: string }
+        | { type: 'selection'; path?: string };
+    }
+  | { type: 'cancelReviewTargetSelection'; requestId: string }
+  | { type: 'openReviewFindingLocation'; findingId: string; file: string; line?: number; column?: number }
   // Permission system messages (webview → extension)
   | { type: 'approvePermission'; requestId: string }
   | { type: 'rejectPermission'; requestId: string; reason?: string }

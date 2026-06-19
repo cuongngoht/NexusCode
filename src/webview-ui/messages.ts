@@ -162,6 +162,23 @@ export interface HistoryRagSourceView {
   score: number;
 }
 
+export interface PendingReviewSelection {
+  requestId: string;
+  reason:
+    | 'ambiguous-review-target'
+    | 'missing-base-branch'
+    | 'missing-active-file'
+    | 'missing-selection'
+    | 'no-staged-changes'
+    | 'no-working-tree-changes';
+  currentBranch?: string;
+  suggestedTargets: Array<'branch' | 'working-tree' | 'staged' | 'file' | 'selection'>;
+  selectedAgentIds: string[];
+  selectedReviewAgentIds: string[];
+  availableBranches?: string[];
+  defaultBaseBranch?: string;
+}
+
 export interface SubagentTraceItem {
   role: string;
   displayName?: string;
@@ -718,6 +735,8 @@ export interface AppState {
   // Review history (persisted, max 10 entries)
   reviewHistory: CodeReviewReport[];
   showReviewHistory: boolean;
+  // Pending review target selection (shown when chat-driven review needs branch/target clarification)
+  pendingReviewSelection: PendingReviewSelection | null;
   // Agent Mode state
   agentSession?: AgentSessionViewModel;
   agentTimeline: AgentTimelineEventViewModel[];
@@ -785,6 +804,7 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     activeCodeReviewReport: null,
     reviewHistory: [],
     showReviewHistory: false,
+    pendingReviewSelection: null,
     agentSession: undefined,
     agentTimeline: [],
     pendingAgentPlan: undefined,
@@ -914,6 +934,24 @@ export type ExtMsg =
   | { type: 'codeReviewProgress'; reportId: string; message: string }
   | { type: 'codeReviewError'; message: string }
   | { type: 'reviewHistoryLoaded'; reports: CodeReviewReport[] }
+  | {
+      type: 'reviewTargetSelectionRequired';
+      requestId: string;
+      reason:
+        | 'ambiguous-review-target'
+        | 'missing-base-branch'
+        | 'missing-active-file'
+        | 'missing-selection'
+        | 'no-staged-changes'
+        | 'no-working-tree-changes';
+      currentBranch?: string;
+      suggestedTargets: Array<'branch' | 'working-tree' | 'staged' | 'file' | 'selection'>;
+      selectedAgentIds: string[];
+      selectedReviewAgentIds: string[];
+      availableBranches?: string[];
+      defaultBaseBranch?: string;
+    }
+  | { type: 'reviewTargetSelectionCancelled'; requestId: string }
   // Agent Mode messages
   | { type: 'agentSessionUpdated'; session: AgentSessionViewModel }
   | { type: 'agentTimelineUpdated'; sessionId: string; events: AgentTimelineEventViewModel[] }
@@ -1718,6 +1756,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           activeSubagentSynthesis: null,
           activeCodeReviewReport: null,
           showReviewHistory: false,
+          pendingReviewSelection: null,
         };
       }
       // Direct (non-pipeline) mode: create AssistantMessage now
@@ -2207,6 +2246,27 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     case 'reviewHistoryLoaded':
       return { ...state, reviewHistory: msg.reports };
+
+    case 'reviewTargetSelectionRequired':
+      return {
+        ...state,
+        pendingReviewSelection: {
+          requestId: msg.requestId,
+          reason: msg.reason,
+          currentBranch: msg.currentBranch,
+          suggestedTargets: msg.suggestedTargets,
+          selectedAgentIds: msg.selectedAgentIds,
+          selectedReviewAgentIds: msg.selectedReviewAgentIds,
+          availableBranches: msg.availableBranches,
+          defaultBaseBranch: msg.defaultBaseBranch,
+        },
+      };
+
+    case 'reviewTargetSelectionCancelled':
+      if (state.pendingReviewSelection?.requestId === msg.requestId) {
+        return { ...state, pendingReviewSelection: null };
+      }
+      return state;
 
     case 'agentTimelineUpdated':
       return { ...state, agentTimeline: msg.events };

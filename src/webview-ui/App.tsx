@@ -17,6 +17,7 @@ import { NexusShell } from './components/layout/NexusShell';
 import { uiReducer, createInitialUiState } from './state/uiState';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 import { PermissionApprovalCard } from './components/PermissionApprovalCard';
+import { ReviewTargetSelectorCard } from './components/review/ReviewTargetSelectorCard';
 
 function getSurface(): MainView {
   return document.body.dataset.nexusSurface === 'dashboard' ? 'dashboard' : 'chat';
@@ -648,6 +649,13 @@ export function App() {
                     {LOCALES[locale].compact.compactAction}
                   </button>
                 </div>
+              )}
+
+              {state.pendingReviewSelection && (
+                <ReviewTargetSelectorCard
+                  selection={state.pendingReviewSelection}
+                  onDismiss={() => dispatch({ type: 'extMsg', msg: { type: 'reviewTargetSelectionCancelled', requestId: state.pendingReviewSelection!.requestId } })}
+                />
               )}
 
               {!state.isDetecting && (

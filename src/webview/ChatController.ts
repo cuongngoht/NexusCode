@@ -12,6 +12,7 @@ import type { SubagentOrchestrator } from '../application/subagents/SubagentOrch
 import { HistoryHandler } from './handlers/HistoryHandler';
 import { ProviderHandler } from './handlers/ProviderHandler';
 import { ReviewHandler } from './handlers/ReviewHandler';
+import { ChatReviewOrchestrator } from './handlers/ChatReviewOrchestrator';
 import { AttachmentHandler } from './handlers/AttachmentHandler';
 import { LoginHandler } from './handlers/LoginHandler';
 import { NavigationHandler } from './handlers/NavigationHandler';
@@ -59,6 +60,7 @@ export class ChatController {
   private readonly historyHandler: HistoryHandler;
   private readonly providerHandler: ProviderHandler;
   private readonly reviewHandler: ReviewHandler;
+  private readonly chatReviewOrchestrator: ChatReviewOrchestrator;
   private readonly attachmentHandler: AttachmentHandler;
   private readonly loginHandler: LoginHandler;
   private readonly navigationHandler: NavigationHandler;
@@ -116,6 +118,12 @@ export class ChatController {
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
     this.reviewHandler   = new ReviewHandler(post, workspaceState);
+    this.chatReviewOrchestrator = new ChatReviewOrchestrator(
+      post as (msg: ExtensionMessage) => void,
+      (p, pId, m, mdl, bb, hist, cc, att, sa, rt, rp) =>
+        this.runTaskHandler.run(p, pId, m, mdl, bb, hist, cc, att, sa ?? false, rt, rp),
+      extensionPath,
+    );
     this.attachmentHandler    = new AttachmentHandler(post);
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
     this.navigationHandler    = new NavigationHandler();
@@ -208,14 +216,24 @@ export class ChatController {
           this._post({ type: 'reviewHistoryLoaded', reports: reviewHistory });
         }
         break;
-      case 'runTask':
-        await this.runTaskHandler.run(
-          msg.prompt, msg.provider, msg.mode, msg.model, msg.baseBranch,
+      case 'runTask': {
+        const intercepted = await this.chatReviewOrchestrator.tryIntercept(
+          msg.prompt, msg.provider, msg.mode, msg.model,
+          msg.attachments,
           this.historyHandler.latestHistory,
           msg.conversationContext,
-          msg.attachments, msg.subagentsEnabled ?? false,
+          msg.subagentsEnabled ?? false,
         );
+        if (!intercepted) {
+          await this.runTaskHandler.run(
+            msg.prompt, msg.provider, msg.mode, msg.model, msg.baseBranch,
+            this.historyHandler.latestHistory,
+            msg.conversationContext,
+            msg.attachments, msg.subagentsEnabled ?? false,
+          );
+        }
         break;
+      }
       case 'runCodeReview': {
         const provider = normalizeProviderId(this.globalState.get<string>('nexus.lastProvider'));
         await this.runTaskHandler.run(
@@ -255,6 +273,34 @@ export class ChatController {
           void ReviewPanel.createOrShow(this._extensionUri, this._workspaceState, report);
         } else {
           void vscode.window.showInformationMessage('Review report not found in history (may have been cleared).');
+        }
+        break;
+      }
+      case 'resolveReviewTargetSelection':
+        await this.chatReviewOrchestrator.resolveTarget(
+          msg.requestId,
+          msg.selectedTarget,
+          this.historyHandler.latestHistory,
+          undefined,
+        );
+        break;
+      case 'cancelReviewTargetSelection':
+        this.chatReviewOrchestrator.cancelTarget(msg.requestId);
+        break;
+      case 'openReviewFindingLocation': {
+        try {
+          const uri = vscode.Uri.file(msg.file);
+          const doc = await vscode.workspace.openTextDocument(uri);
+          const editor = await vscode.window.showTextDocument(doc);
+          if (msg.line !== undefined) {
+            const line = Math.max(0, msg.line - 1);
+            const col = msg.column !== undefined ? Math.max(0, msg.column - 1) : 0;
+            const pos = new vscode.Position(line, col);
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+          }
+        } catch {
+          // non-blocking
         }
         break;
       }
