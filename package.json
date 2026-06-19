@@ -178,7 +178,7 @@
         "nexus.customProvider.command": {
           "type": "string",
           "default": "",
-          "description": "Executable for the custom provider. Use {{prompt}} as a placeholder."
+          "description": "Executable path for a user-configured local AI provider. Nexus invokes this only during explicit user-initiated workflows. Use {{prompt}} as a placeholder for the prompt."
         },
         "nexus.customProvider.args": {
           "type": "array",
@@ -186,12 +186,12 @@
             "type": "string"
           },
           "default": [],
-          "description": "Arguments for the custom provider. Use {{prompt}} in any element as a placeholder."
+          "description": "Arguments passed to the user-configured provider executable. Use {{prompt}} in an argument to pass the prompt. Arguments are passed as an array — no shell interpolation occurs."
         },
         "nexus.enablePromptEnhancement": {
           "type": "boolean",
           "default": true,
-          "description": "Prepend workspace context to prompts before sending to the provider."
+          "description": "When enabled, Nexus may prepend selected workspace context (project structure, rules, conversation history) to prompts before sending them to the selected provider. Disable to send prompts without workspace context."
         },
         "nexus.showRawOutput": {
           "type": "boolean",
@@ -206,7 +206,7 @@
         "nexus.mcp.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable Nexus MCP tool layer."
+          "description": "Enable the optional MCP tool layer. Keep disabled unless you understand and trust the configured MCP tools. High-risk tools require user approval by default."
         },
         "nexus.mcp.autoSelectPreset": {
           "type": "boolean",
@@ -216,7 +216,7 @@
         "nexus.mcp.requireApprovalForHighRiskTools": {
           "type": "boolean",
           "default": true,
-          "description": "Require approval before high-risk MCP tool calls."
+          "description": "Require user approval before high-risk MCP tool calls (file writes, shell commands, network access, destructive operations, credential-sensitive operations). Enabled by default."
         },
         "nexus.mcp.maxResultChars": {
           "type": "number",
@@ -266,13 +266,23 @@
         "nexus.subagents.mode": {
           "type": "string",
           "default": "auto",
-          "enum": ["off", "auto", "manual", "full"],
+          "enum": [
+            "off",
+            "auto",
+            "manual",
+            "full"
+          ],
           "description": "Controls how Nexus selects subagents. off: disabled. auto: selected by task intent. manual: use selectedRoles. full: broader chain within safety caps."
         },
         "nexus.subagents.preset": {
           "type": "string",
           "default": "balanced",
-          "enum": ["fast", "balanced", "full", "safe"],
+          "enum": [
+            "fast",
+            "balanced",
+            "full",
+            "safe"
+          ],
           "description": "Default subagent preset for auto mode."
         },
         "nexus.subagents.maxParallel": {
@@ -322,7 +332,18 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["search", "planner", "coder", "debugger", "tester", "reviewer", "security", "docs", "product", "research"]
+            "enum": [
+              "search",
+              "planner",
+              "coder",
+              "debugger",
+              "tester",
+              "reviewer",
+              "security",
+              "docs",
+              "product",
+              "research"
+            ]
           },
           "default": [],
           "description": "Manual subagent roles used when nexus.subagents.mode is manual."
@@ -401,7 +422,13 @@
         "nexus.review.defaultPreset": {
           "type": "string",
           "default": "architecture",
-          "enum": ["fast", "balanced", "architecture", "safe", "full"],
+          "enum": [
+            "fast",
+            "balanced",
+            "architecture",
+            "safe",
+            "full"
+          ],
           "description": "Default review preset: fast, balanced, architecture, safe, or full."
         },
         "nexus.review.includeSecurity": {
@@ -466,7 +493,10 @@
         "nexus.review.outputFormat": {
           "type": "string",
           "default": "structured",
-          "enum": ["structured", "markdown"],
+          "enum": [
+            "structured",
+            "markdown"
+          ],
           "description": "Output format for code review: structured (JSON report) or markdown."
         },
         "nexus.review.architectureScore.enabled": {
@@ -588,7 +618,7 @@
         "nexus.analytics.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable analytics recording for AI coding tasks."
+          "description": "Enable local analytics recording for AI coding tasks. Analytics are stored in VS Code workspace state and never transmitted to external servers. Workspace path and conversation titles are not stored by default."
         },
         "nexus.analytics.retentionDays": {
           "type": "number",
@@ -737,7 +767,8 @@
     "vscode:prepublish": "npm run compile",
     "package:list": "vsce ls",
     "package:vsix": "vsce package --no-dependencies",
-    "package:verify": "node scripts/verify-vsix-contents.js"
+    "package:verify": "node scripts/verify-vsix-contents.js",
+    "verify:vsix": "node scripts/verify-vsix-contents.js"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
