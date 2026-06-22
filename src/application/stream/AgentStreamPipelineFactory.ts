@@ -25,15 +25,15 @@ const adapterFactories = new Map<string, AdapterFactory>();
 
 function seedBuiltins() {
   const builtins: Array<[string, AdapterFactory]> = [
-    ['sse', () => ({ decoder: new SseDecoder(), adapter: new CodexSseAdapter() })],
-    ['jsonl', (cmd) => ({
-      decoder: new LineDecoder(),
-      adapter: cmd.executable === 'codex' ? new CodexJsonlAdapter() : new PlainTextAdapter(),
-    })],
-    ['plain', () => ({ decoder: new PlainTextDecoder(), adapter: new PlainTextAdapter() })],
-    ['stdio', () => ({ decoder: new LineDecoder(), adapter: new PlainTextAdapter() })],
-    ['grok', () => ({ decoder: new LineDecoder(), adapter: new GrokStreamAdapter() })],
-    ['antigravity', () => ({ decoder: new LineDecoder(), adapter: new AntigravityStreamAdapter() })],
+    // Generic transports — no provider-specific logic
+    ['plain',        () => ({ decoder: new PlainTextDecoder(), adapter: new PlainTextAdapter() })],
+    ['stdio',        () => ({ decoder: new LineDecoder(),     adapter: new PlainTextAdapter() })],
+    ['jsonl',        () => ({ decoder: new LineDecoder(),     adapter: new PlainTextAdapter() })],
+    // Provider-specific transports — each provider self-declares its key in buildCommand()
+    ['codex-jsonl',  () => ({ decoder: new LineDecoder(),     adapter: new CodexJsonlAdapter() })],
+    ['codex-sse',    () => ({ decoder: new SseDecoder(),      adapter: new CodexSseAdapter() })],
+    ['grok',         () => ({ decoder: new LineDecoder(),     adapter: new GrokStreamAdapter() })],
+    ['antigravity',  () => ({ decoder: new LineDecoder(),     adapter: new AntigravityStreamAdapter() })],
   ];
   for (const [t, f] of builtins) {
     if (!adapterFactories.has(t)) adapterFactories.set(t, f);

@@ -36,10 +36,10 @@ describe('provider agents', () => {
     ]);
   });
 
-  it('adds --json and jsonl transport when Codex CLI supports it', () => {
+  it('adds --json and codex-jsonl transport when Codex CLI supports it', () => {
     const cmd = new CodexAgent(true).buildCommand(makeTask('fix it', 'gpt-5.2'));
     expect(cmd.executable).toBe('codex');
-    expect(cmd.transport).toBe('jsonl');
+    expect(cmd.transport).toBe('codex-jsonl');
     expect(cmd.args).toEqual([
       '--ask-for-approval',
       'never',
@@ -55,7 +55,7 @@ describe('provider agents', () => {
 
   it('uses --experimental-json for intermediate Codex builds', () => {
     const cmd = new CodexAgent('experimental').buildCommand(makeTask('fix it', 'gpt-5.2'));
-    expect(cmd.transport).toBe('jsonl');
+    expect(cmd.transport).toBe('codex-jsonl');
     expect(cmd.args).toContain('--experimental-json');
     expect(cmd.args).not.toContain('--json');
   });

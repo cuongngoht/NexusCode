@@ -103,7 +103,11 @@ export class CodexAgent extends BaseAgent {
       // giving Codex the clean EOF it needs to initialise its internal session state.
       flag !== 'legacy' ? '' : undefined,
       task.enhancedPrompt,
-      flag !== 'legacy' ? 'jsonl' : undefined,
+      // Each flag variant maps to its own transport key so the factory selects the
+      // correct adapter without inspecting cmd.executable (OCP).
+      flag === 'json'         ? 'codex-jsonl'
+      : flag === 'experimental' ? 'codex-jsonl'
+      : undefined, // legacy → no pipeline → raw stdout (old behavior)
     );
   }
 
