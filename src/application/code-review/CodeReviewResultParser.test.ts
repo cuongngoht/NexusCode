@@ -52,6 +52,21 @@ describe('CodeReviewResultParser', () => {
     expect(report.summary).toBe('Looks good overall.');
   });
 
+  it('parses JSON followed by trailing code block containing braces (Codex-style output)', () => {
+    const trailing = '\n\nHere is a suggestion:\n```ts\nfunction foo() {\n  return bar();\n}\n```';
+    const raw = JSON.stringify(validJson) + trailing;
+    const report = parser.parse(raw, target);
+    expect(report.summary).toBe('Looks good overall.');
+    expect(report.findings).toHaveLength(1);
+  });
+
+  it('parses fenced json block followed by trailing prose with braces', () => {
+    const trailing = '\n\nNote: use `{ strict: true }` for safety.';
+    const raw = '```json\n' + JSON.stringify(validJson) + '\n```' + trailing;
+    const report = parser.parse(raw, target);
+    expect(report.summary).toBe('Looks good overall.');
+  });
+
   it('invalid JSON does not crash — returns fallback report', () => {
     const raw = 'This is not JSON at all.';
     const report = parser.parse(raw, target);
