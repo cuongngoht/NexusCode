@@ -2,7 +2,6 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
-import { AiderOutputParser } from './AiderOutputParser';
 
 export class AiderAgent extends BaseAgent {
   readonly id = 'aider' as const;
@@ -20,7 +19,6 @@ export class AiderAgent extends BaseAgent {
     { id: 'gemini/gemini-2.5-pro', label: 'Gemini 2.5 Pro', source: 'seeded' },
   ];
   readonly defaultModel = 'sonnet';
-  override get outputParser() { return new AiderOutputParser(); }
   protected readonly executableName = 'aider';
 
   override async isLoggedIn(): Promise<boolean> {
@@ -36,7 +34,7 @@ export class AiderAgent extends BaseAgent {
     const args = task.model
       ? ['--yes', '--model', task.model, '--message', task.enhancedPrompt]
       : ['--yes', '--message', task.enhancedPrompt];
-    return new AgentCommand('aider', args, undefined, undefined, task.enhancedPrompt);
+    return new AgentCommand('aider', args, undefined, undefined, task.enhancedPrompt, 'aider');
   }
 
   parseOutput(raw: string): AgentOutput {

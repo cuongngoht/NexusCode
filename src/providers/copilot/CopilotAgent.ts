@@ -2,12 +2,10 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentCapabilities, AgentCommand, AgentTask } from '../../core/agent';
 import type { AgentOutput } from '../../core/agent';
 import type { ProviderModel } from '../../core/types';
-import { CopilotOutputParser } from './CopilotOutputParser';
 
 export class CopilotAgent extends BaseAgent {
   readonly id = 'copilot' as const;
   readonly displayName = 'Copilot';
-  override get outputParser() { return new CopilotOutputParser(); }
   readonly capabilities = new AgentCapabilities(
     /* canEditFiles      */ true,
     /* canRunShell       */ false,
@@ -31,7 +29,7 @@ export class CopilotAgent extends BaseAgent {
     const args = task.model
       ? ['--model', task.model, '--prompt', task.enhancedPrompt]
       : ['--prompt', task.enhancedPrompt];
-    return new AgentCommand('copilot', args, undefined, undefined, task.enhancedPrompt);
+    return new AgentCommand('copilot', args, undefined, undefined, task.enhancedPrompt, 'copilot');
   }
 
   parseOutput(raw: string): AgentOutput {

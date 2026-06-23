@@ -34,7 +34,7 @@ export class CustomAgent extends BaseAgent {
       a.replace('{{prompt}}', task.enhancedPrompt)
         .replace('{{model}}', task.model ?? ''),
     );
-    return new AgentCommand(command, args, undefined, undefined, task.enhancedPrompt);
+    return new AgentCommand(command, args, undefined, undefined, task.enhancedPrompt, 'plain');
   }
 
   parseOutput(raw: string): AgentOutput {
