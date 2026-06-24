@@ -35,6 +35,10 @@ export interface PromptContext {
   mcpIntentPrompt?: string;
   /** Research workflow context injected when @research is active. */
   researchContext?: string;
+  /** Architecture memory context injected when architecture analysis is available. */
+  architectureContext?: string;
+  /** Per-file intelligence context injected when file profiles are available. */
+  fileIntelligenceContext?: string;
 }
 
 export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): string {
@@ -115,6 +119,18 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Research Context');
     lines.push(ctx.researchContext);
+  }
+
+  if (ctx.architectureContext) {
+    lines.push('');
+    lines.push('# Architecture Context');
+    lines.push(ctx.architectureContext);
+  }
+
+  if (ctx.fileIntelligenceContext) {
+    lines.push('');
+    lines.push('# File Intelligence');
+    lines.push(ctx.fileIntelligenceContext);
   }
 
   lines.push('');

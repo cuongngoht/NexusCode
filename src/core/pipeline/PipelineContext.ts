@@ -4,6 +4,14 @@ import type { CodeReviewTarget, ProviderId, PromptAttachment, SubagentContextEnt
 // The feature implementation lives in src/debug/ which only re-exports the type.
 import type { DebugContext } from '../debug/DebugContext';
 
+export type PipelineProjectMemoryStatus = {
+  status: 'missing' | 'ready' | 'stale' | 'building' | 'failed' | 'needs_rebuild';
+  reason?: string;
+  canUseMemory: boolean;
+  canRunIncrementalUpdate: boolean;
+  requiresExplicitFullScan: boolean;
+};
+
 export type PipelineContext = {
   readonly workspaceRoot: string;
   readonly originalPrompt: string;
@@ -12,8 +20,11 @@ export type PipelineContext = {
   readonly providerId: ProviderId;
   readonly enableEnhancement: boolean;
   // Enriched by pre-steps:
+  projectMemoryStatus?: PipelineProjectMemoryStatus;
   projectMap?: string;
   sourceContext?: string;
+  architectureContext?: string;
+  fileIntelligenceContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
   debugContext?: DebugContext;

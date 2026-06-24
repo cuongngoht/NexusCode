@@ -2,6 +2,40 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { TaskMode } from '../core/types';
 
+/**
+ * Copies all .md files from `{extensionRoot}/media/prompts/{category}/` into
+ * `{workspaceRoot}/.nexus/prompts/{category}/`, skipping files that already exist
+ * so user customisations are never overwritten.
+ */
+export function ensureWorkspacePrompts(workspaceRoot: string, extensionRoot: string, category: string): void {
+  const destDir = path.join(workspaceRoot, '.nexus', 'prompts', category);
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+  }
+
+  const srcDir = path.join(extensionRoot, 'media', 'prompts', category);
+  if (!fs.existsSync(srcDir)) return;
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    const dest = path.join(destDir, entry.name);
+    if (!fs.existsSync(dest)) {
+      try {
+        fs.copyFileSync(path.join(srcDir, entry.name), dest);
+      } catch {
+        // best effort — skip files that fail to copy
+      }
+    }
+  }
+}
+
 export interface PromptResolutionOptions {
   workspaceRoot?: string;
   extensionRoot?: string;

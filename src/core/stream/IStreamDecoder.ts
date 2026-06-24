@@ -1,5 +1,5 @@
 export interface DecodedFrame {
-  type: 'line' | 'sse' | 'raw';
+  type: string; // well-known: 'line' | 'sse' | 'raw'; providers may add their own (e.g. 'grok.thought')
   eventType?: string;
   data: string;
 }

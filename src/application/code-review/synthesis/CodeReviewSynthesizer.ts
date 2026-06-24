@@ -1,4 +1,6 @@
-import type { SubagentResult } from '../../subagents/SubagentResultStore';
+import type { SubagentRole } from '../../subagents/SubagentResultStore';
+
+interface SubagentResultLike { role: string; compactOutput: string; error?: string; }
 import type { CodeReviewReport } from '../CodeReviewReport';
 import type { CodeReviewTarget } from '../CodeReviewTarget';
 import { parseSubagentOutput } from '../../subagents/SubagentOutputParser';
@@ -10,13 +12,13 @@ export class CodeReviewSynthesizer {
   private readonly policy = new CodeReviewPolicy();
   private readonly archPolicy = new CodeReviewArchitecturePolicy();
 
-  synthesize(results: SubagentResult[], target: CodeReviewTarget): CodeReviewReport | null {
+  synthesize(results: ReadonlyArray<SubagentResultLike>, target: CodeReviewTarget): CodeReviewReport | null {
     const rawFindings = results
       .filter(r => !r.error)
       .flatMap(result => {
-        const dimension = ReviewDimensionFactory.forRole(result.role);
+        const dimension = ReviewDimensionFactory.forRole(result.role as SubagentRole);
         if (!dimension) return [];
-        const parsed = parseSubagentOutput(result.role, result.compactOutput);
+        const parsed = parseSubagentOutput(result.role as SubagentRole, result.compactOutput);
         const confidence = parsed.confidence > 0 ? parsed.confidence : 0.7;
         return dimension.adapt(parsed.findings, confidence);
       });
@@ -30,7 +32,7 @@ export class CodeReviewSynthesizer {
     const stats = this.policy.calculateStats(sorted);
 
     const successRoles = results
-      .filter(r => !r.error && ReviewDimensionFactory.forRole(r.role))
+      .filter(r => !r.error && ReviewDimensionFactory.forRole(r.role as SubagentRole))
       .map(r => r.role);
     const timedOutRoles = results
       .filter(r => r.error && /timed out/i.test(r.error))

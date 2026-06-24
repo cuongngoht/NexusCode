@@ -10,6 +10,35 @@
     "chat": "Chat",
     "reviewHistory": "Review History"
   },
+  "projectMemory": {
+    "toolbarTitle": "Project Memory: {{status}}. {{action}}",
+    "error": "Project Memory: {{message}}",
+    "actionLabel": {
+      "status": "Click to inspect index.",
+      "rebuild": "Click to scan project."
+    },
+    "statusLabel": {
+      "missing": "Not built",
+      "ready": "Ready",
+      "stale": "Stale",
+      "building": "Building",
+      "failed": "Failed",
+      "needs_rebuild": "Needs rebuild"
+    },
+    "index": {
+      "title": "Project Memory Index",
+      "close": "Close",
+      "noIndex": "No index found. Run a project scan first.",
+      "chunks": "{{count}} chunks",
+      "avgLen": "avg {{chars}} chars",
+      "builtAt": "Built {{time}}",
+      "sources": {
+        "project-map": "Project Map",
+        "workspace-units": "Workspace Units",
+        "discovery": "Discovery"
+      }
+    }
+  },
   "provider": {
     "autoDetect": "Auto-detect",
     "autoDetectBadge": "Default",
@@ -295,7 +324,9 @@
       "agent-diff": "Collecting diff",
       "agent-summary": "Generating final report",
       "code-review-context": "Building review context",
-      "subagent-architect": "Architecture review"
+      "subagent-architect": "Architecture review",
+      "architecture-memory": "Architecture analysis",
+      "file-intelligence": "File intelligence"
     },
     "activities": {
       "read": "Reading file",
@@ -433,6 +464,7 @@
     "subagentRisks": "Risks",
     "subagentTopFindings": "Top Findings",
     "tabArchitecture": "Architecture",
+    "tabPerformance": "Performance",
     "searchPlaceholder": "Search findings...",
     "generatedAt": "Generated",
     "target": "Target",

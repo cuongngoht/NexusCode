@@ -51,7 +51,7 @@ export class CodeReviewPolicy {
     const stats: CodeReviewReport['stats'] = {
       totalFindings: findings.length,
       blocker: 0, critical: 0, major: 0, minor: 0, nit: 0, info: 0,
-      architecture: 0, security: 0, test: 0, maintainability: 0,
+      architecture: 0, security: 0, performance: 0, test: 0, maintainability: 0,
     };
     for (const f of findings) {
       if (f.severity in stats) {
@@ -60,6 +60,7 @@ export class CodeReviewPolicy {
       const archCategories = new Set(['architecture', 'oop', 'ood', 'design-pattern', 'coupling', 'cohesion', 'dependency-direction', 'abstraction', 'complexity', 'technical-debt']);
       if (archCategories.has(f.category)) stats.architecture++;
       if (f.category === 'security') stats.security++;
+      if (f.category === 'performance') stats.performance++;
       if (f.category === 'test') stats.test++;
       if (f.category === 'maintainability') stats.maintainability++;
     }

@@ -165,7 +165,44 @@ function loadProjectRules(workspaceRoot: string): CodeReviewProjectRules | undef
       hasAny = true;
     }
   }
+
+  if (!result.architecturePolicy) {
+    const violationsPath = path.join(nexusDir, 'architecture-memory', 'violations.json');
+    const raw = tryReadFile(violationsPath);
+    if (raw) {
+      try {
+        const violations = JSON.parse(raw) as unknown[];
+        if (Array.isArray(violations) && violations.length > 0) {
+          result.architecturePolicy = formatViolationsAsPolicy(violations);
+          hasAny = true;
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }
+
   return hasAny ? result : undefined;
+}
+
+function formatViolationsAsPolicy(violations: unknown[]): string {
+  const lines = ['Known architecture violations (do not introduce more):'];
+  for (const v of violations.slice(0, 20)) {
+    if (!v || typeof v !== 'object') continue;
+    const vio = v as Record<string, unknown>;
+    const from = typeof vio['from'] === 'string' ? vio['from'] : '';
+    const to = typeof vio['to'] === 'string' ? vio['to'] : '';
+    const fromLayer = typeof vio['fromLayer'] === 'string' ? vio['fromLayer'] : '';
+    const toLayer = typeof vio['toLayer'] === 'string' ? vio['toLayer'] : '';
+    const rule = typeof vio['rule'] === 'string' ? vio['rule'] : '';
+    if (from && to) {
+      lines.push(`- ${from} → ${to} (${fromLayer} → ${toLayer}): ${rule}`);
+    }
+  }
+  if (violations.length > 20) {
+    lines.push(`(and ${violations.length - 20} more violations)`);
+  }
+  return lines.join('\n');
 }
 
 function getCurrentBranch(workspaceRoot: string): string | undefined {

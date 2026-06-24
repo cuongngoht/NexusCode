@@ -34,6 +34,7 @@ export interface CodeReviewReport {
     info: number;
     architecture: number;
     security: number;
+    performance: number;
     test: number;
     maintainability: number;
   };

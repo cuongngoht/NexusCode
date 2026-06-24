@@ -56,6 +56,10 @@ export class SubagentOrchestrator {
     return this.planner.plan(cfg).length;
   }
 
+  async stop(): Promise<void> {
+    await this.executor.stop();
+  }
+
   async run(
     ctx: PipelineContext,
     emit: (e: NexusEvent) => void,

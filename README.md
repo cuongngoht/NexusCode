@@ -722,6 +722,55 @@ When publishing or packaging a new version, confirm:
 
 ---
 
+---
+
+## Privacy and Data Handling
+
+Nexus AI Code is designed to keep data under your control.
+
+- **Workspace context in prompts**: When prompt enhancement is enabled (`nexus.enablePromptEnhancement`), Nexus may prepend selected workspace context (project structure, rules, conversation history) to prompts before sending them to the selected provider. You can disable this setting to send prompts without workspace context.
+- **Provider routing**: Prompts are sent only to the provider you select. Supported providers may include local CLIs (Claude Code, Codex, Aider, Grok, Copilot) or a user-configured custom local executable.
+- **No external data transmission**: Nexus does not collect, sell, or transmit your data to Nexus-controlled servers. The optional analytics module (`nexus.analytics.enabled`) records task metadata locally in VS Code workspace state only — nothing is sent externally.
+- **Analytics privacy controls**: Workspace path is hashed (not stored as plain text) by default. Conversation titles are not stored by default. Both can be configured via `nexus.analytics.storeWorkspacePath` and `nexus.analytics.storeConversationTitle`.
+- **No bundled API keys**: Nexus does not bundle provider API keys or tokens. Provider authentication is handled by the provider CLI or your VS Code configuration.
+- **Avoid secrets in prompts**: Users should avoid including passwords, API keys, or private credentials in prompts, as prompts are forwarded to the selected provider.
+
+---
+
+## Local Command Execution
+
+The custom provider feature allows you to configure a local AI CLI executable.
+
+- **User-configured**: The custom provider command is set by you in VS Code settings (`nexus.customProvider.command`). Nexus does not auto-configure or auto-invoke any command.
+- **Explicit invocation only**: Nexus invokes the configured provider command only when you submit a prompt. No background execution occurs.
+- **Safe argument passing**: Use `{{prompt}}` as a placeholder in your argument list. The prompt is substituted into the argument array — no shell string concatenation or interpolation occurs.
+- **Shell metacharacter guard**: Nexus validates that the executable name does not contain shell metacharacters (`;`, `&`, `|`, `` ` ``, `$`, `<`, `>`, `\`, `!`) before invoking it. This prevents injection via the executable name field.
+- **User responsibility**: You are responsible for the behavior of third-party CLI tools you configure. Nexus does not inspect or sandbox the output of configured provider commands.
+
+---
+
+## MCP Tool Safety
+
+The optional MCP (Model Context Protocol) tool layer is disabled by default.
+
+- **Disabled by default**: `nexus.mcp.enabled` defaults to `false`. Enable it only if you understand and trust the MCP tools you intend to use.
+- **High-risk approval required**: `nexus.mcp.requireApprovalForHighRiskTools` defaults to `true`. High-risk operations — including file writes, shell command execution, network access, destructive operations, and credential-sensitive operations — require your explicit approval before execution.
+- **Arguments are safe**: MCP tool arguments are passed as structured objects to the MCP SDK. No shell interpolation occurs in the MCP transport layer.
+- **Limited by default**: The default MCP configuration allows a maximum of one tool round per task (`nexus.mcp.maxRoundsPerTask`) and caps result size (`nexus.mcp.maxResultChars`).
+
+---
+
+## Marketplace Security Notes
+
+- **No bundled secrets**: The extension package contains no API keys, tokens, passwords, or private credentials.
+- **No background activity**: Nexus does not run background processes, scheduled tasks, or network connections without an explicit user action (prompt submission or command invocation).
+- **No obfuscated payloads**: All extension source code and build output are standard TypeScript/JavaScript with no obfuscation.
+- **No mining or malware**: The extension performs no cryptocurrency mining, data exfiltration, or other unauthorized operations.
+- **Workspace context is opt-in**: Workspace file content is included in prompts only when prompt enhancement is enabled and you submit a task.
+- **User controls provider**: You select which provider receives your prompts. Nexus does not route prompts to any provider without your selection.
+
+---
+
 ## License
 
 See [`LICENSE`](./LICENSE).

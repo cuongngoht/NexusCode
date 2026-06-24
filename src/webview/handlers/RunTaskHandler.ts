@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
 import type { ProviderId, TaskMode } from '../../core/types';
@@ -11,6 +12,7 @@ import { RunAgentUseCase } from '../../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
 import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
+import { BuildArchitectureMemoryUseCase } from '../../application/usecases/BuildArchitectureMemoryUseCase';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
 import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
@@ -18,6 +20,7 @@ import { buildPromptAttachmentContext } from '../../context/promptAttachments';
 import { listAgentPrompts, loadAgentPromptBundle } from '../../context/agentPromptLibrary';
 import { parseAgentMentions } from '../../context/agentMentionParser';
 import { listSkillPrompts, loadSkillPromptBundle } from '../../context/skillPromptLibrary';
+import { ensureWorkspacePrompts } from '../../context/promptLibrary';
 import { parseSkillMentions } from '../../context/skillMentionParser';
 import { scanWorkspace } from '../../context/workspaceScanner';
 import { detectPackageInfo } from '../../context/packageDetector';
@@ -53,6 +56,24 @@ import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../../review/ReviewPanel';
 import type { PermissionService } from '../../application/permissions/PermissionService';
 import { NexusDiscoveryOrchestrator } from '../../context/project-map/NexusDiscoveryOrchestrator';
+import {
+  FsProjectMemoryManifestRepository,
+  PROJECT_MEMORY_SCHEMA_VERSION,
+  ProjectMemoryStatusService,
+  ProjectMemoryRagFacade,
+  hashWorkspaceRoot,
+  type ProjectMemoryManifest,
+} from '../../context/project-memory';
+import type { FileIntelligenceService } from '../../context/file-intelligence/FileIntelligenceService';
+import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
+import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
+import type { FileTouchEvent, FileTouchSource } from '../../context/file-intelligence/types';
+
+export interface FileIntelligenceDeps {
+  service: FileIntelligenceService;
+  store: IFileIntelligenceStore;
+  ignoreFilter: FileIntelligenceIgnoreFilter;
+}
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -97,7 +118,12 @@ export class RunTaskHandler {
     private readonly debugOrchestrator?: DebugOrchestrator,
     private readonly agentExecutor?: AgentExecutor,
     private readonly permissionService?: PermissionService,
+    private readonly projectMemoryStatusService: ProjectMemoryStatusService = new ProjectMemoryStatusService(),
+    private readonly projectMemoryRagFacade?: ProjectMemoryRagFacade,
+    private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
   ) {}
+
+  private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
 
   hasActive(): boolean {
     return this.runAgent.hasActiveTask() || this._pipelineActive;
@@ -137,6 +163,7 @@ export class RunTaskHandler {
     const contextMaxChars = cfg.get<number>('context.maxChars', 100_000);
     const contextMaxMessages = cfg.get<number>('context.maxMessages', 20);
     const resolvedReviewTarget = this.resolveReviewTarget(mode, baseBranch, cfg, reviewTarget);
+    const projectMemoryStatus = await this.projectMemoryStatusService.getStatus(workspaceRoot);
 
     const ctx: PipelineContext = {
       workspaceRoot,
@@ -149,6 +176,7 @@ export class RunTaskHandler {
       conversationContext: conversationContext ?? (latestHistory ? buildConversationContext(latestHistory, undefined, { maxChars: contextMaxChars, maxMessages: contextMaxMessages }) : undefined),
       baseBranch: resolvedReviewTarget?.baseBranch ?? baseBranch ?? undefined,
       reviewTarget: resolvedReviewTarget,
+      projectMemoryStatus,
       isCancellationRequested: () => this._stopRequested,
     };
 
@@ -193,6 +221,47 @@ export class RunTaskHandler {
         }
       } catch {
         // Non-blocking: RAG failure must not prevent the task from running
+      }
+    }
+
+    // Inject project memory RAG context if enabled and memory is ready
+    const pmRagEnabled = cfg.get<boolean>('projectMemory.rag.enabled', true);
+    if (pmRagEnabled && this.projectMemoryRagFacade && projectMemoryStatus) {
+      try {
+        // For review mode, augment the BM25 query with changed file paths so the
+        // retrieval finds architecture sections relevant to the files being reviewed.
+        let pmRagQuery = effectivePrompt;
+        if (mode === 'review' && resolvedReviewTarget?.baseBranch) {
+          try {
+            const nameOnly = execFileSync(
+              'git',
+              ['diff', '--name-only', `${resolvedReviewTarget.baseBranch}...HEAD`],
+              { cwd: workspaceRoot, encoding: 'utf8', timeout: 3_000, stdio: ['ignore', 'pipe', 'pipe'] },
+            ).trim();
+            if (nameOnly) {
+              pmRagQuery = effectivePrompt + ' ' + nameOnly.replace(/\n/g, ' ');
+            }
+          } catch {
+            // Non-blocking: git failure → use plain prompt
+          }
+        }
+
+        const { ragContext, resultCount } = await this.projectMemoryRagFacade.buildRagForPrompt(
+          pmRagQuery,
+          workspaceRoot,
+          projectMemoryStatus,
+          {
+            maxResults: cfg.get<number>('projectMemory.rag.maxResults', 5),
+            maxChars: cfg.get<number>('projectMemory.rag.maxChars', 4000),
+            minScore: cfg.get<number>('projectMemory.rag.minScore', 1.0),
+          },
+        );
+        if (ragContext && resultCount > 0) {
+          ctx.conversationContext = ragContext +
+            (ctx.conversationContext ? '\n\n' + ctx.conversationContext : '');
+        }
+      } catch {
+        // Non-blocking: project memory RAG failure must not prevent the task from running
       }
     }
 
@@ -247,6 +316,14 @@ export class RunTaskHandler {
             },
           );
           this.eventBus.emit({ kind: 'step_completed', stepLabel: 'scan' });
+          try {
+            const tsFiles = result.mapOutput.tree.files.filter(
+              (f: string) => f.endsWith('.ts') || f.endsWith('.tsx'),
+            );
+            await this.buildArchitectureMemory.execute({ workspaceRoot, files: tsFiles });
+          } catch {
+            // non-blocking — architecture memory is best-effort
+          }
           this.post({
             type: 'projectScanCompleted',
             fileCount: result.mapOutput.tree.files.length,
@@ -255,6 +332,7 @@ export class RunTaskHandler {
             filesWritten: result.filesWritten,
           });
         } catch (err) {
+          await this.markProjectMemoryFailed(workspaceRoot, err, 'discovery');
           this.eventBus.emit({ kind: 'step_error', stepLabel: 'scan', error: String(err) });
           this.post({ type: 'taskError', taskId: 'scan-project', message: `Project scan failed: ${String(err)}` });
         }
@@ -285,6 +363,8 @@ export class RunTaskHandler {
             task: debugTask,
             enhancedPrompt: ctx.enhancedPrompt,
           });
+
+          this.setupDebugIntelligenceListener(debugTask, workspaceRoot, effectivePrompt);
 
           try {
             await this.debugOrchestrator.run({
@@ -342,6 +422,8 @@ export class RunTaskHandler {
 
         const preSteps = createPreSteps(mode, {
           extensionPath: this.extensionPath,
+          fileIntelligenceStore: this.fileIntelligenceDeps?.store,
+          fileIntelligenceIgnoreFilter: this.fileIntelligenceDeps?.ignoreFilter,
         });
 
         const planCfg: SubagentPlanConfig = {
@@ -554,11 +636,21 @@ export class RunTaskHandler {
   ): CodeReviewTarget | undefined {
     if (mode !== 'review') return undefined;
 
+    // Determine whether the default base branch is user-configured (not just package default)
+    const inspected = cfg.inspect<string>('review.defaultBaseBranch');
+    const hasUserConfiguredDefault =
+      inspected?.globalValue !== undefined ||
+      inspected?.workspaceValue !== undefined ||
+      inspected?.workspaceFolderValue !== undefined;
+    const autoUseDefault = cfg.get<boolean>('review.autoUseDefaultBaseBranch', false);
+    const configuredDefault = hasUserConfiguredDefault ? cfg.get<string>('review.defaultBaseBranch') : undefined;
+    const effectiveDefault = (autoUseDefault && configuredDefault) ? configuredDefault : (baseBranch ?? 'main');
+
     if (target) {
       if (target.type === 'branch') {
         return {
           ...target,
-          baseBranch: target.baseBranch ?? baseBranch ?? cfg.get<string>('review.defaultBaseBranch', 'main'),
+          baseBranch: target.baseBranch ?? baseBranch ?? effectiveDefault,
         };
       }
       return baseBranch && !target.baseBranch
@@ -568,7 +660,7 @@ export class RunTaskHandler {
 
     return {
       type: 'branch',
-      baseBranch: baseBranch ?? cfg.get<string>('review.defaultBaseBranch', 'main'),
+      baseBranch: baseBranch ?? effectiveDefault,
     };
   }
 
@@ -640,7 +732,8 @@ export class RunTaskHandler {
         this.post({ type: 'codeReviewProgress', reportId: 'pending', message: suggestion.reason });
       }
 
-      let reviewPrompt = new CodeReviewPromptBuilder(this.extensionPath).build({
+      ensureWorkspacePrompts(workspaceRoot, this.extensionPath, 'modes/review-code');
+      let reviewPrompt = new CodeReviewPromptBuilder(this.extensionPath, workspaceRoot).build({
         context: reviewCtx,
         userPrompt: ctx.originalPrompt || undefined,
         preset,
@@ -689,6 +782,8 @@ export class RunTaskHandler {
       attachmentContext: ctx.attachmentContext,
       extensionRoot: this.extensionPath,
       researchContext,
+      architectureContext: ctx.architectureContext,
+      fileIntelligenceContext: ctx.fileIntelligenceContext,
     });
 
     if (agentIds.length > 0 || skillIds.length > 0) {
@@ -748,6 +843,9 @@ export class RunTaskHandler {
       this.setupGitStatusListener(task, workspaceRoot);
     }
 
+    this.setupFileIntelligenceListener(task, workspaceRoot, mode, ctx.originalPrompt);
+    this.setupActivityListener(task, workspaceRoot, mode);
+
     if (mode === 'review') {
       // Abort early if there is nothing to review (no changed files between HEAD and base)
       if (ctx.reviewEmptyDiff) {
@@ -760,15 +858,15 @@ export class RunTaskHandler {
 
       // Synthesize from subagent results when available — skip main agent if successful
       if (ctx.subagentResults && ctx.subagentResults.length > 0) {
-        this.eventBus.emit({ kind: 'activity_started', activityKind: 'tool_call', label: 'Synthesizing findings' });
+        this.eventBus.emit({ kind: 'activity_started', task, activityKind: 'tool_call', label: 'Synthesizing findings' });
         const report = new CodeReviewSynthesizer().synthesize(ctx.subagentResults, reviewTarget);
         if (report) {
-          this.eventBus.emit({ kind: 'activity_done', activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
+          this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
           this.emitFinalReport(report, cfg);
           this.eventBus.emit({ kind: 'step_completed', stepLabel });
           return; // Report is complete — no need to run the main agent
         }
-        this.eventBus.emit({ kind: 'activity_done', activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
+        this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
       }
 
       // Fall back to streaming parser (no subagents or synthesis produced no findings)
@@ -780,6 +878,30 @@ export class RunTaskHandler {
       this.eventBus.emit({ kind: 'step_completed', stepLabel });
     } catch {
       this.eventBus.emit({ kind: 'step_error', stepLabel, error: '' });
+    }
+  }
+
+  private async markProjectMemoryFailed(workspaceRoot: string, error: unknown, phase: string): Promise<void> {
+    const now = Date.now();
+    const manifest: ProjectMemoryManifest = {
+      version: 1,
+      status: 'failed',
+      workspaceRootHash: hashWorkspaceRoot(workspaceRoot),
+      workspaceRootName: path.basename(workspaceRoot),
+      schemaVersion: PROJECT_MEMORY_SCHEMA_VERSION,
+      source: 'manual_scan',
+      createdAt: now,
+      updatedAt: now,
+      error: {
+        message: error instanceof Error ? error.message : String(error),
+        at: now,
+        phase,
+      },
+    };
+    try {
+      await new FsProjectMemoryManifestRepository().writeManifest(workspaceRoot, manifest);
+    } catch {
+      // Preserve the original scan failure; manifest write errors are secondary here.
     }
   }
 
@@ -859,7 +981,8 @@ export class RunTaskHandler {
     this.post({ type: 'reviewHistoryLoaded', reports: updated });
 
     const reviewCfg = cfg ?? vscode.workspace.getConfiguration('nexus');
-    const openPanel = reviewCfg.get<boolean>('review.openPanelOnCompletion', true);
+    const openPanel = reviewCfg.get<boolean>('review.autoOpenReportPanel',
+      reviewCfg.get<boolean>('review.openPanelOnCompletion', true));
     const columnStr = reviewCfg.get<string>('review.panelColumn', 'Two');
 
     if (openPanel) {
@@ -922,6 +1045,192 @@ export class RunTaskHandler {
         message: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  private setupFileIntelligenceListener(
+    task: AgentTask,
+    workspaceRoot: string,
+    mode: TaskMode,
+    userIntent: string,
+  ): void {
+    if (!this.fileIntelligenceDeps) return;
+    const { service } = this.fileIntelligenceDeps;
+
+    const listener = (event: NexusEvent) => {
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
+        event.task.id === task.id
+      ) {
+        this.eventBus.off('task_completed', listener);
+        this.eventBus.off('task_stopped', listener);
+        this.eventBus.off('task_error', listener);
+
+        if (event.kind !== 'task_error') {
+          try {
+            const changedFiles = this.getGitChangedFileNames(workspaceRoot);
+            if (changedFiles.length > 0) {
+              const touchEvents: FileTouchEvent[] = changedFiles.map(filePath => ({
+                filePath,
+                workspaceRoot,
+                mode,
+                reason: 'edit',
+                source: 'edit',
+                taskId: task.id,
+                userIntent,
+                confidence: 0.7,
+                timestamp: Date.now(),
+              }));
+              service.processAsync(touchEvents);
+            }
+          } catch {
+            // best-effort
+          }
+        }
+      }
+    };
+
+    this.eventBus.on('task_completed', listener);
+    this.eventBus.on('task_stopped', listener);
+    this.eventBus.on('task_error', listener);
+  }
+
+  private getGitChangedFileNames(workspaceRoot: string): string[] {
+    try {
+      const result = execFileSync('git', ['diff', '--name-only', 'HEAD'], {
+        cwd: workspaceRoot,
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      return result.split('\n').map(l => l.trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  // Part 3 — capture debug investigation findings into file profiles
+  private setupDebugIntelligenceListener(task: AgentTask, workspaceRoot: string, userIntent: string): void {
+    if (!this.fileIntelligenceDeps) return;
+    const { service } = this.fileIntelligenceDeps;
+
+    let suspectedFiles: string[] = [];
+    let rootCause: string | undefined;
+
+    const listener = (event: NexusEvent) => {
+      if (event.kind === 'debug_bm25_results') {
+        suspectedFiles = event.results.map(r => r.path);
+        return;
+      }
+
+      if (event.kind === 'debug_plan_ready' && event.plan && typeof event.plan === 'object') {
+        const plan = event.plan as Record<string, unknown>;
+        if (typeof plan['rootCause'] === 'string') rootCause = plan['rootCause'];
+        const candidates = plan['candidateFiles'];
+        if (Array.isArray(candidates)) {
+          for (const f of candidates) {
+            if (typeof f === 'string' && !suspectedFiles.includes(f)) suspectedFiles.push(f);
+          }
+        }
+        return;
+      }
+
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
+        event.task.id === task.id
+      ) {
+        this.eventBus.off('*', listener);
+        if (event.kind === 'task_error') return;
+
+        try {
+          const now = Date.now();
+
+          // Suspected files from BM25 + debug plan candidates
+          if (suspectedFiles.length > 0) {
+            const suspectedEvents: FileTouchEvent[] = suspectedFiles.map(filePath => ({
+              filePath,
+              workspaceRoot,
+              mode: 'debug' as const,
+              reason: 'debug' as const,
+              source: 'debug' as const,
+              taskId: task.id,
+              userIntent,
+              debugFindings: rootCause ? [{ role: 'suspected' as const, description: rootCause }] : undefined,
+              confidence: 0.5,
+              timestamp: now,
+            }));
+            service.processAsync(suspectedEvents);
+          }
+
+          // Confirmed files — actually changed by the fix
+          const changedFiles = this.getGitChangedFileNames(workspaceRoot);
+          if (changedFiles.length > 0) {
+            const confirmedEvents: FileTouchEvent[] = changedFiles.map(filePath => ({
+              filePath,
+              workspaceRoot,
+              mode: 'debug' as const,
+              reason: 'debug' as const,
+              source: 'debug' as const,
+              taskId: task.id,
+              userIntent,
+              debugFindings: rootCause ? [{ role: 'confirmed' as const, description: rootCause }] : undefined,
+              confidence: 0.9,
+              timestamp: now,
+            }));
+            service.processAsync(confirmedEvents);
+          }
+        } catch {
+          // best-effort
+        }
+      }
+    };
+
+    this.eventBus.on('*', listener);
+  }
+
+  // Part 2 — capture files the CLI read as context during any task
+  private setupActivityListener(task: AgentTask, workspaceRoot: string, mode: TaskMode): void {
+    if (!this.fileIntelligenceDeps) return;
+    const { service, ignoreFilter } = this.fileIntelligenceDeps;
+
+    const FILE_PATH_RE = /[\w./\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|java|rs|rb|php|cs|cpp|c|h|swift)/g;
+    const readFiles = new Set<string>();
+
+    const listener = (event: NexusEvent) => {
+      if (event.kind === 'activity_started' && event.task.id === task.id && event.activityKind === 'read') {
+        const matches = event.label.match(FILE_PATH_RE) ?? [];
+        for (const match of matches) {
+          if (!ignoreFilter.shouldIgnore(match)) readFiles.add(match);
+        }
+        return;
+      }
+
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
+        event.task.id === task.id
+      ) {
+        this.eventBus.off('*', listener);
+        if (readFiles.size === 0) return;
+
+        try {
+          const contextReadEvents: FileTouchEvent[] = [...readFiles].map(filePath => ({
+            filePath,
+            workspaceRoot,
+            mode,
+            reason: 'context-read' as const,
+            source: (mode === 'debug' ? 'debug' : mode === 'review' ? 'review' : 'edit') as FileTouchSource,
+            taskId: task.id,
+            contextReadMetadata: { purpose: mode, charCount: 0 },
+            confidence: 0.2,
+            timestamp: Date.now(),
+          }));
+          service.processAsync(contextReadEvents);
+        } catch {
+          // best-effort
+        }
+      }
+    };
+
+    this.eventBus.on('*', listener);
   }
 
   private setupGitStatusListener(task: AgentTask, workspaceRoot: string): void {

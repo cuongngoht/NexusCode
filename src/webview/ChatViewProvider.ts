@@ -14,6 +14,7 @@ import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
 import type { CodeReviewTarget } from '../application/code-review/CodeReviewTarget';
 import type { CodeReviewPreset } from '../application/code-review/CodeReviewPromptBuilder';
+import type { FileIntelligenceDeps } from './handlers/RunTaskHandler';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'nexus.chatView';
@@ -34,6 +35,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly compactor?: ConversationCompactor,
     private readonly analyticsService?: AnalyticsService,
     private readonly globalStorageUri?: vscode.Uri,
+    private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
   ) { }
 
   resolveWebviewView(
@@ -68,6 +70,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.compactor,
       this.analyticsService,
       this.globalStorageUri,
+      this.fileIntelligenceDeps,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {
@@ -86,6 +89,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   async reloadAgentPrompts(): Promise<void> {
     await this.controller?.reloadAgentPrompts();
+  }
+
+  async postProjectMemoryStatusUpdate(): Promise<void> {
+    await this.controller?.handleMessage({ type: 'projectMemory:getStatus' });
   }
 
   async runCodeReview(target: CodeReviewTarget, preset: CodeReviewPreset, userPrompt?: string): Promise<void> {

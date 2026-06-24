@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AgentStreamPipelineFactory } from './AgentStreamPipelineFactory';
 import { AgentCommand } from '../../core/agent/AgentCommand';
-import { SseDecoder } from '../../infrastructure/stream/SseDecoder';
-import { LineDecoder } from '../../infrastructure/stream/LineDecoder';
-import { PlainTextDecoder } from '../../infrastructure/stream/PlainTextDecoder';
 
 function cmd(transport?: ConstructorParameters<typeof AgentCommand>[5]) {
   return new AgentCommand('mycli', [], undefined, undefined, undefined, transport);
@@ -14,13 +11,18 @@ describe('AgentStreamPipelineFactory', () => {
     expect(AgentStreamPipelineFactory.create(cmd(undefined))).toBeNull();
   });
 
-  it('returns a pipeline for transport=sse', () => {
-    const pipeline = AgentStreamPipelineFactory.create(cmd('sse'));
+  it('returns a pipeline for transport=codex-sse', () => {
+    const pipeline = AgentStreamPipelineFactory.create(cmd('codex-sse'));
     expect(pipeline).not.toBeNull();
   });
 
-  it('returns a pipeline for transport=jsonl', () => {
+  it('returns a pipeline for transport=jsonl (generic plain-text)', () => {
     const pipeline = AgentStreamPipelineFactory.create(cmd('jsonl'));
+    expect(pipeline).not.toBeNull();
+  });
+
+  it('returns a pipeline for transport=codex-jsonl', () => {
+    const pipeline = AgentStreamPipelineFactory.create(cmd('codex-jsonl'));
     expect(pipeline).not.toBeNull();
   });
 
@@ -34,22 +36,22 @@ describe('AgentStreamPipelineFactory', () => {
     expect(pipeline).not.toBeNull();
   });
 
-  it('sse pipeline correctly decodes an SSE chunk end-to-end', () => {
-    const pipeline = AgentStreamPipelineFactory.create(cmd('sse'))!;
+  it('codex-sse pipeline correctly decodes an SSE chunk end-to-end', () => {
+    const pipeline = AgentStreamPipelineFactory.create(cmd('codex-sse'))!;
     const events = pipeline.processChunk(
       'data: {"choices":[{"delta":{"content":"test"},"finish_reason":null}]}\n\n'
     );
     expect(events).toEqual([{ kind: 'content_delta', text: 'test' }]);
   });
 
-  it('jsonl pipeline emits content_delta for a complete line (non-codex executable)', () => {
+  it('jsonl pipeline emits content_delta for a plain text line (generic)', () => {
     const pipeline = AgentStreamPipelineFactory.create(cmd('jsonl'))!;
     const events = pipeline.processChunk('hello world\n');
     expect(events).toEqual([{ kind: 'content_delta', text: 'hello world' }]);
   });
 
-  it('jsonl pipeline uses CodexJsonlAdapter for codex executable', () => {
-    const codexCmd = new AgentCommand('codex', [], undefined, undefined, undefined, 'jsonl');
+  it('codex-jsonl pipeline uses CodexJsonlAdapter', () => {
+    const codexCmd = new AgentCommand('codex', [], undefined, undefined, undefined, 'codex-jsonl');
     const pipeline = AgentStreamPipelineFactory.create(codexCmd)!;
 
     const events = pipeline.processChunk(
@@ -63,8 +65,8 @@ describe('AgentStreamPipelineFactory', () => {
     ]);
   });
 
-  it('codex jsonl pipeline handles a JSONL line split across chunks', () => {
-    const codexCmd = new AgentCommand('codex', [], undefined, undefined, undefined, 'jsonl');
+  it('codex-jsonl pipeline handles a JSONL line split across chunks', () => {
+    const codexCmd = new AgentCommand('codex', [], undefined, undefined, undefined, 'codex-jsonl');
     const pipeline = AgentStreamPipelineFactory.create(codexCmd)!;
 
     const e1 = pipeline.processChunk('{"type":"item.completed","item":{"type":"agent_mess');

@@ -35,6 +35,7 @@ const ARCH_CATEGORIES = new Set([
   'architecture', 'oop', 'ood', 'design-pattern',
   'coupling', 'cohesion', 'abstraction', 'dependency-direction',
 ]);
+const PERF_CATEGORIES = new Set(['performance']);
 
 export function ReviewPanel({ report, history = [], onSelectReport, onClearHistory, subagentTrace, subagentSynthesis }: Props): React.ReactElement {
   const t = useT();
@@ -44,6 +45,7 @@ export function ReviewPanel({ report, history = [], onSelectReport, onClearHisto
   void onClearHistory;
 
   const archFindings = report.findings.filter(f => ARCH_CATEGORIES.has(f.category));
+  const perfFindings = report.findings.filter(f => PERF_CATEGORIES.has(f.category));
   const allFindings = report.findings; // table shows everything, category filter handles arch
 
   function exportReport(): void {
@@ -141,6 +143,18 @@ export function ReviewPanel({ report, history = [], onSelectReport, onClearHisto
               {archFindings.length > 0 && (
                 <ReviewFindingList findings={archFindings} />
               )}
+            </AccordionPanel>
+          </AccordionItem>
+        )}
+
+        {/* Performance details */}
+        {perfFindings.length > 0 && (
+          <AccordionItem value="performance">
+            <AccordionHeader size="small">
+              <Text weight="semibold" size={300}>{s.tabPerformance} ({perfFindings.length})</Text>
+            </AccordionHeader>
+            <AccordionPanel>
+              <ReviewFindingList findings={perfFindings} />
             </AccordionPanel>
           </AccordionItem>
         )}

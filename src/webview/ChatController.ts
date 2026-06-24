@@ -12,6 +12,7 @@ import type { SubagentOrchestrator } from '../application/subagents/SubagentOrch
 import { HistoryHandler } from './handlers/HistoryHandler';
 import { ProviderHandler } from './handlers/ProviderHandler';
 import { ReviewHandler } from './handlers/ReviewHandler';
+import { ChatReviewOrchestrator } from './handlers/ChatReviewOrchestrator';
 import { AttachmentHandler } from './handlers/AttachmentHandler';
 import { LoginHandler } from './handlers/LoginHandler';
 import { NavigationHandler } from './handlers/NavigationHandler';
@@ -26,6 +27,7 @@ import { ArtifactHandler } from './handlers/ArtifactHandler';
 import { CodeBlockHandler } from './handlers/CodeBlockHandler';
 import { AnalyticsHandler } from './handlers/AnalyticsHandler';
 import { HistorySearchHandler } from './handlers/HistorySearchHandler';
+import { ProjectMemoryHandler } from './handlers/ProjectMemoryHandler';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
 import { HistoryRagFacade } from '../context/history-search/HistoryRagFacade';
@@ -40,6 +42,12 @@ import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../review/ReviewPanel';
 import { PermissionService } from '../application/permissions/PermissionService';
 import type { ProviderId } from '../core/types';
+import {
+  ProjectMemoryStatusService,
+  ProjectMemoryRagFacade,
+  FsProjectMemoryIndexRepository,
+} from '../context/project-memory';
+import type { FileIntelligenceDeps } from './handlers/RunTaskHandler';
 
 const PROVIDER_IDS = new Set<ProviderId>([
   'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
@@ -59,6 +67,7 @@ export class ChatController {
   private readonly historyHandler: HistoryHandler;
   private readonly providerHandler: ProviderHandler;
   private readonly reviewHandler: ReviewHandler;
+  private readonly chatReviewOrchestrator: ChatReviewOrchestrator;
   private readonly attachmentHandler: AttachmentHandler;
   private readonly loginHandler: LoginHandler;
   private readonly navigationHandler: NavigationHandler;
@@ -72,6 +81,7 @@ export class ChatController {
   private readonly codeBlockHandler = new CodeBlockHandler();
   private readonly analyticsHandler?: AnalyticsHandler;
   private readonly historySearchHandler: HistorySearchHandler;
+  private readonly projectMemoryHandler: ProjectMemoryHandler;
   readonly historyRagFacade: HistoryRagFacade;
 
   constructor(
@@ -91,6 +101,7 @@ export class ChatController {
     compactor?: ConversationCompactor,
     analyticsService?: AnalyticsService,
     globalStorageUri?: vscode.Uri,
+    fileIntelligenceDeps?: FileIntelligenceDeps,
   ) {
     // Build history search / RAG infrastructure
     this._workspaceState = workspaceState ?? globalState;
@@ -103,19 +114,32 @@ export class ChatController {
     const historySearchService = new HistorySearchService(bm25Strategy, historyIndexBuilder, historyIndexRepo);
     const ragContextBuilder = new RagContextBuilder();
     this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder);
+    const projectMemoryStatusService = new ProjectMemoryStatusService();
+    const projectMemoryRagFacade = new ProjectMemoryRagFacade(new FsProjectMemoryIndexRepository());
     this.historySearchHandler = new HistorySearchHandler(
       this.historyRagFacade,
       post,
       () => this.historyHandler.latestHistory,
     );
+    this.projectMemoryHandler = new ProjectMemoryHandler(
+      post,
+      buildProjectMap,
+      projectMemoryStatusService,
+    );
 
     const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
     const permissionService = new PermissionService(post as (msg: unknown) => void);
     const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService);
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade, fileIntelligenceDeps);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
     this.reviewHandler   = new ReviewHandler(post, workspaceState);
+    this.chatReviewOrchestrator = new ChatReviewOrchestrator(
+      post as (msg: ExtensionMessage) => void,
+      (p, pId, m, mdl, bb, hist, cc, att, sa, rt, rp) =>
+        this.runTaskHandler.run(p, pId, m, mdl, bb, hist, cc, att, sa ?? false, rt, rp),
+      extensionPath,
+    );
     this.attachmentHandler    = new AttachmentHandler(post);
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
     this.navigationHandler    = new NavigationHandler();
@@ -202,20 +226,31 @@ export class ChatController {
         await this.agentPromptHandler.sendAgentPrompts();
         await this.skillPromptHandler.sendSkillPrompts();
         await this.commandPromptHandler.sendCommandDefs();
+        await this.projectMemoryHandler.getStatus();
         void this.historySearchHandler.ensureIndex();
         {
           const reviewHistory = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history') ?? [];
           this._post({ type: 'reviewHistoryLoaded', reports: reviewHistory });
         }
         break;
-      case 'runTask':
-        await this.runTaskHandler.run(
-          msg.prompt, msg.provider, msg.mode, msg.model, msg.baseBranch,
+      case 'runTask': {
+        const intercepted = await this.chatReviewOrchestrator.tryIntercept(
+          msg.prompt, msg.provider, msg.mode, msg.model,
+          msg.attachments,
           this.historyHandler.latestHistory,
           msg.conversationContext,
-          msg.attachments, msg.subagentsEnabled ?? false,
+          msg.subagentsEnabled ?? false,
         );
+        if (!intercepted) {
+          await this.runTaskHandler.run(
+            msg.prompt, msg.provider, msg.mode, msg.model, msg.baseBranch,
+            this.historyHandler.latestHistory,
+            msg.conversationContext,
+            msg.attachments, msg.subagentsEnabled ?? false,
+          );
+        }
         break;
+      }
       case 'runCodeReview': {
         const provider = normalizeProviderId(this.globalState.get<string>('nexus.lastProvider'));
         await this.runTaskHandler.run(
@@ -255,6 +290,34 @@ export class ChatController {
           void ReviewPanel.createOrShow(this._extensionUri, this._workspaceState, report);
         } else {
           void vscode.window.showInformationMessage('Review report not found in history (may have been cleared).');
+        }
+        break;
+      }
+      case 'resolveReviewTargetSelection':
+        await this.chatReviewOrchestrator.resolveTarget(
+          msg.requestId,
+          msg.selectedTarget,
+          this.historyHandler.latestHistory,
+          undefined,
+        );
+        break;
+      case 'cancelReviewTargetSelection':
+        this.chatReviewOrchestrator.cancelTarget(msg.requestId);
+        break;
+      case 'openReviewFindingLocation': {
+        try {
+          const uri = vscode.Uri.file(msg.file);
+          const doc = await vscode.workspace.openTextDocument(uri);
+          const editor = await vscode.window.showTextDocument(doc);
+          if (msg.line !== undefined) {
+            const line = Math.max(0, msg.line - 1);
+            const col = msg.column !== undefined ? Math.max(0, msg.column - 1) : 0;
+            const pos = new vscode.Position(line, col);
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+          }
+        } catch {
+          // non-blocking
         }
         break;
       }
@@ -346,6 +409,18 @@ export class ChatController {
         break;
       case 'autoApprovePermissionScope':
         this.runTaskHandler.autoApprovePermission(msg.requestId, msg.scope);
+        break;
+      case 'projectMemory:getStatus':
+        await this.projectMemoryHandler.getStatus();
+        break;
+      case 'projectMemory:getIndex':
+        await this.projectMemoryHandler.getIndex();
+        break;
+      case 'projectMemory:rebuild':
+        await this.projectMemoryHandler.rebuild();
+        break;
+      case 'projectMemory:clear':
+        await this.projectMemoryHandler.clear();
         break;
     }
   }

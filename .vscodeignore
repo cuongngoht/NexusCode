@@ -61,3 +61,13 @@ tsconfig.webview.json
 vite.config.ts
 esbuild.js
 package-lock.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Marketplace / remediation docs (available on GitHub, not needed in VSIX)
+MARKETPLACE_REMEDIATION.md
+ARCHITECTURE.md

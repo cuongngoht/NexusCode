@@ -10,6 +10,35 @@
     "chat": "Chat",
     "reviewHistory": "Lịch sử review"
   },
+  "projectMemory": {
+    "toolbarTitle": "Bộ nhớ dự án: {{status}}. {{action}}",
+    "error": "Bộ nhớ dự án: {{message}}",
+    "actionLabel": {
+      "status": "Bấm để xem chỉ mục.",
+      "rebuild": "Bấm để quét dự án."
+    },
+    "statusLabel": {
+      "missing": "Chưa tạo",
+      "ready": "Sẵn sàng",
+      "stale": "Đã cũ",
+      "building": "Đang xây dựng",
+      "failed": "Lỗi",
+      "needs_rebuild": "Cần tạo lại"
+    },
+    "index": {
+      "title": "Chỉ mục bộ nhớ dự án",
+      "close": "Đóng",
+      "noIndex": "Chưa có chỉ mục. Hãy quét dự án trước.",
+      "chunks": "{{count}} đoạn",
+      "avgLen": "trung bình {{chars}} ký tự",
+      "builtAt": "Tạo lúc {{time}}",
+      "sources": {
+        "project-map": "Bản đồ dự án",
+        "workspace-units": "Đơn vị workspace",
+        "discovery": "Khám phá"
+      }
+    }
+  },
   "provider": {
     "autoDetect": "Tự động phát hiện",
     "autoDetectBadge": "Mặc định",
@@ -295,7 +324,9 @@
       "agent-diff": "Thu thập diff",
       "agent-summary": "Tạo báo cáo cuối",
       "code-review-context": "Xây dựng ngữ cảnh review",
-      "subagent-architect": "Đánh giá kiến trúc"
+      "subagent-architect": "Đánh giá kiến trúc",
+      "architecture-memory": "Phân tích kiến trúc",
+      "file-intelligence": "Bộ nhớ thông minh tệp"
     },
     "activities": {
       "read": "Đọc tệp",
@@ -433,6 +464,7 @@
     "subagentRisks": "Rủi ro",
     "subagentTopFindings": "Phát hiện chính",
     "tabArchitecture": "Kiến trúc",
+    "tabPerformance": "Hiệu năng",
     "searchPlaceholder": "Tìm kiếm phát hiện...",
     "generatedAt": "Tạo lúc",
     "target": "Mục tiêu",

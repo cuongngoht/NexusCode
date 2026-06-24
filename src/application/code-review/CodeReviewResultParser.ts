@@ -14,31 +14,53 @@ function generateId(): string {
   return `report-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function extractJson(raw: string): string | null {
-  // 1. Pure JSON (starts with {)
-  const trimmed = raw.trim();
-  if (trimmed.startsWith('{')) {
-    return trimmed;
+/**
+ * Walk forward from `start` (a `{`) and return the index of its matching `}`,
+ * respecting string literals and escape sequences. Returns -1 if unmatched.
+ */
+function findMatchingBrace(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') { if (--depth === 0) return i; }
   }
+  return -1;
+}
 
-  // 2. Fenced JSON block: ```json ... ```
+function extractJson(raw: string): string | null {
+  const trimmed = raw.trim();
+
+  // 1. Fenced JSON block: ```json ... ``` — most explicit, check first
   const fencedMatch = trimmed.match(/```json\s*\n([\s\S]*?)\n```/);
   if (fencedMatch) {
-    return fencedMatch[1].trim();
+    const inner = fencedMatch[1].trim();
+    const end = findMatchingBrace(inner, inner.indexOf('{'));
+    if (end !== -1) return inner.slice(inner.indexOf('{'), end + 1);
+    return inner;
   }
 
-  // 3. Fenced block without language: ``` ... ```
+  // 2. Fenced block without language: ``` ... ```
   const genericFenced = trimmed.match(/```\s*\n([\s\S]*?)\n```/);
   if (genericFenced) {
     const inner = genericFenced[1].trim();
-    if (inner.startsWith('{')) return inner;
+    if (inner.startsWith('{')) {
+      const end = findMatchingBrace(inner, 0);
+      return end !== -1 ? inner.slice(0, end + 1) : inner;
+    }
   }
 
-  // 4. JSON embedded in markdown — find first { and last }
+  // 3. Find first { anywhere and use balanced-brace matching to extract the object
   const firstBrace = trimmed.indexOf('{');
-  const lastBrace = trimmed.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    return trimmed.slice(firstBrace, lastBrace + 1);
+  if (firstBrace !== -1) {
+    const end = findMatchingBrace(trimmed, firstBrace);
+    if (end !== -1) return trimmed.slice(firstBrace, end + 1);
   }
 
   return null;

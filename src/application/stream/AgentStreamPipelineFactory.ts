@@ -8,8 +8,13 @@ import { LineDecoder } from '../../infrastructure/stream/LineDecoder';
 import { PlainTextDecoder } from '../../infrastructure/stream/PlainTextDecoder';
 import { CodexSseAdapter } from '../../providers/codex/CodexSseAdapter';
 import { CodexJsonlAdapter } from '../../providers/codex/CodexJsonlAdapter';
-import { GrokStreamAdapter } from '../../providers/grok/GrokStreamAdapter';
+import { GrokJsonLineDecoder } from '../../providers/grok/GrokJsonLineDecoder';
+import { GrokEventAdapter } from '../../providers/grok/GrokEventAdapter';
 import { AntigravityStreamAdapter } from '../../providers/antigravity/AntigravityStreamAdapter';
+import { WrappedParserAdapter } from '../../providers/base/WrappedParserAdapter';
+import { ClaudeOutputParser } from '../../providers/claude/ClaudeOutputParser';
+import { AiderOutputParser } from '../../providers/aider/AiderOutputParser';
+import { CopilotOutputParser } from '../../providers/copilot/CopilotOutputParser';
 
 class PlainTextAdapter implements IProviderStreamAdapter {
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
@@ -25,15 +30,18 @@ const adapterFactories = new Map<string, AdapterFactory>();
 
 function seedBuiltins() {
   const builtins: Array<[string, AdapterFactory]> = [
-    ['sse', () => ({ decoder: new SseDecoder(), adapter: new CodexSseAdapter() })],
-    ['jsonl', (cmd) => ({
-      decoder: new LineDecoder(),
-      adapter: cmd.executable === 'codex' ? new CodexJsonlAdapter() : new PlainTextAdapter(),
-    })],
-    ['plain', () => ({ decoder: new PlainTextDecoder(), adapter: new PlainTextAdapter() })],
-    ['stdio', () => ({ decoder: new LineDecoder(), adapter: new PlainTextAdapter() })],
-    ['grok', () => ({ decoder: new LineDecoder(), adapter: new GrokStreamAdapter() })],
-    ['antigravity', () => ({ decoder: new LineDecoder(), adapter: new AntigravityStreamAdapter() })],
+    // Generic transports — no provider-specific logic
+    ['plain',        () => ({ decoder: new PlainTextDecoder(), adapter: new PlainTextAdapter() })],
+    ['stdio',        () => ({ decoder: new LineDecoder(),     adapter: new PlainTextAdapter() })],
+    ['jsonl',        () => ({ decoder: new LineDecoder(),     adapter: new PlainTextAdapter() })],
+    // Provider-specific transports — each provider self-declares its key in buildCommand()
+    ['claude',       () => ({ decoder: new PlainTextDecoder(), adapter: new WrappedParserAdapter(new ClaudeOutputParser()) })],
+    ['aider',        () => ({ decoder: new PlainTextDecoder(), adapter: new WrappedParserAdapter(new AiderOutputParser()) })],
+    ['copilot',      () => ({ decoder: new PlainTextDecoder(), adapter: new WrappedParserAdapter(new CopilotOutputParser()) })],
+    ['codex-jsonl',  () => ({ decoder: new LineDecoder(),      adapter: new CodexJsonlAdapter() })],
+    ['codex-sse',    () => ({ decoder: new SseDecoder(),       adapter: new CodexSseAdapter() })],
+    ['grok',         () => ({ decoder: new GrokJsonLineDecoder(), adapter: new GrokEventAdapter() })],
+    ['antigravity',  () => ({ decoder: new LineDecoder(),      adapter: new AntigravityStreamAdapter() })],
   ];
   for (const [t, f] of builtins) {
     if (!adapterFactories.has(t)) adapterFactories.set(t, f);
