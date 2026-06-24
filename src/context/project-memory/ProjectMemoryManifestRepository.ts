@@ -10,6 +10,7 @@ export interface ProjectMemoryManifestRepository {
   readManifest(workspaceRoot: string): Promise<ProjectMemoryManifest | undefined>;
   writeManifest(workspaceRoot: string, manifest: ProjectMemoryManifest): Promise<void>;
   deleteManifest(workspaceRoot: string): Promise<void>;
+  markAsStale(workspaceRoot: string): Promise<void>;
 }
 
 export class FsProjectMemoryManifestRepository implements ProjectMemoryManifestRepository {
@@ -47,6 +48,12 @@ export class FsProjectMemoryManifestRepository implements ProjectMemoryManifestR
         throw error;
       }
     }
+  }
+
+  async markAsStale(workspaceRoot: string): Promise<void> {
+    const current = await this.readManifest(workspaceRoot);
+    if (!current || current.status !== 'ready') return;
+    await this.writeManifest(workspaceRoot, { ...current, status: 'stale', updatedAt: Date.now() });
   }
 
   private manifestPath(workspaceRoot: string): string {

@@ -62,6 +62,8 @@ import { AnalyticsAggregator } from './analytics/AnalyticsAggregator';
 import { AnalyticsExporter } from './analytics/AnalyticsExporter';
 import { AnalyticsService } from './analytics/AnalyticsService';
 import { registerCodeReviewCommands } from './webview/handlers/CodeReviewCommandHandler';
+import { FsProjectMemoryManifestRepository } from './context/project-memory';
+import { ProjectMemoryStaleWatcher } from './context/project-memory/ProjectMemoryStaleWatcher';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = createAgentRegistry();
@@ -112,6 +114,18 @@ export function activate(context: vscode.ExtensionContext): void {
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
   );
+
+  // Auto-mark project memory stale when source files change
+  const workspaceRootForWatcher = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspaceRootForWatcher) {
+    context.subscriptions.push(
+      new ProjectMemoryStaleWatcher(
+        workspaceRootForWatcher,
+        new FsProjectMemoryManifestRepository(),
+        () => { void provider.postProjectMemoryStatusUpdate(); },
+      ),
+    );
+  }
 
   const dashboardProvider = new DashboardViewProvider(
     context.extensionUri,

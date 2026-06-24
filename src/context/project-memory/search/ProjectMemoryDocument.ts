@@ -4,6 +4,7 @@ export interface ProjectMemoryDocument {
   section: string;
   content: string;
   tokens: string[];
+  sourcePaths?: string[];   // absolute FS paths this chunk was derived from (for staleness validation)
 }
 
 export interface ProjectMemoryCorpusStats {

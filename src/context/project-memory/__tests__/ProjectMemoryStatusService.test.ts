@@ -156,6 +156,9 @@ describe('ProjectMemoryStatusService', () => {
       async deleteManifest() {
         throw new Error('status service must not delete manifests');
       },
+      async markAsStale() {
+        throw new Error('status service must not call markAsStale');
+      },
     };
     const service = new ProjectMemoryStatusService(repo);
 

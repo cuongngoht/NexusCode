@@ -88,6 +88,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this.controller?.reloadAgentPrompts();
   }
 
+  async postProjectMemoryStatusUpdate(): Promise<void> {
+    await this.controller?.handleMessage({ type: 'projectMemory:getStatus' });
+  }
+
   async runCodeReview(target: CodeReviewTarget, preset: CodeReviewPreset, userPrompt?: string): Promise<void> {
     if (!this.controller) {
       await vscode.commands.executeCommand('nexus.chatView.focus');

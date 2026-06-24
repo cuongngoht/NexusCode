@@ -30,11 +30,20 @@ export class ProjectMemoryRagFacade {
 
     const results = this.search(queryTokens, index.documents, index.stats, opts.maxResults);
     const passing = results.filter(r => r.score >= opts.minScore);
-
     if (passing.length === 0) return { ragContext: null, resultCount: 0 };
 
-    const ragContext = this.buildContext(passing, opts.maxChars);
-    return { ragContext, resultCount: passing.length };
+    let validated = passing;
+    try { validated = await this.filterDeadChunks(passing); } catch { /* non-blocking */ }
+    if (validated.length === 0) return { ragContext: null, resultCount: 0 };
+
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const staleness = {
+      isStatusStale: status.status === 'stale',
+      isAncient: (Date.now() - index.builtAt) > SEVEN_DAYS,
+    };
+
+    const ragContext = this.buildContext(validated, opts.maxChars, staleness);
+    return { ragContext, resultCount: validated.length };
   }
 
   private search(
@@ -74,10 +83,26 @@ export class ProjectMemoryRagFacade {
     return scored.slice(0, limit);
   }
 
-  private buildContext(results: ProjectMemorySearchResult[], maxChars: number): string {
+  private buildContext(
+    results: ProjectMemorySearchResult[],
+    maxChars: number,
+    staleness: { isStatusStale: boolean; isAncient: boolean },
+  ): string {
     const lines: string[] = ['<project_memory>'];
-    let remaining = maxChars;
 
+    if (staleness.isStatusStale) {
+      lines.push(
+        '<staleness_warning>Project memory was built before recent code changes. ' +
+        'Treat file paths, module names, and APIs as possibly stale — verify against actual files before acting.</staleness_warning>',
+      );
+    } else if (staleness.isAncient) {
+      lines.push(
+        '<staleness_warning>Project memory index is over 7 days old. ' +
+        'Some details may no longer reflect the current codebase.</staleness_warning>',
+      );
+    }
+
+    let remaining = maxChars;
     for (let i = 0; i < results.length; i++) {
       const { document: doc } = results[i];
       const excerpt = doc.content.slice(0, Math.min(remaining, 800));
@@ -93,5 +118,20 @@ export class ProjectMemoryRagFacade {
 
     lines.push('</project_memory>');
     return lines.join('\n');
+  }
+
+  private async filterDeadChunks(results: ProjectMemorySearchResult[]): Promise<ProjectMemorySearchResult[]> {
+    const { access } = await import('fs/promises');
+    const live: ProjectMemorySearchResult[] = [];
+    for (const r of results) {
+      const paths = r.document.sourcePaths;
+      if (!paths?.length) { live.push(r); continue; }
+      let kept = false;
+      for (const p of paths) {
+        try { await access(p); kept = true; break; } catch { /* path missing, try next */ }
+      }
+      if (kept) live.push(r);
+    }
+    return live;
   }
 }

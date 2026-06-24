@@ -70,6 +70,7 @@ export class ProjectMemoryIndexBuilder {
         section: heading,
         content,
         tokens: tokenize(content),
+        sourcePaths: [filePath],
       });
     }
   }
@@ -113,6 +114,7 @@ export class ProjectMemoryIndexBuilder {
         section: name,
         content,
         tokens: tokenize(content),
+        sourcePaths: rootPath ? [rootPath] : undefined,
       });
     }
   }
