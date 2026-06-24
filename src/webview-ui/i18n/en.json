@@ -324,7 +324,9 @@
       "agent-diff": "Collecting diff",
       "agent-summary": "Generating final report",
       "code-review-context": "Building review context",
-      "subagent-architect": "Architecture review"
+      "subagent-architect": "Architecture review",
+      "architecture-memory": "Architecture analysis",
+      "file-intelligence": "File intelligence"
     },
     "activities": {
       "read": "Reading file",

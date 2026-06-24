@@ -324,7 +324,9 @@
       "agent-diff": "Thu thập diff",
       "agent-summary": "Tạo báo cáo cuối",
       "code-review-context": "Xây dựng ngữ cảnh review",
-      "subagent-architect": "Đánh giá kiến trúc"
+      "subagent-architect": "Đánh giá kiến trúc",
+      "architecture-memory": "Phân tích kiến trúc",
+      "file-intelligence": "Bộ nhớ thông minh tệp"
     },
     "activities": {
       "read": "Đọc tệp",

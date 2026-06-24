@@ -64,6 +64,15 @@ import { AnalyticsService } from './analytics/AnalyticsService';
 import { registerCodeReviewCommands } from './webview/handlers/CodeReviewCommandHandler';
 import { FsProjectMemoryManifestRepository } from './context/project-memory';
 import { ProjectMemoryStaleWatcher } from './context/project-memory/ProjectMemoryStaleWatcher';
+import { JsonFileIntelligenceStore } from './context/file-intelligence/JsonFileIntelligenceStore';
+import { FileIntelligenceService } from './context/file-intelligence/FileIntelligenceService';
+import { FileIntelligenceIgnoreFilter } from './context/file-intelligence/FileIntelligenceIgnoreFilter';
+import { FileIntelligenceUpdater } from './context/file-intelligence/FileIntelligenceUpdater';
+import { FileIntelligenceMergePolicy } from './context/file-intelligence/FileIntelligenceMergePolicy';
+import { FileIntelligenceConfidenceScorer } from './context/file-intelligence/FileIntelligenceConfidenceScorer';
+import { FileIntelligenceFreshnessPolicy } from './context/file-intelligence/FileIntelligenceFreshnessPolicy';
+import { NexusIgnoreMatcher } from './context/project-map/NexusIgnoreMatcher';
+import type { FileIntelligenceDeps } from './webview/handlers/RunTaskHandler';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = createAgentRegistry();
@@ -86,6 +95,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const compactor = new ConversationCompactor(registry, runner);
 
+  const fileIntelligenceDeps = createFileIntelligenceDeps(
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
+  );
+
   // Analytics
   const analyticsService = createAnalyticsService(context.globalStorageUri);
   // Prune old analytics on startup
@@ -105,6 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
     compactor,
     analyticsService,
     context.globalStorageUri,
+    fileIntelligenceDeps,
   );
 
   context.subscriptions.push(
@@ -365,6 +379,23 @@ function createAnalyticsService(globalStorageUri: vscode.Uri): AnalyticsService 
     analyticsExporter,
     vscode.workspace.getConfiguration('nexus'),
   );
+}
+
+function createFileIntelligenceDeps(workspaceRoot: string): FileIntelligenceDeps {
+  const store = new JsonFileIntelligenceStore();
+  const ignoreMatcher = new NexusIgnoreMatcher(workspaceRoot);
+  const ignoreFilter = new FileIntelligenceIgnoreFilter(ignoreMatcher);
+  const service = new FileIntelligenceService(
+    store,
+    new FileIntelligenceUpdater(
+      new FileIntelligenceMergePolicy(),
+      new FileIntelligenceConfidenceScorer(),
+      new FileIntelligenceFreshnessPolicy(),
+      ignoreFilter,
+    ),
+    ignoreFilter,
+  );
+  return { service, store, ignoreFilter };
 }
 
 export function deactivate(): void { }

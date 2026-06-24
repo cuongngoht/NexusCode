@@ -47,6 +47,7 @@ import {
   ProjectMemoryRagFacade,
   FsProjectMemoryIndexRepository,
 } from '../context/project-memory';
+import type { FileIntelligenceDeps } from './handlers/RunTaskHandler';
 
 const PROVIDER_IDS = new Set<ProviderId>([
   'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
@@ -100,6 +101,7 @@ export class ChatController {
     compactor?: ConversationCompactor,
     analyticsService?: AnalyticsService,
     globalStorageUri?: vscode.Uri,
+    fileIntelligenceDeps?: FileIntelligenceDeps,
   ) {
     // Build history search / RAG infrastructure
     this._workspaceState = workspaceState ?? globalState;
@@ -128,7 +130,7 @@ export class ChatController {
     const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
     const permissionService = new PermissionService(post as (msg: unknown) => void);
     const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService);
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade, fileIntelligenceDeps);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
     this.reviewHandler   = new ReviewHandler(post, workspaceState);

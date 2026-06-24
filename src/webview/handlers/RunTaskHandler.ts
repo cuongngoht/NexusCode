@@ -64,6 +64,16 @@ import {
   hashWorkspaceRoot,
   type ProjectMemoryManifest,
 } from '../../context/project-memory';
+import type { FileIntelligenceService } from '../../context/file-intelligence/FileIntelligenceService';
+import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
+import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
+import type { FileTouchEvent } from '../../context/file-intelligence/types';
+
+export interface FileIntelligenceDeps {
+  service: FileIntelligenceService;
+  store: IFileIntelligenceStore;
+  ignoreFilter: FileIntelligenceIgnoreFilter;
+}
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -110,6 +120,7 @@ export class RunTaskHandler {
     private readonly permissionService?: PermissionService,
     private readonly projectMemoryStatusService: ProjectMemoryStatusService = new ProjectMemoryStatusService(),
     private readonly projectMemoryRagFacade?: ProjectMemoryRagFacade,
+    private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
   ) {}
 
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
@@ -409,6 +420,8 @@ export class RunTaskHandler {
 
         const preSteps = createPreSteps(mode, {
           extensionPath: this.extensionPath,
+          fileIntelligenceStore: this.fileIntelligenceDeps?.store,
+          fileIntelligenceIgnoreFilter: this.fileIntelligenceDeps?.ignoreFilter,
         });
 
         const planCfg: SubagentPlanConfig = {
@@ -768,6 +781,7 @@ export class RunTaskHandler {
       extensionRoot: this.extensionPath,
       researchContext,
       architectureContext: ctx.architectureContext,
+      fileIntelligenceContext: ctx.fileIntelligenceContext,
     });
 
     if (agentIds.length > 0 || skillIds.length > 0) {
@@ -826,6 +840,8 @@ export class RunTaskHandler {
     if (cfg.get<boolean>('runGitStatusAfterTask', true)) {
       this.setupGitStatusListener(task, workspaceRoot);
     }
+
+    this.setupFileIntelligenceListener(task, workspaceRoot, mode, ctx.originalPrompt);
 
     if (mode === 'review') {
       // Abort early if there is nothing to review (no changed files between HEAD and base)
@@ -1025,6 +1041,67 @@ export class RunTaskHandler {
         type: 'codeReviewError',
         message: err instanceof Error ? err.message : String(err),
       });
+    }
+  }
+
+  private setupFileIntelligenceListener(
+    task: AgentTask,
+    workspaceRoot: string,
+    mode: TaskMode,
+    userIntent: string,
+  ): void {
+    if (!this.fileIntelligenceDeps) return;
+    const { service } = this.fileIntelligenceDeps;
+
+    const listener = (event: NexusEvent) => {
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
+        event.task.id === task.id
+      ) {
+        this.eventBus.off('task_completed', listener);
+        this.eventBus.off('task_stopped', listener);
+        this.eventBus.off('task_error', listener);
+
+        if (event.kind !== 'task_error') {
+          try {
+            const changedFiles = this.getGitChangedFileNames(workspaceRoot);
+            if (changedFiles.length > 0) {
+              const touchEvents: FileTouchEvent[] = changedFiles.map(filePath => ({
+                filePath,
+                workspaceRoot,
+                mode,
+                reason: 'edit',
+                source: 'edit',
+                taskId: task.id,
+                userIntent,
+                confidence: 0.7,
+                timestamp: Date.now(),
+              }));
+              service.processAsync(touchEvents);
+            }
+          } catch {
+            // best-effort
+          }
+        }
+      }
+    };
+
+    this.eventBus.on('task_completed', listener);
+    this.eventBus.on('task_stopped', listener);
+    this.eventBus.on('task_error', listener);
+  }
+
+  private getGitChangedFileNames(workspaceRoot: string): string[] {
+    try {
+      const result = execFileSync('git', ['diff', '--name-only', 'HEAD'], {
+        cwd: workspaceRoot,
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      return result.split('\n').map(l => l.trim()).filter(Boolean);
+    } catch {
+      return [];
     }
   }
 

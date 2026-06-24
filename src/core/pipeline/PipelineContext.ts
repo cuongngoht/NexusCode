@@ -24,6 +24,7 @@ export type PipelineContext = {
   projectMap?: string;
   sourceContext?: string;
   architectureContext?: string;
+  fileIntelligenceContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
   debugContext?: DebugContext;
