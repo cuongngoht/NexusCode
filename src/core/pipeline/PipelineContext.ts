@@ -23,6 +23,7 @@ export type PipelineContext = {
   projectMemoryStatus?: PipelineProjectMemoryStatus;
   projectMap?: string;
   sourceContext?: string;
+  architectureContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
   debugContext?: DebugContext;

@@ -35,6 +35,8 @@ export interface PromptContext {
   mcpIntentPrompt?: string;
   /** Research workflow context injected when @research is active. */
   researchContext?: string;
+  /** Architecture memory context injected when architecture analysis is available. */
+  architectureContext?: string;
 }
 
 export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): string {
@@ -115,6 +117,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Research Context');
     lines.push(ctx.researchContext);
+  }
+
+  if (ctx.architectureContext) {
+    lines.push('');
+    lines.push('# Architecture Context');
+    lines.push(ctx.architectureContext);
   }
 
   lines.push('');

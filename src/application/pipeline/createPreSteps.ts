@@ -5,6 +5,7 @@ import { ReadSourceContextStep } from './ReadSourceContextStep';
 import { BrainstormAgentsStep } from './BrainstormAgentsStep';
 import { DebugPreStep } from './DebugPreStep';
 import { ReviewFileContextStep } from './review/ReviewFileContextStep';
+import { ArchitectureMemoryStep } from './ArchitectureMemoryStep';
 
 export type PreStepDeps = {
   extensionPath: string;
@@ -13,7 +14,7 @@ export type PreStepDeps = {
 export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep[] {
   switch (mode) {
     case 'scan-project':
-      return [new ScanProjectStep(deps.extensionPath)];
+      return [new ScanProjectStep(deps.extensionPath), new ArchitectureMemoryStep()];
 
     case 'brainstorm':
       return [
@@ -29,6 +30,6 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
       return [new ReviewFileContextStep()];
 
     default:
-      return [];
+      return [new ArchitectureMemoryStep()];
   }
 }

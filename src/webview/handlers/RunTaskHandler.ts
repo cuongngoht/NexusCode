@@ -12,6 +12,7 @@ import { RunAgentUseCase } from '../../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
 import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
+import { BuildArchitectureMemoryUseCase } from '../../application/usecases/BuildArchitectureMemoryUseCase';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
 import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
@@ -110,6 +111,8 @@ export class RunTaskHandler {
     private readonly projectMemoryStatusService: ProjectMemoryStatusService = new ProjectMemoryStatusService(),
     private readonly projectMemoryRagFacade?: ProjectMemoryRagFacade,
   ) {}
+
+  private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
 
   hasActive(): boolean {
     return this.runAgent.hasActiveTask() || this._pipelineActive;
@@ -302,6 +305,14 @@ export class RunTaskHandler {
             },
           );
           this.eventBus.emit({ kind: 'step_completed', stepLabel: 'scan' });
+          try {
+            const tsFiles = result.mapOutput.tree.files.filter(
+              (f: string) => f.endsWith('.ts') || f.endsWith('.tsx'),
+            );
+            await this.buildArchitectureMemory.execute({ workspaceRoot, files: tsFiles });
+          } catch {
+            // non-blocking — architecture memory is best-effort
+          }
           this.post({
             type: 'projectScanCompleted',
             fileCount: result.mapOutput.tree.files.length,
@@ -756,6 +767,7 @@ export class RunTaskHandler {
       attachmentContext: ctx.attachmentContext,
       extensionRoot: this.extensionPath,
       researchContext,
+      architectureContext: ctx.architectureContext,
     });
 
     if (agentIds.length > 0 || skillIds.length > 0) {
