@@ -54,9 +54,21 @@ describe('AntigravityStreamAdapter', () => {
     expect(events).toHaveLength(0);
   });
 
-  it('suppresses [object Object] noise lines from agy debug output', () => {
+  it('strips [object Object] tokens from agy debug output lines', () => {
     const events = adapter.adapt(lineFrame('[object Object], input = ,[object Object],;'));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'content_delta', text: ', input = ,,;' });
+  });
+
+  it('suppresses lines that are only [object Object] after stripping noise', () => {
+    const events = adapter.adapt(lineFrame('[object Object]'));
     expect(events).toHaveLength(0);
+  });
+
+  it('strips mid-line [object Object] while preserving surrounding content', () => {
+    const events = adapter.adapt(lineFrame('    Id = user.Id, [object Object]'));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ kind: 'content_delta', text: '    Id = user.Id, ' });
   });
 
   it('does not suppress normal lines that happen to contain "object"', () => {
