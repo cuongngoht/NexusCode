@@ -675,6 +675,26 @@
           "default": 1.25,
           "description": "Minimum BM25 score threshold for a history result to be included in RAG context."
         },
+        "nexus.projectMemory.rag.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Inject relevant project memory chunks into the prompt using BM25 search."
+        },
+        "nexus.projectMemory.rag.maxResults": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum number of project memory chunks to retrieve per prompt."
+        },
+        "nexus.projectMemory.rag.maxChars": {
+          "type": "number",
+          "default": 4000,
+          "description": "Maximum characters for the project memory context block injected into the prompt."
+        },
+        "nexus.projectMemory.rag.minScore": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Minimum BM25 score threshold for a project memory chunk to be included."
+        },
         "nexus.agentMode.enabled": {
           "type": "boolean",
           "default": true,

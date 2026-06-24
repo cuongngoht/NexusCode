@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  IconAdd, IconHistory, IconMore, IconSettings, IconInfo, IconReviewList,
+  IconAdd, IconHistory, IconMore, IconSettings, IconInfo, IconReviewList, IconBrain,
 } from '../NexusIcons';
 import type { Locale } from '../i18n';
 import { useT, interp } from '../i18n';
+import type { ProjectMemoryStatusResultView } from '../messages';
 
 interface MoreMenuProps {
   onSettings: () => void;
@@ -76,9 +77,11 @@ interface Props {
   locale: Locale;
   showReviewHistory: boolean;
   reviewHistoryCount: number;
+  projectMemoryStatus?: ProjectMemoryStatusResultView;
   onNewConversation: () => void;
   onToggleHistory: () => void;
   onToggleReviewHistory: () => void;
+  onProjectMemoryAction: (action: 'status' | 'rebuild') => void;
   onLocaleChange: (l: Locale) => void;
   onOpenSettings: () => void;
   onAbout: () => void;
@@ -86,16 +89,41 @@ interface Props {
 
 export function AppToolbar({
   isRunning, showHistory, conversationCount, locale,
-  showReviewHistory, reviewHistoryCount,
-  onNewConversation, onToggleHistory, onToggleReviewHistory, onLocaleChange,
+  showReviewHistory, reviewHistoryCount, projectMemoryStatus,
+  onNewConversation, onToggleHistory, onToggleReviewHistory, onProjectMemoryAction, onLocaleChange,
   onOpenSettings, onAbout,
 }: Props) {
   const t = useT();
+  const memoryStatus = projectMemoryStatus?.status ?? 'missing';
+  const memoryLabels = t.projectMemory.statusLabel as Record<string, string>;
+  const memoryLabel = memoryLabels[memoryStatus] ?? memoryStatus;
+  const memoryAction: 'status' | 'rebuild' =
+    memoryStatus === 'missing' ||
+    memoryStatus === 'failed' ||
+    memoryStatus === 'stale' ||
+    memoryStatus === 'needs_rebuild'
+      ? 'rebuild'
+      : 'status';
+  const memoryActionLabels = t.projectMemory.actionLabel as Record<string, string>;
+  const memoryTitle = interp(t.projectMemory.toolbarTitle, {
+    status: memoryLabel,
+    action: memoryActionLabels[memoryAction] ?? memoryAction,
+  });
 
   return (
     <div className="fl-subhead">
       <span className="fl-brand">{t.toolbar.brand}</span>
       <div className="fl-subhead-actions">
+        <button
+          type="button"
+          className="fl-iconbtn nx-project-memory-btn"
+          data-status={memoryStatus}
+          title={memoryTitle}
+          disabled={isRunning && memoryAction === 'rebuild'}
+          onClick={() => onProjectMemoryAction(memoryAction)}
+        >
+          <IconBrain size={16} />
+        </button>
         <button
           type="button"
           className="fl-iconbtn fl-locale-toggle"
@@ -124,7 +152,7 @@ export function AppToolbar({
         <button
           type="button"
           className={`fl-iconbtn nx-hist-btn${showReviewHistory ? ' nx-hist-btn-on' : ''}`}
-          title={t.toolbar.reviewHistory}
+          title={`${t.toolbar.reviewHistory} (${reviewHistoryCount})`}
           onClick={onToggleReviewHistory}
         >
           <IconReviewList size={16} />
@@ -134,4 +162,3 @@ export function AppToolbar({
     </div>
   );
 }
-

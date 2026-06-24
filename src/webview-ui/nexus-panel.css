@@ -2625,6 +2625,23 @@ html, body, #root {
   font-style: italic;
 }
 
+.nx-project-memory-btn[data-status="ready"] {
+  color: var(--vscode-testing-iconPassed, #73c991);
+}
+
+.nx-project-memory-btn[data-status="stale"],
+.nx-project-memory-btn[data-status="needs_rebuild"] {
+  color: var(--vscode-testing-iconQueued, #cca700);
+}
+
+.nx-project-memory-btn[data-status="building"] {
+  color: var(--vscode-progressBar-background, #0e70c0);
+}
+
+.nx-project-memory-btn[data-status="failed"] {
+  color: var(--vscode-testing-iconFailed, #f14c4c);
+}
+
 /* ── Login banner ─────────────────────────────────────────────────────── */
 
 .nx-login-banner {
@@ -5329,4 +5346,142 @@ html, body, #root {
   margin-top: 4px;
   color: var(--vscode-descriptionForeground);
   border-color: transparent;
+}
+
+/* ── Project Memory Index Panel ─────────────────────────────────────────── */
+.nx-pm-index-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-bottom: 1px solid var(--vscode-panel-border);
+  max-height: 380px;
+  overflow: hidden;
+}
+.nx-pm-index-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  position: sticky;
+  top: 0;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  z-index: 1;
+  flex-shrink: 0;
+}
+.nx-pm-index-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+}
+.nx-pm-index-meta {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  flex: 1;
+}
+.nx-pm-index-close {
+  font-size: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground);
+  padding: 2px 4px;
+  margin-left: auto;
+  line-height: 1;
+}
+.nx-pm-index-close:hover { color: var(--vscode-foreground); }
+.nx-pm-index-loading,
+.nx-pm-index-empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+}
+.nx-pm-index-filters {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.nx-pm-index-filter-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--vscode-panel-border);
+  background: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nx-pm-index-filter-btn.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+.nx-pm-index-filter-count {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.nx-pm-index-list {
+  overflow-y: auto;
+  flex: 1;
+}
+.nx-pm-index-chunk {
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+.nx-pm-index-chunk-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--vscode-foreground);
+}
+.nx-pm-index-chunk-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.nx-pm-index-source-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.nx-pm-src-project-map    { background: #1e3a5f33; color: #4fc3f7; }
+.nx-pm-src-workspace-units { background: #1b3a2333; color: #81c784; }
+.nx-pm-src-discovery      { background: #3a1e3333; color: #ce93d8; }
+.nx-pm-index-section {
+  font-size: 12px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nx-pm-index-chevron {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+}
+.nx-pm-index-content {
+  margin: 0;
+  padding: 8px 14px 10px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  border-top: 1px solid var(--vscode-panel-border);
 }

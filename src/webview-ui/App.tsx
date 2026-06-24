@@ -9,6 +9,7 @@ import { AppToolbar } from './components/AppToolbar';
 import { MessageList } from './components/MessageList';
 import { ReviewHistoryPanel } from './components/review/ReviewHistoryPanel';
 import { ConversationHistory } from './components/ConversationHistory';
+import { ProjectMemoryIndexPanel } from './components/ProjectMemoryIndexPanel';
 import { Composer, type ComposerRef, extractDroppedPaths } from './components/Composer';
 import { IconDoc } from './NexusIcons';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -22,6 +23,9 @@ import { ReviewTargetSelectorCard } from './components/review/ReviewTargetSelect
 function getSurface(): MainView {
   return document.body.dataset.nexusSurface === 'dashboard' ? 'dashboard' : 'chat';
 }
+
+const PROJECT_MEMORY_SCAN_PROMPT =
+  'Scan this project and create/update Project Memory. Follow project scan best practices: identify architecture, modules, contracts, data flows, invariants, storage, prompts, tests, risks, and produce a practical planning summary for future work.';
 
 function SetupBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
   const t = useT();
@@ -188,6 +192,39 @@ export function App() {
     },
     [state.provider, state.mode, state.selectedModel, state.subagentsEnabled, state.activeConvId],
   );
+
+  const handleProjectMemoryAction = useCallback((action: 'status' | 'rebuild') => {
+    if (action === 'status') {
+      const isCurrentlyOpen = stateRef.current.showProjectMemoryIndex;
+      dispatch({ type: 'toggleProjectMemoryIndex' });
+      if (!isCurrentlyOpen) {
+        getVsCodeApi().postMessage({ type: 'projectMemory:getIndex' });
+      }
+      return;
+    }
+    if (stateRef.current.isRunning) return;
+
+    const currentState = stateRef.current;
+    const timestamp = Date.now();
+    dispatch({
+      type: 'sendUserMessage',
+      prompt: PROJECT_MEMORY_SCAN_PROMPT,
+      provider: currentState.provider,
+      mode: 'scan-project',
+      model: currentState.selectedModel,
+      timestamp,
+    });
+    getVsCodeApi().postMessage({
+      type: 'runTask',
+      prompt: PROJECT_MEMORY_SCAN_PROMPT,
+      provider: currentState.provider,
+      mode: 'scan-project',
+      model: currentState.selectedModel,
+      conversationId: currentState.activeConvId,
+      subagentsEnabled: false,
+      conversationContext: buildConversationContextForPrompt(currentState, currentState.activeConvId),
+    });
+  }, []);
 
   // Retry: triggered when pendingRetry is set in state by the retryMessage action
   useEffect(() => {
@@ -442,9 +479,13 @@ export function App() {
                 locale={locale}
                 showReviewHistory={state.showReviewHistory}
                 reviewHistoryCount={state.reviewHistory.length}
+                projectMemoryStatus={state.projectMemoryStatus}
                 onNewConversation={() => dispatch({ type: 'newConversation' })}
                 onToggleHistory={() => dispatch({ type: 'toggleHistory' })}
                 onToggleReviewHistory={() => dispatch({ type: 'toggleReviewHistory' })}
+                onProjectMemoryAction={(action) => {
+                  handleProjectMemoryAction(action);
+                }}
                 onLocaleChange={handleLocaleChange}
                 onOpenSettings={handleOpenSettings}
                 onAbout={handleAbout}
@@ -457,6 +498,14 @@ export function App() {
                   onSelect={id => dispatch({ type: 'selectConversation', id })}
                   onDelete={id => dispatch({ type: 'deleteConversation', id })}
                   onClearAll={() => dispatch({ type: 'clearHistory' })}
+                />
+              )}
+
+              {state.showProjectMemoryIndex && (
+                <ProjectMemoryIndexPanel
+                  documents={state.projectMemoryIndexDocs}
+                  stats={state.projectMemoryIndexStats}
+                  onClose={() => dispatch({ type: 'toggleProjectMemoryIndex' })}
                 />
               )}
 
@@ -521,6 +570,12 @@ export function App() {
                   severity="error"
                   message={interp(LOCALES[locale].compact.error, { message: state.compactError })}
                   onDismiss={() => dispatch({ type: 'clearCompactError' })}
+                />
+              )}
+              {state.projectMemoryError && (
+                <ErrorBanner
+                  severity="warning"
+                  message={interp(LOCALES[locale].projectMemory.error, { message: state.projectMemoryError })}
                 />
               )}
               {!state.isDetecting && state.availableProviders.length === 0 && (

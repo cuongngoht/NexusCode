@@ -16,6 +16,14 @@ import type { FileDiffSummary } from '../git/structuredDiff';
 import type { ArtifactRef } from '../artifacts/ArtifactTypes';
 import type { AnalyticsDashboardSummary, AnalyticsRunRecord, AnalyticsQuery, AnalyticsFeedback } from '../analytics/AnalyticsTypes';
 import type { HistorySearchResultView, HistoryRagSourceView } from '../context/history-search/types';
+import type { ProjectMemoryStatusResult } from '../context/project-memory';
+
+export interface ProjectMemoryDocumentView {
+  id: string;
+  source: 'project-map' | 'workspace-units' | 'discovery';
+  section: string;
+  content: string;
+}
 
 // ── Permission system view models ─────────────────────────────────────────
 
@@ -184,7 +192,12 @@ export type ExtensionMessage =
   | { type: 'permissionResolved'; requestId: string; decision: PermissionDecision }
   | { type: 'permissionRequestExpired'; requestId: string }
   // Project scan messages (extension → webview)
-  | { type: 'projectScanCompleted'; fileCount: number; folderCount: number; unitCount: number; filesWritten: string[] };
+  | { type: 'projectScanCompleted'; fileCount: number; folderCount: number; unitCount: number; filesWritten: string[] }
+  // Project Memory messages (extension → webview)
+  | { type: 'projectMemoryStatus'; result: ProjectMemoryStatusResult }
+  | { type: 'projectMemoryIndex'; documents: ProjectMemoryDocumentView[]; totalDocs: number; avgDocLength: number; builtAt: number }
+  | { type: 'projectMemoryCleared' }
+  | { type: 'projectMemoryError'; message: string };
 
 // ── Agent Mode view models (kept near the protocol definition) ────────────
 
@@ -388,3 +401,8 @@ export type WebviewMessage =
   | { type: 'approvePermission'; requestId: string }
   | { type: 'rejectPermission'; requestId: string; reason?: string }
   | { type: 'autoApprovePermissionScope'; requestId: string; scope: 'session' | 'workspace' }
+  // Project Memory requests (webview → extension)
+  | { type: 'projectMemory:getStatus' }
+  | { type: 'projectMemory:getIndex' }
+  | { type: 'projectMemory:rebuild' }
+  | { type: 'projectMemory:clear' };

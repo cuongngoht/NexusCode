@@ -27,6 +27,7 @@ import { ArtifactHandler } from './handlers/ArtifactHandler';
 import { CodeBlockHandler } from './handlers/CodeBlockHandler';
 import { AnalyticsHandler } from './handlers/AnalyticsHandler';
 import { HistorySearchHandler } from './handlers/HistorySearchHandler';
+import { ProjectMemoryHandler } from './handlers/ProjectMemoryHandler';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
 import { HistoryRagFacade } from '../context/history-search/HistoryRagFacade';
@@ -41,6 +42,11 @@ import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../review/ReviewPanel';
 import { PermissionService } from '../application/permissions/PermissionService';
 import type { ProviderId } from '../core/types';
+import {
+  ProjectMemoryStatusService,
+  ProjectMemoryRagFacade,
+  FsProjectMemoryIndexRepository,
+} from '../context/project-memory';
 
 const PROVIDER_IDS = new Set<ProviderId>([
   'nexus', 'codex', 'claude', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto',
@@ -74,6 +80,7 @@ export class ChatController {
   private readonly codeBlockHandler = new CodeBlockHandler();
   private readonly analyticsHandler?: AnalyticsHandler;
   private readonly historySearchHandler: HistorySearchHandler;
+  private readonly projectMemoryHandler: ProjectMemoryHandler;
   readonly historyRagFacade: HistoryRagFacade;
 
   constructor(
@@ -105,16 +112,23 @@ export class ChatController {
     const historySearchService = new HistorySearchService(bm25Strategy, historyIndexBuilder, historyIndexRepo);
     const ragContextBuilder = new RagContextBuilder();
     this.historyRagFacade = new HistoryRagFacade(historySearchService, ragContextBuilder);
+    const projectMemoryStatusService = new ProjectMemoryStatusService();
+    const projectMemoryRagFacade = new ProjectMemoryRagFacade(new FsProjectMemoryIndexRepository());
     this.historySearchHandler = new HistorySearchHandler(
       this.historyRagFacade,
       post,
       () => this.historyHandler.latestHistory,
     );
+    this.projectMemoryHandler = new ProjectMemoryHandler(
+      post,
+      buildProjectMap,
+      projectMemoryStatusService,
+    );
 
     const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
     const permissionService = new PermissionService(post as (msg: unknown) => void);
     const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService);
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
     this.reviewHandler   = new ReviewHandler(post, workspaceState);
@@ -210,6 +224,7 @@ export class ChatController {
         await this.agentPromptHandler.sendAgentPrompts();
         await this.skillPromptHandler.sendSkillPrompts();
         await this.commandPromptHandler.sendCommandDefs();
+        await this.projectMemoryHandler.getStatus();
         void this.historySearchHandler.ensureIndex();
         {
           const reviewHistory = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history') ?? [];
@@ -392,6 +407,18 @@ export class ChatController {
         break;
       case 'autoApprovePermissionScope':
         this.runTaskHandler.autoApprovePermission(msg.requestId, msg.scope);
+        break;
+      case 'projectMemory:getStatus':
+        await this.projectMemoryHandler.getStatus();
+        break;
+      case 'projectMemory:getIndex':
+        await this.projectMemoryHandler.getIndex();
+        break;
+      case 'projectMemory:rebuild':
+        await this.projectMemoryHandler.rebuild();
+        break;
+      case 'projectMemory:clear':
+        await this.projectMemoryHandler.clear();
         break;
     }
   }

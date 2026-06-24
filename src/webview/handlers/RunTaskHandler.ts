@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
 import type { ProviderId, TaskMode } from '../../core/types';
@@ -54,6 +55,14 @@ import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../../review/ReviewPanel';
 import type { PermissionService } from '../../application/permissions/PermissionService';
 import { NexusDiscoveryOrchestrator } from '../../context/project-map/NexusDiscoveryOrchestrator';
+import {
+  FsProjectMemoryManifestRepository,
+  PROJECT_MEMORY_SCHEMA_VERSION,
+  ProjectMemoryStatusService,
+  ProjectMemoryRagFacade,
+  hashWorkspaceRoot,
+  type ProjectMemoryManifest,
+} from '../../context/project-memory';
 
 const RUN_STEP_LABEL = 'analyze';
 
@@ -98,6 +107,8 @@ export class RunTaskHandler {
     private readonly debugOrchestrator?: DebugOrchestrator,
     private readonly agentExecutor?: AgentExecutor,
     private readonly permissionService?: PermissionService,
+    private readonly projectMemoryStatusService: ProjectMemoryStatusService = new ProjectMemoryStatusService(),
+    private readonly projectMemoryRagFacade?: ProjectMemoryRagFacade,
   ) {}
 
   hasActive(): boolean {
@@ -138,6 +149,7 @@ export class RunTaskHandler {
     const contextMaxChars = cfg.get<number>('context.maxChars', 100_000);
     const contextMaxMessages = cfg.get<number>('context.maxMessages', 20);
     const resolvedReviewTarget = this.resolveReviewTarget(mode, baseBranch, cfg, reviewTarget);
+    const projectMemoryStatus = await this.projectMemoryStatusService.getStatus(workspaceRoot);
 
     const ctx: PipelineContext = {
       workspaceRoot,
@@ -150,6 +162,7 @@ export class RunTaskHandler {
       conversationContext: conversationContext ?? (latestHistory ? buildConversationContext(latestHistory, undefined, { maxChars: contextMaxChars, maxMessages: contextMaxMessages }) : undefined),
       baseBranch: resolvedReviewTarget?.baseBranch ?? baseBranch ?? undefined,
       reviewTarget: resolvedReviewTarget,
+      projectMemoryStatus,
       isCancellationRequested: () => this._stopRequested,
     };
 
@@ -194,6 +207,47 @@ export class RunTaskHandler {
         }
       } catch {
         // Non-blocking: RAG failure must not prevent the task from running
+      }
+    }
+
+    // Inject project memory RAG context if enabled and memory is ready
+    const pmRagEnabled = cfg.get<boolean>('projectMemory.rag.enabled', true);
+    if (pmRagEnabled && this.projectMemoryRagFacade && projectMemoryStatus) {
+      try {
+        // For review mode, augment the BM25 query with changed file paths so the
+        // retrieval finds architecture sections relevant to the files being reviewed.
+        let pmRagQuery = effectivePrompt;
+        if (mode === 'review' && resolvedReviewTarget?.baseBranch) {
+          try {
+            const nameOnly = execFileSync(
+              'git',
+              ['diff', '--name-only', `${resolvedReviewTarget.baseBranch}...HEAD`],
+              { cwd: workspaceRoot, encoding: 'utf8', timeout: 3_000, stdio: ['ignore', 'pipe', 'pipe'] },
+            ).trim();
+            if (nameOnly) {
+              pmRagQuery = effectivePrompt + ' ' + nameOnly.replace(/\n/g, ' ');
+            }
+          } catch {
+            // Non-blocking: git failure → use plain prompt
+          }
+        }
+
+        const { ragContext, resultCount } = await this.projectMemoryRagFacade.buildRagForPrompt(
+          pmRagQuery,
+          workspaceRoot,
+          projectMemoryStatus,
+          {
+            maxResults: cfg.get<number>('projectMemory.rag.maxResults', 5),
+            maxChars: cfg.get<number>('projectMemory.rag.maxChars', 4000),
+            minScore: cfg.get<number>('projectMemory.rag.minScore', 1.0),
+          },
+        );
+        if (ragContext && resultCount > 0) {
+          ctx.conversationContext = ragContext +
+            (ctx.conversationContext ? '\n\n' + ctx.conversationContext : '');
+        }
+      } catch {
+        // Non-blocking: project memory RAG failure must not prevent the task from running
       }
     }
 
@@ -256,6 +310,7 @@ export class RunTaskHandler {
             filesWritten: result.filesWritten,
           });
         } catch (err) {
+          await this.markProjectMemoryFailed(workspaceRoot, err, 'discovery');
           this.eventBus.emit({ kind: 'step_error', stepLabel: 'scan', error: String(err) });
           this.post({ type: 'taskError', taskId: 'scan-project', message: `Project scan failed: ${String(err)}` });
         }
@@ -792,6 +847,30 @@ export class RunTaskHandler {
       this.eventBus.emit({ kind: 'step_completed', stepLabel });
     } catch {
       this.eventBus.emit({ kind: 'step_error', stepLabel, error: '' });
+    }
+  }
+
+  private async markProjectMemoryFailed(workspaceRoot: string, error: unknown, phase: string): Promise<void> {
+    const now = Date.now();
+    const manifest: ProjectMemoryManifest = {
+      version: 1,
+      status: 'failed',
+      workspaceRootHash: hashWorkspaceRoot(workspaceRoot),
+      workspaceRootName: path.basename(workspaceRoot),
+      schemaVersion: PROJECT_MEMORY_SCHEMA_VERSION,
+      source: 'manual_scan',
+      createdAt: now,
+      updatedAt: now,
+      error: {
+        message: error instanceof Error ? error.message : String(error),
+        at: now,
+        phase,
+      },
+    };
+    try {
+      await new FsProjectMemoryManifestRepository().writeManifest(workspaceRoot, manifest);
+    } catch {
+      // Preserve the original scan failure; manifest write errors are secondary here.
     }
   }
 

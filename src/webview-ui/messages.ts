@@ -478,6 +478,58 @@ export interface McpPresetStatusView {
   risk: string;
 }
 
+export type ProjectMemoryStatus =
+  | 'missing'
+  | 'ready'
+  | 'stale'
+  | 'building'
+  | 'failed'
+  | 'needs_rebuild';
+
+export interface ProjectMemoryManifestView {
+  version: 1;
+  status: ProjectMemoryStatus;
+  workspaceRootHash: string;
+  workspaceRootName?: string;
+  schemaVersion: string;
+  scanId?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  lastFullScanAt?: number;
+  lastIncrementalScanAt?: number;
+  source?: 'manual_scan' | 'manual_rebuild' | 'imported';
+  filesIndexed?: number;
+  symbolsIndexed?: number;
+  modulesIndexed?: number;
+  error?: {
+    message: string;
+    at: number;
+    phase?: string;
+  };
+}
+
+export interface ProjectMemoryStatusResultView {
+  status: ProjectMemoryStatus;
+  manifest?: ProjectMemoryManifestView;
+  reason?: string;
+  canUseMemory: boolean;
+  canRunIncrementalUpdate: boolean;
+  requiresExplicitFullScan: boolean;
+}
+
+export interface ProjectMemoryDocumentView {
+  id: string;
+  source: 'project-map' | 'workspace-units' | 'discovery';
+  section: string;
+  content: string;
+}
+
+export interface ProjectMemoryIndexStatsView {
+  totalDocs: number;
+  avgDocLength: number;
+  builtAt: number;
+}
+
 // Mirror of AgentPrompt from src/context/agentPromptLibrary.ts — keep in sync
 export interface AgentPrompt {
   id: string;
@@ -697,6 +749,11 @@ export interface AppState {
   mcpEnabled: boolean;
   mcpActivePresets: string[];
   lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
+  projectMemoryStatus?: ProjectMemoryStatusResultView;
+  projectMemoryError?: string;
+  showProjectMemoryIndex: boolean;
+  projectMemoryIndexDocs?: ProjectMemoryDocumentView[];
+  projectMemoryIndexStats?: ProjectMemoryIndexStatsView;
   subagentsEnabled: boolean;
   agentPrompts: AgentPrompt[];
   agentMention?: AgentMentionState;
@@ -779,6 +836,11 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     mcpEnabled: false,
     mcpActivePresets: [],
     lastMcpUsed: undefined,
+    projectMemoryStatus: undefined,
+    projectMemoryError: undefined,
+    showProjectMemoryIndex: false,
+    projectMemoryIndexDocs: undefined,
+    projectMemoryIndexStats: undefined,
     subagentsEnabled: false,
     agentPrompts: [],
     agentMention: undefined,
@@ -973,7 +1035,12 @@ export type ExtMsg =
   | { type: 'permissionResolved'; requestId: string; decision: PermissionDecisionType }
   | { type: 'permissionRequestExpired'; requestId: string }
   // Project scan messages (extension → webview)
-  | { type: 'projectScanCompleted'; fileCount: number; folderCount: number; unitCount: number; filesWritten: string[] };
+  | { type: 'projectScanCompleted'; fileCount: number; folderCount: number; unitCount: number; filesWritten: string[] }
+  // Project Memory messages
+  | { type: 'projectMemoryStatus'; result: ProjectMemoryStatusResultView }
+  | { type: 'projectMemoryIndex'; documents: ProjectMemoryDocumentView[]; totalDocs: number; avgDocLength: number; builtAt: number }
+  | { type: 'projectMemoryCleared' }
+  | { type: 'projectMemoryError'; message: string };
 
 export type { NexusStreamEvent };
 
@@ -1023,7 +1090,9 @@ export type AppAction =
   | { type: 'analyticsErrorReceived'; message: string }
   | { type: 'clearAnalyticsError' }
   // History RAG actions
-  | { type: 'toggleHistoryRag' };
+  | { type: 'toggleHistoryRag' }
+  // Project Memory index actions
+  | { type: 'toggleProjectMemoryIndex' };
 
 // ── Conversation context (mirrors src/context/conversationContext.ts) ────────
 
@@ -1644,6 +1713,9 @@ export function reducer(state: AppState, action: AppAction): AppState {
     case 'toggleHistoryRag':
       return { ...state, historyRagEnabled: !state.historyRagEnabled };
 
+    case 'toggleProjectMemoryIndex':
+      return { ...state, showProjectMemoryIndex: !state.showProjectMemoryIndex };
+
     case 'extMsg':
       return applyExtMsg(state, action.msg);
   }
@@ -2015,6 +2087,36 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return {
         ...state,
         lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName },
+      };
+
+    case 'projectMemoryStatus':
+      return {
+        ...state,
+        projectMemoryStatus: msg.result,
+        projectMemoryError: undefined,
+      };
+
+    case 'projectMemoryIndex':
+      return {
+        ...state,
+        projectMemoryIndexDocs: msg.documents,
+        projectMemoryIndexStats: { totalDocs: msg.totalDocs, avgDocLength: msg.avgDocLength, builtAt: msg.builtAt },
+      };
+
+    case 'projectMemoryCleared':
+      return {
+        ...state,
+        projectMemoryStatus: undefined,
+        projectMemoryError: undefined,
+        showProjectMemoryIndex: false,
+        projectMemoryIndexDocs: undefined,
+        projectMemoryIndexStats: undefined,
+      };
+
+    case 'projectMemoryError':
+      return {
+        ...state,
+        projectMemoryError: msg.message,
       };
 
     case 'agentPrompts':
