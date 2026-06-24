@@ -6,6 +6,7 @@ import type { IFileIntelligenceStore } from '../../context/file-intelligence/Fil
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
 import { FileIntelligenceContextSelector } from '../../context/file-intelligence/FileIntelligenceContextSelector';
 import { FileIntelligenceContextBuilder } from '../../context/file-intelligence/FileIntelligenceContextBuilder';
+import { FileIntelligenceRagFacade } from '../../context/file-intelligence/FileIntelligenceRagFacade';
 
 export class FileIntelligenceContextStep implements IPipelineStep {
   readonly label = 'file-intelligence';
@@ -19,7 +20,8 @@ export class FileIntelligenceContextStep implements IPipelineStep {
     try {
       const recentlyChangedFiles = this.getGitChangedFiles(ctx.workspaceRoot);
 
-      const selector = new FileIntelligenceContextSelector(this.store, this.ignoreFilter);
+      const ragFacade = new FileIntelligenceRagFacade(this.store);
+      const selector = new FileIntelligenceContextSelector(this.store, this.ignoreFilter, ragFacade);
       const profiles = await selector.select(
         {
           prompt: ctx.originalPrompt,

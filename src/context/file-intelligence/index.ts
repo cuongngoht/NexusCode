@@ -30,5 +30,6 @@ export { FileIntelligenceFreshnessPolicy } from './FileIntelligenceFreshnessPoli
 export { FileTouchCollector } from './FileTouchCollector';
 export { FileIntelligenceContextSelector } from './FileIntelligenceContextSelector';
 export { FileIntelligenceContextBuilder } from './FileIntelligenceContextBuilder';
+export { FileIntelligenceRagFacade } from './FileIntelligenceRagFacade';
 export { ProjectMemoryService } from './ProjectMemoryService';
 export type { ProjectMemoryStatus, ProjectMemoryContextPack } from './ProjectMemoryService';

@@ -67,7 +67,7 @@ import {
 import type { FileIntelligenceService } from '../../context/file-intelligence/FileIntelligenceService';
 import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
-import type { FileTouchEvent } from '../../context/file-intelligence/types';
+import type { FileTouchEvent, FileTouchSource } from '../../context/file-intelligence/types';
 
 export interface FileIntelligenceDeps {
   service: FileIntelligenceService;
@@ -363,6 +363,8 @@ export class RunTaskHandler {
             task: debugTask,
             enhancedPrompt: ctx.enhancedPrompt,
           });
+
+          this.setupDebugIntelligenceListener(debugTask, workspaceRoot, effectivePrompt);
 
           try {
             await this.debugOrchestrator.run({
@@ -842,6 +844,7 @@ export class RunTaskHandler {
     }
 
     this.setupFileIntelligenceListener(task, workspaceRoot, mode, ctx.originalPrompt);
+    this.setupActivityListener(task, workspaceRoot, mode);
 
     if (mode === 'review') {
       // Abort early if there is nothing to review (no changed files between HEAD and base)
@@ -1103,6 +1106,131 @@ export class RunTaskHandler {
     } catch {
       return [];
     }
+  }
+
+  // Part 3 — capture debug investigation findings into file profiles
+  private setupDebugIntelligenceListener(task: AgentTask, workspaceRoot: string, userIntent: string): void {
+    if (!this.fileIntelligenceDeps) return;
+    const { service } = this.fileIntelligenceDeps;
+
+    let suspectedFiles: string[] = [];
+    let rootCause: string | undefined;
+
+    const listener = (event: NexusEvent) => {
+      if (event.kind === 'debug_bm25_results') {
+        suspectedFiles = event.results.map(r => r.path);
+        return;
+      }
+
+      if (event.kind === 'debug_plan_ready' && event.plan && typeof event.plan === 'object') {
+        const plan = event.plan as Record<string, unknown>;
+        if (typeof plan['rootCause'] === 'string') rootCause = plan['rootCause'];
+        const candidates = plan['candidateFiles'];
+        if (Array.isArray(candidates)) {
+          for (const f of candidates) {
+            if (typeof f === 'string' && !suspectedFiles.includes(f)) suspectedFiles.push(f);
+          }
+        }
+        return;
+      }
+
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
+        event.task.id === task.id
+      ) {
+        this.eventBus.off('*', listener);
+        if (event.kind === 'task_error') return;
+
+        try {
+          const now = Date.now();
+
+          // Suspected files from BM25 + debug plan candidates
+          if (suspectedFiles.length > 0) {
+            const suspectedEvents: FileTouchEvent[] = suspectedFiles.map(filePath => ({
+              filePath,
+              workspaceRoot,
+              mode: 'debug' as const,
+              reason: 'debug' as const,
+              source: 'debug' as const,
+              taskId: task.id,
+              userIntent,
+              debugFindings: rootCause ? [{ role: 'suspected' as const, description: rootCause }] : undefined,
+              confidence: 0.5,
+              timestamp: now,
+            }));
+            service.processAsync(suspectedEvents);
+          }
+
+          // Confirmed files — actually changed by the fix
+          const changedFiles = this.getGitChangedFileNames(workspaceRoot);
+          if (changedFiles.length > 0) {
+            const confirmedEvents: FileTouchEvent[] = changedFiles.map(filePath => ({
+              filePath,
+              workspaceRoot,
+              mode: 'debug' as const,
+              reason: 'debug' as const,
+              source: 'debug' as const,
+              taskId: task.id,
+              userIntent,
+              debugFindings: rootCause ? [{ role: 'confirmed' as const, description: rootCause }] : undefined,
+              confidence: 0.9,
+              timestamp: now,
+            }));
+            service.processAsync(confirmedEvents);
+          }
+        } catch {
+          // best-effort
+        }
+      }
+    };
+
+    this.eventBus.on('*', listener);
+  }
+
+  // Part 2 — capture files the CLI read as context during any task
+  private setupActivityListener(task: AgentTask, workspaceRoot: string, mode: TaskMode): void {
+    if (!this.fileIntelligenceDeps) return;
+    const { service, ignoreFilter } = this.fileIntelligenceDeps;
+
+    const FILE_PATH_RE = /[\w./\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|java|rs|rb|php|cs|cpp|c|h|swift)/g;
+    const readFiles = new Set<string>();
+
+    const listener = (event: NexusEvent) => {
+      if (event.kind === 'activity_started' && event.task.id === task.id && event.activityKind === 'read') {
+        const matches = event.label.match(FILE_PATH_RE) ?? [];
+        for (const match of matches) {
+          if (!ignoreFilter.shouldIgnore(match)) readFiles.add(match);
+        }
+        return;
+      }
+
+      if (
+        (event.kind === 'task_completed' || event.kind === 'task_stopped' || event.kind === 'task_error') &&
+        event.task.id === task.id
+      ) {
+        this.eventBus.off('*', listener);
+        if (readFiles.size === 0) return;
+
+        try {
+          const contextReadEvents: FileTouchEvent[] = [...readFiles].map(filePath => ({
+            filePath,
+            workspaceRoot,
+            mode,
+            reason: 'context-read' as const,
+            source: (mode === 'debug' ? 'debug' : mode === 'review' ? 'review' : 'edit') as FileTouchSource,
+            taskId: task.id,
+            contextReadMetadata: { purpose: mode, charCount: 0 },
+            confidence: 0.2,
+            timestamp: Date.now(),
+          }));
+          service.processAsync(contextReadEvents);
+        } catch {
+          // best-effort
+        }
+      }
+    };
+
+    this.eventBus.on('*', listener);
   }
 
   private setupGitStatusListener(task: AgentTask, workspaceRoot: string): void {

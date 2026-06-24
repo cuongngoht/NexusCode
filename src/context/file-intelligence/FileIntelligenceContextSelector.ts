@@ -2,6 +2,7 @@ import type { IFileIntelligenceStore } from './FileIntelligenceStore';
 import type { FileIntelligenceIgnoreFilter } from './FileIntelligenceIgnoreFilter';
 import type { FileIntelligenceProfile } from './types';
 import type { TaskMode } from '../../core/agent/AgentTask';
+import type { FileIntelligenceRagFacade } from './FileIntelligenceRagFacade';
 
 const FILE_PATH_PATTERN = /[\w./\-]+\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|java|rs|rb|php|cs|cpp|c|h|swift)/g;
 
@@ -21,6 +22,7 @@ export class FileIntelligenceContextSelector {
   constructor(
     private readonly store: IFileIntelligenceStore,
     private readonly ignoreFilter: FileIntelligenceIgnoreFilter,
+    private readonly ragFacade?: FileIntelligenceRagFacade,
   ) {}
 
   async select(input: SelectionInput, opts?: SelectionOptions): Promise<FileIntelligenceProfile[]> {
@@ -45,7 +47,18 @@ export class FileIntelligenceContextSelector {
 
     if (selected.length >= max) return selected;
 
-    // 2. Recently changed files
+    // 2. BM25 semantic search — finds files relevant to the prompt even if not mentioned by name
+    if (this.ragFacade) {
+      const bm25Profiles = await this.ragFacade.search(input.prompt, input.workspaceRoot, { maxResults: max });
+      for (const p of bm25Profiles) {
+        if (selected.length >= max) break;
+        addIfNew(p);
+      }
+    }
+
+    if (selected.length >= max) return selected;
+
+    // 3. Recently changed files
     if (input.recentlyChangedFiles) {
       const changedProfiles = await this.loadProfilesForPaths(input.workspaceRoot, input.recentlyChangedFiles);
       for (const p of changedProfiles) {
@@ -56,7 +69,7 @@ export class FileIntelligenceContextSelector {
 
     if (selected.length >= max) return selected;
 
-    // 3. Remaining from index: risky files, then by finding count, then by confidence
+    // 4. Remaining from index: risky files, then by finding count, then by confidence
     const index = await this.store.readIndex(input.workspaceRoot);
     if (!index) return selected;
 
