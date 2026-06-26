@@ -1,10 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
+import type { ICompensableStep } from '../../core/pipeline/ICompensableStep';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import type { NexusEvent } from '../../core/events/IEventBus';
 
-export class ScanProjectStep implements IPipelineStep {
+export class ScanProjectStep implements ICompensableStep {
   readonly label = 'scan';
 
   constructor(private readonly extensionPath: string) {}
@@ -38,5 +38,9 @@ export class ScanProjectStep implements IPipelineStep {
     }
 
     ctx.projectMap = sections.join('\n\n---\n\n');
+  }
+
+  async compensate(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
+    ctx.projectMap = undefined;
   }
 }

@@ -356,14 +356,14 @@ function createProjectMapUseCases(registry: AgentRegistry, runner: ProcessRunner
 
 function createSubagentOrchestrator(
   agentRegistry: AgentRegistry,
-  runner: ProcessRunner,
+  _runner: ProcessRunner,
   extensionPath: string,
 ): SubagentOrchestrator {
   const subagentRegistry = new SubagentRegistry();
   DEFAULT_SUBAGENTS.forEach((d) => subagentRegistry.register(d));
   const subagentRouter = new SubagentRouter(agentRegistry);
   const subagentPlanner = new SubagentPlanner(subagentRegistry);
-  const subagentExecutor = new SubagentExecutor(runner, extensionPath);
+  const subagentExecutor = new SubagentExecutor(() => new ProcessRunner(), extensionPath);
   return new SubagentOrchestrator(subagentPlanner, subagentRouter, subagentExecutor);
 }
 

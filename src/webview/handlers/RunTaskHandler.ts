@@ -68,6 +68,7 @@ import type { FileIntelligenceService } from '../../context/file-intelligence/Fi
 import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
 import type { FileTouchEvent, FileTouchSource } from '../../context/file-intelligence/types';
+import { SagaRunner } from '../../application/pipeline/SagaRunner';
 
 export interface FileIntelligenceDeps {
   service: FileIntelligenceService;
@@ -124,6 +125,7 @@ export class RunTaskHandler {
   ) {}
 
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
+  private readonly sagaRunner = new SagaRunner();
 
   hasActive(): boolean {
     return this.runAgent.hasActiveTask() || this._pipelineActive;
@@ -672,43 +674,28 @@ export class RunTaskHandler {
     model: string | undefined,
     totalSteps: number,
   ): Promise<boolean> {
-    for (let i = 0; i < steps.length; i++) {
-      if (this._stopRequested) return false;
-      const step = steps[i];
-      this.eventBus.emit({
-        kind: 'step_started',
-        stepLabel: step.label,
-        stepIndex: i,
-        totalSteps,
-        provider: String(providerId),
-        mode: String(mode),
-        model,
-      });
-      const warningCountBefore = ctx.stepWarnings?.length ?? 0;
-      try {
-        await step.execute(ctx, e => this.eventBus.emit(e));
-      } catch (err) {
-        if (this._stopRequested) {
-          this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: 'Task cancelled' });
-          return false;
-        }
-        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: String(err) });
-        this.post({ type: 'taskError', taskId: 'pipeline', message: `${step.label} failed: ${String(err)}` });
-        return false;
-      }
-      if (this._stopRequested) {
-        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: 'Task cancelled' });
-        return false;
-      }
-      const warnings = (ctx.stepWarnings ?? []).slice(warningCountBefore)
-        .filter(w => w.stepLabel === step.label);
-      if (warnings.length > 0) {
-        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: warnings.map(w => w.message).join('\n') });
-      } else {
-        this.eventBus.emit({ kind: 'step_completed', stepLabel: step.label });
-      }
+    const result = await this.sagaRunner.run(
+      steps,
+      ctx,
+      e => this.eventBus.emit(e),
+      {
+        isCancellationRequested: () => this._stopRequested,
+        compensateOnFailure: false,
+        stepEventMeta: {
+          stepOffset: 0,
+          totalSteps,
+          provider: String(providerId),
+          mode: String(mode),
+          model,
+        },
+      },
+    );
+
+    if (!result.ok && !this._stopRequested) {
+      this.post({ type: 'taskError', taskId: 'pipeline', message: `${result.failedStep} failed: ${result.error}` });
     }
-    return true;
+
+    return result.ok;
   }
 
   private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, reviewPreset?: CodeReviewPreset): string {

@@ -1,10 +1,10 @@
-import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
+import type { ICompensableStep } from '../../core/pipeline/ICompensableStep';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import type { NexusEvent } from '../../core/events/IEventBus';
 import { ArchitectureMemoryLoader, ArchitectureMemoryValidator } from '../../context/architecture-memory';
 import { ArchitectureRagFacade } from '../../context/architecture-memory/search/ArchitectureRagFacade';
 
-export class ArchitectureMemoryStep implements IPipelineStep {
+export class ArchitectureMemoryStep implements ICompensableStep {
   readonly label = 'architecture-memory';
 
   constructor(
@@ -29,6 +29,10 @@ export class ArchitectureMemoryStep implements IPipelineStep {
     } catch {
       // non-blocking — never crash the pipeline
     }
+  }
+
+  async compensate(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
+    ctx.architectureContext = undefined;
   }
 }
 
