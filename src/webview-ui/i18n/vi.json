@@ -326,7 +326,8 @@
       "code-review-context": "Xây dựng ngữ cảnh review",
       "subagent-architect": "Đánh giá kiến trúc",
       "architecture-memory": "Phân tích kiến trúc",
-      "file-intelligence": "Bộ nhớ thông minh tệp"
+      "file-intelligence": "Bộ nhớ thông minh tệp",
+      "review-analyze": "Phân tích code review"
     },
     "activities": {
       "read": "Đọc tệp",

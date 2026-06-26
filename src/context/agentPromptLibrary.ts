@@ -140,6 +140,27 @@ export function listAgentPrompts(workspaceRoot: string): AgentPrompt[] {
   return prompts.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/** Returns relative paths of all .md files under dir, recursively, excluding dot-files. */
+function collectMdFilesRecursive(dir: string, base = ''): string[] {
+  const results: string[] = [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const rel = base ? `${base}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      results.push(...collectMdFilesRecursive(path.join(dir, entry.name), rel));
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      results.push(rel);
+    }
+  }
+  return results;
+}
+
 export function loadAgentPromptMarkdown(workspaceRoot: string, agentId: string): string | undefined {
   if (!SAFE_AGENT_ID_RE.test(agentId)) return undefined;
 
@@ -147,17 +168,20 @@ export function loadAgentPromptMarkdown(workspaceRoot: string, agentId: string):
   const filePath = path.join(agentsDir, `${agentId}.md`);
   try { return fs.readFileSync(filePath, 'utf8'); } catch { /* fall through */ }
 
-  // Folder agent: bundle index.md first, then remaining .md files alphabetically
+  // Folder agent: bundle index.md first, then all remaining .md files recursively (alphabetical by relative path)
   const agentDir = path.join(agentsDir, agentId);
   const indexPath = path.join(agentDir, 'index.md');
   if (!fs.existsSync(indexPath)) return undefined;
 
   try {
-    const files = fs.readdirSync(agentDir)
-      .filter(f => f.endsWith('.md') && !f.startsWith('.'))
-      .sort((a, b) => a === 'index.md' ? -1 : b === 'index.md' ? 1 : a.localeCompare(b));
-    return files
-      .map(f => fs.readFileSync(path.join(agentDir, f), 'utf8'))
+    const allMdFiles = collectMdFilesRecursive(agentDir);
+    allMdFiles.sort((a, b) => {
+      if (a === 'index.md') return -1;
+      if (b === 'index.md') return 1;
+      return a.localeCompare(b);
+    });
+    return allMdFiles
+      .map(rel => fs.readFileSync(path.join(agentDir, rel), 'utf8'))
       .join('\n\n---\n\n');
   } catch { return undefined; }
 }
