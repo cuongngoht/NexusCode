@@ -62,6 +62,13 @@ import { AnalyticsAggregator } from './analytics/AnalyticsAggregator';
 import { AnalyticsExporter } from './analytics/AnalyticsExporter';
 import { AnalyticsService } from './analytics/AnalyticsService';
 import { registerCodeReviewCommands } from './webview/handlers/CodeReviewCommandHandler';
+import { AutoReviewController } from './auto-review/AutoReviewController';
+import type { CodeReviewRunnerFn } from './application/code-review/CodeReviewExecutor';
+import { AgentTask as AgentTaskForAutoReview } from './core/agent/AgentTask';
+import { EventBus as AutoReviewEventBus } from './core/eventBus';
+import { AgentRouter as AutoReviewAgentRouter } from './application/AgentRouter';
+import { RunAgentUseCase as AutoReviewRunAgentUseCase } from './application/usecases/RunAgentUseCase';
+import { normalizeProviderId } from './core/providerMigration';
 import { FsProjectMemoryManifestRepository } from './context/project-memory';
 import { ProjectMemoryStaleWatcher } from './context/project-memory/ProjectMemoryStaleWatcher';
 import { JsonFileIntelligenceStore } from './context/file-intelligence/JsonFileIntelligenceStore';
@@ -287,6 +294,42 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   registerCodeReviewCommands(context, provider);
+
+  // Auto Review — disabled by default
+  if (workspaceRootForWatcher) {
+    const autoReviewRunnerFn = createAutoReviewRunnerFn(registry, runner, context);
+    const autoReviewController = new AutoReviewController(
+      workspaceRootForWatcher,
+      autoReviewRunnerFn,
+      context,
+    );
+    context.subscriptions.push(autoReviewController);
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('nexus.autoReview.enable',
+        () => { void autoReviewController.enable(); }),
+      vscode.commands.registerCommand('nexus.autoReview.disable',
+        () => { void autoReviewController.disable(); }),
+      vscode.commands.registerCommand('nexus.autoReview.runNow',
+        () => { void autoReviewController.runOnce(); }),
+      vscode.commands.registerCommand('nexus.autoReview.openLatest',
+        () => { void autoReviewController.openLatest(); }),
+      vscode.commands.registerCommand('nexus.autoReview.openHistory',
+        () => { void autoReviewController.openHistory(); }),
+      vscode.commands.registerCommand('nexus.autoReview.clearHistory',
+        () => { autoReviewController.clearHistory(); }),
+      vscode.commands.registerCommand('nexus.autoReview.pruneHistory',
+        () => { autoReviewController.pruneHistory(); }),
+    );
+
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('nexus.autoReview')) {
+          autoReviewController.onConfigurationChange();
+        }
+      }),
+    );
+  }
 }
 
 // ── Composition helpers (keeps activate() readable and groups wiring) ──────
@@ -396,6 +439,24 @@ function createFileIntelligenceDeps(workspaceRoot: string): FileIntelligenceDeps
     ignoreFilter,
   );
   return { service, store, ignoreFilter };
+}
+
+function createAutoReviewRunnerFn(
+  registry: AgentRegistry,
+  runner: ProcessRunner,
+  context: vscode.ExtensionContext,
+): CodeReviewRunnerFn {
+  const autoEventBus = new AutoReviewEventBus();
+  const autoRouter = new AutoReviewAgentRouter(registry);
+  const autoRunAgent = new AutoReviewRunAgentUseCase(autoRouter, runner, autoEventBus);
+
+  return async (prompt: string, workspaceRoot: string): Promise<string> => {
+    const rawProvider = context.globalState.get<string>('nexus.lastProvider');
+    const providerId = normalizeProviderId(rawProvider ?? 'auto');
+    const task = new AgentTaskForAutoReview(prompt, prompt, providerId, 'review', undefined, workspaceRoot);
+    const result = await autoRunAgent.execute(task);
+    return result.stdout;
+  };
 }
 
 export function deactivate(): void { }
