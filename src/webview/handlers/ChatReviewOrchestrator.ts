@@ -52,6 +52,9 @@ export class ChatReviewOrchestrator {
     conversationContext: string | undefined,
     subagentsEnabled: boolean,
   ): Promise<boolean> {
+    // Already in review mode — RunTaskHandler handles it (supplement step via @agent mention).
+    if (mode === 'review') return false;
+
     const workspaceRoot = requireWorkspaceRoot(this.post);
     if (!workspaceRoot) return false;
 
@@ -67,16 +70,16 @@ export class ChatReviewOrchestrator {
     const { agentIds, cleanedPrompt } = parseAgentMentions(prompt, knownAgentIds);
     if (agentIds.length === 0) return false;
 
-    const allowInference = cfg.get<boolean>('agents.inferReviewCapability', true);
     const mentionedMetadata = allMetadata.filter(m => agentIds.includes(m.id));
-    const reviewCapableAgents = mentionedMetadata.filter(m => classifyReviewAgent(m, { allowInference }).isReviewCapable);
+    const reviewCapableAgents = mentionedMetadata.filter(m => classifyReviewAgent(m, { allowInference: false }).isReviewCapable);
     if (reviewCapableAgents.length === 0) return false;
 
     const intent = detectReviewIntent(cleanedPrompt);
-    // An explicit @mention of a review agent is sufficient intent — no keywords required.
+    // Pure @mention with no review keywords → default to branch-review so the user picks
+    // which branch to compare against, instead of the full ambiguous-target dialog.
     const effectiveIntent =
-      intent.kind === 'none' && reviewCapableAgents.length > 0
-        ? { kind: 'general-code-review' as const, confidence: 'medium' as const, reasons: ['review agent mentioned'] }
+      intent.kind === 'none'
+        ? { kind: 'branch-review' as const, confidence: 'medium' as const, reasons: ['review agent mentioned'] }
         : intent;
     if (effectiveIntent.kind === 'none') return false;
     const inspected = cfg.inspect<string>('review.defaultBaseBranch');
@@ -122,7 +125,7 @@ export class ChatReviewOrchestrator {
 
     if (resolution.status === 'ready') {
       await this._runReview(
-        cleanedPrompt, providerId, model, attachments,
+        prompt, providerId, model, attachments,
         latestHistory, conversationContext, subagentsEnabled,
         selectedReviewAgentIds, resolution.target,
       );
@@ -176,7 +179,7 @@ export class ChatReviewOrchestrator {
     }
 
     await this._runReview(
-      pending.cleanedPrompt,
+      pending.originalPrompt,
       pending.providerId as ProviderId,
       pending.model,
       pending.attachments,

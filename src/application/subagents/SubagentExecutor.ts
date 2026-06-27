@@ -12,9 +12,10 @@ const PROJECT_MAP_PREVIEW_CHARS = 2000;
 
 export class SubagentExecutor {
   private readonly summary = new SubagentSummary();
+  private readonly activeRunners = new Set<IProcessRunner>();
 
   constructor(
-    private readonly runner: IProcessRunner,
+    private readonly runnerFactory: () => IProcessRunner,
     private readonly extensionPath: string,
   ) {}
 
@@ -26,6 +27,8 @@ export class SubagentExecutor {
     idleTimeoutMs?: number,
   ): Promise<SubagentResult> {
     const start = Date.now();
+    const runner = this.runnerFactory();
+    this.activeRunners.add(runner);
     try {
       const template = this.loadTemplate(def.promptFile);
       const prompt = this.buildPrompt(template, ctx);
@@ -41,7 +44,7 @@ export class SubagentExecutor {
 
       const command = agent.buildCommand(task);
       const chunks: string[] = [];
-      await this.runner.run(command, {
+      await runner.run(command, {
         cwd: ctx.workspaceRoot,
         onStdout: chunk => { chunks.push(chunk); },
         onStderr: () => { /* discard subagent stderr */ },
@@ -63,24 +66,33 @@ export class SubagentExecutor {
         durationMs: Date.now() - start,
         error: String(err),
       };
+    } finally {
+      this.activeRunners.delete(runner);
     }
   }
 
   async runRawPrompt(agent: IAgent, prompt: string, cwd: string, idleTimeoutMs?: number): Promise<string> {
-    const task = new AgentTask(prompt, prompt, agent.id, 'ask', undefined, cwd);
-    const command = agent.buildCommand(task);
-    const chunks: string[] = [];
-    await this.runner.run(command, {
-      cwd,
-      onStdout: chunk => { chunks.push(chunk); },
-      onStderr: () => {},
-      idleTimeoutMs,
-    });
-    return chunks.join('');
+    const runner = this.runnerFactory();
+    this.activeRunners.add(runner);
+    try {
+      const task = new AgentTask(prompt, prompt, agent.id, 'ask', undefined, cwd);
+      const command = agent.buildCommand(task);
+      const chunks: string[] = [];
+      await runner.run(command, {
+        cwd,
+        onStdout: chunk => { chunks.push(chunk); },
+        onStderr: () => {},
+        idleTimeoutMs,
+      });
+      return chunks.join('');
+    } finally {
+      this.activeRunners.delete(runner);
+    }
   }
 
   async stop(): Promise<void> {
-    await this.runner.stop();
+    await Promise.all([...this.activeRunners].map(r => r.stop()));
+    this.activeRunners.clear();
   }
 
   private loadTemplate(promptFile: string): string {

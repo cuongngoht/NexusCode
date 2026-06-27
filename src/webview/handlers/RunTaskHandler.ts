@@ -8,6 +8,7 @@ import type { ProviderId, TaskMode } from '../../core/types';
 import { AgentTask } from '../../core/agent';
 import { AgentResult } from '../../core/agent/AgentResult';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
+import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
 import { RunAgentUseCase } from '../../application/usecases/RunAgentUseCase';
 import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
 import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
@@ -17,7 +18,7 @@ import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
 import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
 import { buildPromptAttachmentContext } from '../../context/promptAttachments';
-import { listAgentPrompts, loadAgentPromptBundle } from '../../context/agentPromptLibrary';
+import { ensureWorkspaceAgents, listAgentPrompts, loadAgentPromptBundle, loadAgentMetadata } from '../../context/agentPromptLibrary';
 import { parseAgentMentions } from '../../context/agentMentionParser';
 import { listSkillPrompts, loadSkillPromptBundle } from '../../context/skillPromptLibrary';
 import { ensureWorkspacePrompts } from '../../context/promptLibrary';
@@ -68,6 +69,7 @@ import type { FileIntelligenceService } from '../../context/file-intelligence/Fi
 import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
 import type { FileTouchEvent, FileTouchSource } from '../../context/file-intelligence/types';
+import { SagaRunner } from '../../application/pipeline/SagaRunner';
 
 export interface FileIntelligenceDeps {
   service: FileIntelligenceService;
@@ -124,6 +126,7 @@ export class RunTaskHandler {
   ) {}
 
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
+  private readonly sagaRunner = new SagaRunner();
 
   hasActive(): boolean {
     return this.runAgent.hasActiveTask() || this._pipelineActive;
@@ -446,7 +449,14 @@ export class RunTaskHandler {
           ? this.subagentOrchestrator!.countPlanned(planCfg)
           : 0;
 
-        const totalSteps = preSteps.length + subagentCount + 1;
+        const { supplementAgentIds, supplementCleanedPrompt } =
+          this.detectReviewSupplement(mode, effectivePrompt, workspaceRoot);
+
+        const postSteps = this.buildPostSteps(
+          ctx, supplementAgentIds, supplementCleanedPrompt, providerId, mode, model, workspaceRoot, cfg,
+        );
+
+        const totalSteps = preSteps.length + subagentCount + postSteps.length;
 
         const ok = await this.runPreSteps(preSteps, ctx, providerId, mode, model, totalSteps);
         if (!ok) return;
@@ -483,7 +493,16 @@ export class RunTaskHandler {
 
         if (this._stopRequested) return;
 
-        await this.executeAgent(ctx, providerId, mode, model, preSteps.length + subagentCount, totalSteps, workspaceRoot, cfg);
+        await this.sagaRunner.run(postSteps, ctx, e => this.eventBus.emit(e), {
+          isCancellationRequested: () => this._stopRequested,
+          stepEventMeta: {
+            stepOffset: preSteps.length + subagentCount,
+            totalSteps,
+            provider: String(providerId),
+            mode: String(mode),
+            model,
+          },
+        });
       }
     } finally {
       this._pipelineActive = false;
@@ -672,43 +691,28 @@ export class RunTaskHandler {
     model: string | undefined,
     totalSteps: number,
   ): Promise<boolean> {
-    for (let i = 0; i < steps.length; i++) {
-      if (this._stopRequested) return false;
-      const step = steps[i];
-      this.eventBus.emit({
-        kind: 'step_started',
-        stepLabel: step.label,
-        stepIndex: i,
-        totalSteps,
-        provider: String(providerId),
-        mode: String(mode),
-        model,
-      });
-      const warningCountBefore = ctx.stepWarnings?.length ?? 0;
-      try {
-        await step.execute(ctx, e => this.eventBus.emit(e));
-      } catch (err) {
-        if (this._stopRequested) {
-          this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: 'Task cancelled' });
-          return false;
-        }
-        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: String(err) });
-        this.post({ type: 'taskError', taskId: 'pipeline', message: `${step.label} failed: ${String(err)}` });
-        return false;
-      }
-      if (this._stopRequested) {
-        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: 'Task cancelled' });
-        return false;
-      }
-      const warnings = (ctx.stepWarnings ?? []).slice(warningCountBefore)
-        .filter(w => w.stepLabel === step.label);
-      if (warnings.length > 0) {
-        this.eventBus.emit({ kind: 'step_error', stepLabel: step.label, error: warnings.map(w => w.message).join('\n') });
-      } else {
-        this.eventBus.emit({ kind: 'step_completed', stepLabel: step.label });
-      }
+    const result = await this.sagaRunner.run(
+      steps,
+      ctx,
+      e => this.eventBus.emit(e),
+      {
+        isCancellationRequested: () => this._stopRequested,
+        compensateOnFailure: false,
+        stepEventMeta: {
+          stepOffset: 0,
+          totalSteps,
+          provider: String(providerId),
+          mode: String(mode),
+          model,
+        },
+      },
+    );
+
+    if (!result.ok && !this._stopRequested) {
+      this.post({ type: 'taskError', taskId: 'pipeline', message: `${result.failedStep} failed: ${result.error}` });
     }
-    return true;
+
+    return result.ok;
   }
 
   private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, reviewPreset?: CodeReviewPreset): string {
@@ -733,9 +737,11 @@ export class RunTaskHandler {
       }
 
       ensureWorkspacePrompts(workspaceRoot, this.extensionPath, 'modes/review-code');
+      const knownAgentIds = listAgentPrompts(workspaceRoot).map(a => a.id);
+      const { cleanedPrompt: cleanedReviewPrompt } = parseAgentMentions(ctx.originalPrompt, knownAgentIds);
       let reviewPrompt = new CodeReviewPromptBuilder(this.extensionPath, workspaceRoot).build({
         context: reviewCtx,
-        userPrompt: ctx.originalPrompt || undefined,
+        userPrompt: cleanedReviewPrompt || undefined,
         preset,
       });
       if (ctx.subagentResults && ctx.subagentResults.length > 0) {
@@ -790,6 +796,34 @@ export class RunTaskHandler {
       const agentBundle = agentIds.length > 0 ? loadAgentPromptBundle(workspaceRoot, agentIds) : undefined;
       const skillBundle = skillIds.length > 0 ? loadSkillPromptBundle(workspaceRoot, skillIds) : undefined;
       const mcpEnabled = vscode.workspace.getConfiguration('nexus').get<boolean>('mcp.enabled', false);
+
+      // When a review-capable agent is mentioned outside review mode, inject diff context
+      // so the agent has actual code changes to work with.
+      const hasReviewAgent = agentIds.some(id => {
+        const meta = loadAgentMetadata(workspaceRoot, id);
+        return meta?.purpose === 'code_review' || (meta?.reviewTargets && meta.reviewTargets.length > 0);
+      });
+      if (hasReviewAgent) {
+        const vsCfg = vscode.workspace.getConfiguration('nexus');
+        const maxDiffChars = vsCfg.get<number>('review.maxDiffChars', 60000);
+        const maxFileContextChars = vsCfg.get<number>('review.maxFileContextChars', 25000);
+        const target = ctx.reviewTarget ?? { type: 'branch' as const, baseBranch: ctx.baseBranch ?? 'main' };
+        try {
+          const reviewCtx = new CodeReviewContextBuilder().build(workspaceRoot, target, { maxDiffChars, maxFileContextChars });
+          if (reviewCtx.changedFiles.length > 0 || reviewCtx.diff) {
+            const fileList = reviewCtx.changedFiles.map(f => `  - ${f.status} ${f.path}`).join('\n');
+            const diffContext = [
+              '# Code Changes (Current Branch)',
+              fileList ? `Changed files:\n${fileList}` : '',
+              reviewCtx.diff ? `\`\`\`diff\n${reviewCtx.diff}\n\`\`\`` : '',
+            ].filter(Boolean).join('\n\n');
+            prompt = `${diffContext}\n\n${prompt}`;
+          }
+        } catch {
+          // Non-blocking: if diff fails, proceed without it
+        }
+      }
+
       prompt = buildAugmentedPrompt({
         agentMarkdownBundle: agentBundle,
         skillMarkdownBundle: skillBundle,
@@ -808,77 +842,148 @@ export class RunTaskHandler {
     return prompt;
   }
 
-  private async executeAgent(
+  private detectReviewSupplement(
+    mode: TaskMode,
+    prompt: string,
+    workspaceRoot: string,
+  ): { supplementAgentIds: string[]; supplementCleanedPrompt: string } {
+    if (mode !== 'review') return { supplementAgentIds: [], supplementCleanedPrompt: prompt };
+    ensureWorkspaceAgents(workspaceRoot, this.extensionPath);
+    const knownAgentIds = listAgentPrompts(workspaceRoot).map(a => a.id);
+    const { agentIds, cleanedPrompt } = parseAgentMentions(prompt, knownAgentIds);
+    return { supplementAgentIds: agentIds, supplementCleanedPrompt: cleanedPrompt };
+  }
+
+  private buildPostSteps(
+    ctx: PipelineContext,
+    supplementAgentIds: string[],
+    supplementCleanedPrompt: string,
+    providerId: ProviderId,
+    mode: TaskMode,
+    model: string | undefined,
+    workspaceRoot: string,
+    cfg: vscode.WorkspaceConfiguration,
+  ): IPipelineStep[] {
+    // When @agent is used in review mode, the agent's own guidelines drive the review.
+    // Skip the generic CodeReviewPromptBuilder step entirely.
+    if (mode === 'review' && supplementAgentIds.length > 0) {
+      return [this.makeAgentSupplementStep(ctx, supplementAgentIds, supplementCleanedPrompt, providerId, model, workspaceRoot, cfg)];
+    }
+    const steps: IPipelineStep[] = [
+      this.makeExecuteStep(ctx, providerId, mode, model, workspaceRoot, cfg),
+    ];
+    if (supplementAgentIds.length > 0) {
+      steps.push(this.makeAgentSupplementStep(ctx, supplementAgentIds, supplementCleanedPrompt, providerId, model, workspaceRoot, cfg));
+    }
+    return steps;
+  }
+
+  private makeExecuteStep(
     ctx: PipelineContext,
     providerId: ProviderId,
     mode: TaskMode,
     model: string | undefined,
-    preStepCount: number,
-    totalSteps: number,
     workspaceRoot: string,
     cfg: vscode.WorkspaceConfiguration,
-  ): Promise<void> {
-    const stepLabel = mode === 'review' ? 'review-analyze' : RUN_STEP_LABEL;
+  ): IPipelineStep {
+    return {
+      label: mode === 'review' ? 'review-analyze' : RUN_STEP_LABEL,
+      execute: async (_ctx, _emit) => {
+        const task = new AgentTask(
+          ctx.originalPrompt,
+          ctx.enhancedPrompt,
+          providerId,
+          mode,
+          model?.trim() || undefined,
+          workspaceRoot,
+        );
 
-    this.eventBus.emit({
-      kind: 'step_started',
-      stepLabel,
-      stepIndex: preStepCount,
-      totalSteps,
-      provider: String(providerId),
-      mode: String(mode),
-      model,
-    });
-
-    const task = new AgentTask(
-      ctx.originalPrompt,
-      ctx.enhancedPrompt,
-      providerId,
-      mode,
-      model?.trim() || undefined,
-      workspaceRoot,
-    );
-
-    if (cfg.get<boolean>('runGitStatusAfterTask', true)) {
-      this.setupGitStatusListener(task, workspaceRoot);
-    }
-
-    this.setupFileIntelligenceListener(task, workspaceRoot, mode, ctx.originalPrompt);
-    this.setupActivityListener(task, workspaceRoot, mode);
-
-    if (mode === 'review') {
-      // Abort early if there is nothing to review (no changed files between HEAD and base)
-      if (ctx.reviewEmptyDiff) {
-        this.post({ type: 'taskError', taskId: task.id, message: 'Nothing to review: no changed files found between the current branch and the base branch. Commit your changes or select a different base branch.' });
-        this.eventBus.emit({ kind: 'step_completed', stepLabel });
-        return;
-      }
-
-      const reviewTarget = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
-
-      // Synthesize from subagent results when available — skip main agent if successful
-      if (ctx.subagentResults && ctx.subagentResults.length > 0) {
-        this.eventBus.emit({ kind: 'activity_started', task, activityKind: 'tool_call', label: 'Synthesizing findings' });
-        const report = new CodeReviewSynthesizer().synthesize(ctx.subagentResults, reviewTarget);
-        if (report) {
-          this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
-          this.emitFinalReport(report, cfg);
-          this.eventBus.emit({ kind: 'step_completed', stepLabel });
-          return; // Report is complete — no need to run the main agent
+        if (cfg.get<boolean>('runGitStatusAfterTask', true)) {
+          this.setupGitStatusListener(task, workspaceRoot);
         }
-        this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
-      }
 
-      // Fall back to streaming parser (no subagents or synthesis produced no findings)
-      this.setupCodeReviewListener(task, cfg, reviewTarget);
-    }
+        this.setupFileIntelligenceListener(task, workspaceRoot, mode, ctx.originalPrompt);
+        this.setupActivityListener(task, workspaceRoot, mode);
 
-    try {
-      await this.runAgent.execute(task);
-      this.eventBus.emit({ kind: 'step_completed', stepLabel });
-    } catch {
-      this.eventBus.emit({ kind: 'step_error', stepLabel, error: '' });
-    }
+        if (mode === 'review') {
+          if (ctx.reviewEmptyDiff) {
+            this.post({ type: 'taskError', taskId: task.id, message: 'Nothing to review: no changed files found between the current branch and the base branch. Commit your changes or select a different base branch.' });
+            return;
+          }
+
+          const reviewTarget = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
+
+          if (ctx.subagentResults && ctx.subagentResults.length > 0) {
+            this.eventBus.emit({ kind: 'activity_started', task, activityKind: 'tool_call', label: 'Synthesizing findings' });
+            const report = new CodeReviewSynthesizer().synthesize(ctx.subagentResults, reviewTarget);
+            if (report) {
+              this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'done' });
+              this.emitFinalReport(report, cfg);
+              return;
+            }
+            this.eventBus.emit({ kind: 'activity_done', task, activityKind: 'tool_call', label: 'Synthesizing findings', status: 'error' });
+          }
+
+          this.setupCodeReviewListener(task, cfg, reviewTarget);
+        }
+
+        await this.runAgent.execute(task);
+      },
+    };
+  }
+
+  private makeAgentSupplementStep(
+    ctx: PipelineContext,
+    agentIds: string[],
+    cleanedPrompt: string,
+    providerId: ProviderId,
+    model: string | undefined,
+    workspaceRoot: string,
+    cfg: vscode.WorkspaceConfiguration,
+  ): IPipelineStep {
+    return {
+      label: 'agent-review',
+      execute: async (_ctx, _emit) => {
+        const maxDiffChars = cfg.get<number>('review.maxDiffChars', 60000);
+        const maxFileContextChars = cfg.get<number>('review.maxFileContextChars', 25000);
+        const target = ctx.reviewTarget ?? { type: 'branch', baseBranch: ctx.baseBranch || 'main' };
+        const reviewCtx = new CodeReviewContextBuilder().build(workspaceRoot, target, { maxDiffChars, maxFileContextChars });
+
+        const fileList = reviewCtx.changedFiles
+          .map(f => `  - ${f.status} ${f.path}`)
+          .join('\n');
+        const diffBlock = [
+          '# Code Changes',
+          `Base: \`${reviewCtx.baseBranch ?? 'main'}\` → current branch`,
+          fileList ? `\nChanged files:\n${fileList}` : '',
+          reviewCtx.diff ? `\n\`\`\`diff\n${reviewCtx.diff}\n\`\`\`` : '',
+        ].filter(Boolean).join('\n');
+
+        const taskInstruction = cleanedPrompt.trim()
+          ? `# Task\n\n${cleanedPrompt.trim()}`
+          : '# Task\n\nProvide your analysis of the code changes above according to your role and guidelines.';
+
+        const agentBundle = loadAgentPromptBundle(workspaceRoot, agentIds);
+        const mcpEnabled = cfg.get<boolean>('mcp.enabled', false);
+        const supplementPrompt = buildAugmentedPrompt({
+          agentMarkdownBundle: agentBundle,
+          userPrompt: cleanedPrompt.trim() || 'Analyze the code changes',
+          existingEnhancedPrompt: `${diffBlock}\n\n${taskInstruction}`,
+          mcpEnabled,
+        });
+
+        const task = new AgentTask(
+          cleanedPrompt.trim() || ctx.originalPrompt,
+          supplementPrompt,
+          providerId,
+          'ask',
+          model?.trim() || undefined,
+          workspaceRoot,
+        );
+
+        await this.runAgent.execute(task);
+      },
+    };
   }
 
   private async markProjectMemoryFailed(workspaceRoot: string, error: unknown, phase: string): Promise<void> {
