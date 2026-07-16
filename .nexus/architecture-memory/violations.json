@@ -1,0 +1,554 @@
+[
+  {
+    "id": "src/application/code-review/materializeReviewOutput.ts->src/infrastructure/stream/LineDecoder.ts",
+    "from": "src/application/code-review/materializeReviewOutput.ts",
+    "to": "src/infrastructure/stream/LineDecoder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/code-review/materializeReviewOutput.ts imports src/infrastructure/stream/LineDecoder.ts"
+    ]
+  },
+  {
+    "id": "src/application/code-review/materializeReviewOutput.ts->src/providers/grok/GrokStreamAdapter.ts",
+    "from": "src/application/code-review/materializeReviewOutput.ts",
+    "to": "src/providers/grok/GrokStreamAdapter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/code-review/materializeReviewOutput.ts imports src/providers/grok/GrokStreamAdapter.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/ArchitectureMemoryStep.ts->src/context/architecture-memory/index.ts",
+    "from": "src/application/pipeline/ArchitectureMemoryStep.ts",
+    "to": "src/context/architecture-memory/index.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/ArchitectureMemoryStep.ts imports src/context/architecture-memory/index.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/ArchitectureMemoryStep.ts->src/context/architecture-memory/search/ArchitectureRagFacade.ts",
+    "from": "src/application/pipeline/ArchitectureMemoryStep.ts",
+    "to": "src/context/architecture-memory/search/ArchitectureRagFacade.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/ArchitectureMemoryStep.ts imports src/context/architecture-memory/search/ArchitectureRagFacade.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/FileIntelligenceContextStep.ts->src/context/file-intelligence/FileIntelligenceStore.ts",
+    "from": "src/application/pipeline/FileIntelligenceContextStep.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceStore.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/FileIntelligenceContextStep.ts imports src/context/file-intelligence/FileIntelligenceStore.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/FileIntelligenceContextStep.ts->src/context/file-intelligence/FileIntelligenceIgnoreFilter.ts",
+    "from": "src/application/pipeline/FileIntelligenceContextStep.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceIgnoreFilter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/FileIntelligenceContextStep.ts imports src/context/file-intelligence/FileIntelligenceIgnoreFilter.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/FileIntelligenceContextStep.ts->src/context/file-intelligence/FileIntelligenceContextSelector.ts",
+    "from": "src/application/pipeline/FileIntelligenceContextStep.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceContextSelector.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/FileIntelligenceContextStep.ts imports src/context/file-intelligence/FileIntelligenceContextSelector.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/FileIntelligenceContextStep.ts->src/context/file-intelligence/FileIntelligenceContextBuilder.ts",
+    "from": "src/application/pipeline/FileIntelligenceContextStep.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceContextBuilder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/FileIntelligenceContextStep.ts imports src/context/file-intelligence/FileIntelligenceContextBuilder.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/FileIntelligenceContextStep.ts->src/context/file-intelligence/FileIntelligenceRagFacade.ts",
+    "from": "src/application/pipeline/FileIntelligenceContextStep.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceRagFacade.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/FileIntelligenceContextStep.ts imports src/context/file-intelligence/FileIntelligenceRagFacade.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/createPreSteps.ts->src/context/file-intelligence/FileIntelligenceStore.ts",
+    "from": "src/application/pipeline/createPreSteps.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceStore.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/createPreSteps.ts imports src/context/file-intelligence/FileIntelligenceStore.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/createPreSteps.ts->src/context/file-intelligence/FileIntelligenceIgnoreFilter.ts",
+    "from": "src/application/pipeline/createPreSteps.ts",
+    "to": "src/context/file-intelligence/FileIntelligenceIgnoreFilter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/createPreSteps.ts imports src/context/file-intelligence/FileIntelligenceIgnoreFilter.ts"
+    ]
+  },
+  {
+    "id": "src/application/pipeline/review/ReviewFileContextStep.ts->src/git/gitBranch.ts",
+    "from": "src/application/pipeline/review/ReviewFileContextStep.ts",
+    "to": "src/git/gitBranch.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/pipeline/review/ReviewFileContextStep.ts imports src/git/gitBranch.ts"
+    ]
+  },
+  {
+    "id": "src/application/prompt/PromptSourceResolver.ts->src/context/commandPromptLibrary.ts",
+    "from": "src/application/prompt/PromptSourceResolver.ts",
+    "to": "src/context/commandPromptLibrary.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/prompt/PromptSourceResolver.ts imports src/context/commandPromptLibrary.ts"
+    ]
+  },
+  {
+    "id": "src/application/prompt/PromptSourceResolver.ts->src/context/skillPromptLibrary.ts",
+    "from": "src/application/prompt/PromptSourceResolver.ts",
+    "to": "src/context/skillPromptLibrary.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/prompt/PromptSourceResolver.ts imports src/context/skillPromptLibrary.ts"
+    ]
+  },
+  {
+    "id": "src/application/prompt/PromptSourceResolver.ts->src/context/agentPromptLibrary.ts",
+    "from": "src/application/prompt/PromptSourceResolver.ts",
+    "to": "src/context/agentPromptLibrary.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/prompt/PromptSourceResolver.ts imports src/context/agentPromptLibrary.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/infrastructure/stream/SseDecoder.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/infrastructure/stream/SseDecoder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/infrastructure/stream/SseDecoder.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/infrastructure/stream/LineDecoder.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/infrastructure/stream/LineDecoder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/infrastructure/stream/LineDecoder.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/infrastructure/stream/PlainTextDecoder.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/infrastructure/stream/PlainTextDecoder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/infrastructure/stream/PlainTextDecoder.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/codex/CodexSseAdapter.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/codex/CodexSseAdapter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/codex/CodexSseAdapter.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/codex/CodexJsonlAdapter.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/codex/CodexJsonlAdapter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/codex/CodexJsonlAdapter.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/grok/GrokJsonLineDecoder.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/grok/GrokJsonLineDecoder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/grok/GrokJsonLineDecoder.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/grok/GrokEventAdapter.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/grok/GrokEventAdapter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/grok/GrokEventAdapter.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/antigravity/AntigravityStreamAdapter.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/antigravity/AntigravityStreamAdapter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/antigravity/AntigravityStreamAdapter.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/base/WrappedParserAdapter.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/base/WrappedParserAdapter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/base/WrappedParserAdapter.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/claude/ClaudeOutputParser.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/claude/ClaudeOutputParser.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/claude/ClaudeOutputParser.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/aider/AiderOutputParser.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/aider/AiderOutputParser.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/aider/AiderOutputParser.ts"
+    ]
+  },
+  {
+    "id": "src/application/stream/AgentStreamPipelineFactory.ts->src/providers/copilot/CopilotOutputParser.ts",
+    "from": "src/application/stream/AgentStreamPipelineFactory.ts",
+    "to": "src/providers/copilot/CopilotOutputParser.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/stream/AgentStreamPipelineFactory.ts imports src/providers/copilot/CopilotOutputParser.ts"
+    ]
+  },
+  {
+    "id": "src/application/subagents/SubagentExecutor.ts->src/core/runner/IProcessRunner.ts",
+    "from": "src/application/subagents/SubagentExecutor.ts",
+    "to": "src/core/runner/IProcessRunner.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/subagents/SubagentExecutor.ts imports src/core/runner/IProcessRunner.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildArchitectureMemoryUseCase.ts->src/context/architecture-memory/index.ts",
+    "from": "src/application/usecases/BuildArchitectureMemoryUseCase.ts",
+    "to": "src/context/architecture-memory/index.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildArchitectureMemoryUseCase.ts imports src/context/architecture-memory/index.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildArchitectureMemoryUseCase.ts->src/context/architecture-memory/ArchitectureStyleDetector.ts",
+    "from": "src/application/usecases/BuildArchitectureMemoryUseCase.ts",
+    "to": "src/context/architecture-memory/ArchitectureStyleDetector.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildArchitectureMemoryUseCase.ts imports src/context/architecture-memory/ArchitectureStyleDetector.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-map/NexusFileTreeScanner.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-map/NexusFileTreeScanner.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-map/NexusFileTreeScanner.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-map/NexusMarkerDetector.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-map/NexusMarkerDetector.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-map/NexusMarkerDetector.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-map/NexusProjectUnitDetector.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-map/NexusProjectUnitDetector.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-map/NexusProjectUnitDetector.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-map/NexusProjectMapBuilder.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-map/NexusProjectMapBuilder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-map/NexusProjectMapBuilder.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-map/NexusProjectMapWriter.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-map/NexusProjectMapWriter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-map/NexusProjectMapWriter.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-map/types.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-map/types.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-map/types.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/BuildProjectMapUseCase.ts->src/context/project-memory/index.ts",
+    "from": "src/application/usecases/BuildProjectMapUseCase.ts",
+    "to": "src/context/project-memory/index.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/BuildProjectMapUseCase.ts imports src/context/project-memory/index.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/RunAgentUseCase.ts->src/core/runner/IProcessRunner.ts",
+    "from": "src/application/usecases/RunAgentUseCase.ts",
+    "to": "src/core/runner/IProcessRunner.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/RunAgentUseCase.ts imports src/core/runner/IProcessRunner.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/RunAgentUseCase.ts->src/mcp/McpToolUseCase.ts",
+    "from": "src/application/usecases/RunAgentUseCase.ts",
+    "to": "src/mcp/McpToolUseCase.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/RunAgentUseCase.ts imports src/mcp/McpToolUseCase.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/context/project-map/summary/types.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/context/project-map/summary/types.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/context/project-map/summary/types.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/context/project-map/summary/ProjectMapSummaryPromptBuilder.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/context/project-map/summary/ProjectMapSummaryPromptBuilder.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/context/project-map/summary/ProjectMapSummaryPromptBuilder.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/infrastructure/ai/ProjectMapAiRunner.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/infrastructure/ai/ProjectMapAiRunner.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/infrastructure/ai/ProjectMapAiRunner.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/context/project-map/summary/AiJsonExtractor.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/context/project-map/summary/AiJsonExtractor.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/context/project-map/summary/AiJsonExtractor.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/context/project-map/summary/ProjectMapSummaryValidator.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/context/project-map/summary/ProjectMapSummaryValidator.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/context/project-map/summary/ProjectMapSummaryValidator.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/context/project-map/summary/ProjectMapMarkdownRenderer.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/context/project-map/summary/ProjectMapMarkdownRenderer.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/context/project-map/summary/ProjectMapMarkdownRenderer.ts"
+    ]
+  },
+  {
+    "id": "src/application/usecases/SummarizeProjectMapUseCase.ts->src/context/project-map/summary/ProjectMapSummaryWriter.ts",
+    "from": "src/application/usecases/SummarizeProjectMapUseCase.ts",
+    "to": "src/context/project-map/summary/ProjectMapSummaryWriter.ts",
+    "fromLayer": "application",
+    "toLayer": "infrastructure",
+    "severity": "error",
+    "rule": "application must not import from infrastructure",
+    "sourceEvidence": [
+      "src/application/usecases/SummarizeProjectMapUseCase.ts imports src/context/project-map/summary/ProjectMapSummaryWriter.ts"
+    ]
+  }
+]
