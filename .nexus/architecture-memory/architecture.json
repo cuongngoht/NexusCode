@@ -1,7 +1,7 @@
 {
   "version": 1,
   "schemaVersion": "architecture-memory-v1",
-  "generatedAt": 1784198926271,
+  "generatedAt": 1784198955553,
   "workspaceRoot": "/Users/cuongngoht/Repo/NexusCode",
   "detectedStyle": "clean-architecture",
   "configSource": "heuristic",
@@ -18499,7 +18499,7 @@
         "toLayer": "core"
       }
     ],
-    "builtAt": 1784198926270
+    "builtAt": 1784198955553
   },
   "violations": [
     {
