@@ -25,6 +25,17 @@ export function getSettingsHtml(
     contextMaxChars?: number;
     contextMaxMessages?: number;
     projectMapAddToGitignore?: boolean;
+    autoReviewEnabled?: boolean;
+    autoReviewWatchMode?: string;
+    autoReviewDebounceMs?: number;
+    autoReviewMaxDiffChars?: number;
+    autoReviewMinRiskToRunAgent?: string;
+    autoReviewBaselineEnabled?: boolean;
+    autoReviewArchitectureDriftEnabled?: boolean;
+    autoReviewRequireApprovalForPatch?: boolean;
+    autoReviewRetentionEnabled?: boolean;
+    autoReviewRetentionMaxReports?: number;
+    autoReviewRetentionMaxAgeDays?: number;
   },
 ): string {
   const nonce = crypto.randomBytes(16).toString('hex');
@@ -78,6 +89,18 @@ export function getSettingsHtml(
   const reviewStepSecurity  = vsCodeConfig?.reviewStepSecurity  ?? true;
   const reviewStepArchitect = vsCodeConfig?.reviewStepArchitect ?? true;
   const reviewMaxDiffChars  = vsCodeConfig?.reviewMaxDiffChars  ?? 60_000;
+
+  const autoReviewEnabled             = vsCodeConfig?.autoReviewEnabled              ?? false;
+  const autoReviewWatchMode           = vsCodeConfig?.autoReviewWatchMode            ?? 'workingTree';
+  const autoReviewDebounceMs          = vsCodeConfig?.autoReviewDebounceMs           ?? 2500;
+  const autoReviewMaxDiffChars        = vsCodeConfig?.autoReviewMaxDiffChars         ?? 60000;
+  const autoReviewMinRisk             = vsCodeConfig?.autoReviewMinRiskToRunAgent    ?? 'medium';
+  const autoReviewBaselineEnabled     = vsCodeConfig?.autoReviewBaselineEnabled      ?? true;
+  const autoReviewArchDrift           = vsCodeConfig?.autoReviewArchitectureDriftEnabled ?? true;
+  const autoReviewRequireApproval     = vsCodeConfig?.autoReviewRequireApprovalForPatch  ?? true;
+  const autoReviewRetentionEnabled    = vsCodeConfig?.autoReviewRetentionEnabled     ?? true;
+  const autoReviewMaxReports          = vsCodeConfig?.autoReviewRetentionMaxReports  ?? 100;
+  const autoReviewMaxAgeDays          = vsCodeConfig?.autoReviewRetentionMaxAgeDays  ?? 30;
 
   const safeSubagents = { ...(DEFAULT_CONFIG.subagents ?? {}), ...(mergedConfig.subagents ?? {}) };
   const subagentsEnabled = safeSubagents.enabled ?? false;
@@ -340,6 +363,25 @@ export function getSettingsHtml(
       border-top: 1px solid var(--vscode-panel-border);
       margin: 20px 0;
     }
+    .setting-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .setting-actions button {
+      padding: 4px 12px;
+      background: transparent;
+      color: var(--vscode-button-secondaryForeground);
+      border: 1px solid var(--vscode-button-secondaryBackground);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.85em;
+      font-family: var(--vscode-font-family);
+    }
+    .setting-actions button:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
   </style>
 </head>
 <body>
@@ -574,6 +616,114 @@ export function getSettingsHtml(
     </div>
   </section>
 
+  <section class="settings-section" id="auto-review-section">
+    <hr />
+    <h2>Auto Review</h2>
+    <p class="section-description">
+      Configure local-first automatic code review. Auto Review is disabled by default and only runs when explicitly enabled.
+    </p>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="autoReview-enabled" ${autoReviewEnabled ? 'checked' : ''} />
+        Enable Auto Review
+      </label>
+      <span class="setting-hint">Watch local changes and run automatic code review. Disabled by default.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="autoReview-watchMode">Watch Mode</label>
+      <select id="autoReview-watchMode">
+        <option value="workingTree" ${autoReviewWatchMode === 'workingTree' ? 'selected' : ''}>Working Tree</option>
+        <option value="staged" ${autoReviewWatchMode === 'staged' ? 'selected' : ''}>Staged Changes</option>
+        <option value="branch" ${autoReviewWatchMode === 'branch' ? 'selected' : ''}>Current Branch</option>
+      </select>
+      <span class="setting-hint">Choose which local changes Auto Review watches.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="autoReview-debounceMs">Debounce Delay (ms)</label>
+      <input type="number" id="autoReview-debounceMs" min="500" max="30000" step="500" value="${autoReviewDebounceMs}" />
+      <span class="setting-hint">Delay before running Auto Review after a change is detected.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="autoReview-maxDiffChars">Max Diff Size</label>
+      <input type="number" id="autoReview-maxDiffChars" min="5000" max="500000" step="5000" value="${autoReviewMaxDiffChars}" />
+      <span class="setting-hint">Maximum characters of git diff included in Auto Review.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="autoReview-minRiskToRunAgent">Minimum Risk To Run Agent</label>
+      <select id="autoReview-minRiskToRunAgent">
+        <option value="low" ${autoReviewMinRisk === 'low' ? 'selected' : ''}>Low</option>
+        <option value="medium" ${autoReviewMinRisk === 'medium' ? 'selected' : ''}>Medium</option>
+        <option value="high" ${autoReviewMinRisk === 'high' ? 'selected' : ''}>High</option>
+        <option value="critical" ${autoReviewMinRisk === 'critical' ? 'selected' : ''}>Critical</option>
+      </select>
+      <span class="setting-hint">AI review only runs when local risk reaches this level.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="autoReview-baselineEnabled" ${autoReviewBaselineEnabled ? 'checked' : ''} />
+        Enable Baseline Suppression
+      </label>
+      <span class="setting-hint">Suppress known findings stored in .nexus/auto-reviews/baseline.json.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="autoReview-architectureDriftEnabled" ${autoReviewArchDrift ? 'checked' : ''} />
+        Enable Architecture Drift Checks
+      </label>
+      <span class="setting-hint">Detect architecture drift using local policy rules.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="autoReview-requireApprovalForPatch" ${autoReviewRequireApproval ? 'checked' : ''} />
+        Require Approval For Suggested Patches
+      </label>
+      <span class="setting-hint">Auto Review must never auto-apply patches.</span>
+    </div>
+
+    <h3>History &amp; Storage</h3>
+
+    <div class="setting-row">
+      <label class="setting-label">
+        <input type="checkbox" id="autoReview-retentionEnabled" ${autoReviewRetentionEnabled ? 'checked' : ''} />
+        Keep Auto Review History
+      </label>
+      <span class="setting-hint">Keep historical reports under .nexus/auto-reviews/reports.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="autoReview-retentionMaxReports">Max Reports To Keep</label>
+      <input type="number" id="autoReview-retentionMaxReports" min="10" max="1000" step="10" value="${autoReviewMaxReports}" />
+      <span class="setting-hint">Maximum number of Auto Review reports to retain.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label" for="autoReview-retentionMaxAgeDays">Max Report Age (days)</label>
+      <input type="number" id="autoReview-retentionMaxAgeDays" min="1" max="365" step="1" value="${autoReviewMaxAgeDays}" />
+      <span class="setting-hint">Maximum age in days for retained Auto Review reports.</span>
+    </div>
+
+    <div class="setting-row">
+      <label class="setting-label">Storage Location</label>
+      <code>.nexus/auto-reviews/</code>
+      <span class="setting-hint">Reports, history, baseline, patches, and logs are stored here.</span>
+    </div>
+
+    <div class="setting-actions">
+      <button type="button" id="autoReview-runNow">Run Auto Review Now</button>
+      <button type="button" id="autoReview-openLatest">Open Latest Report</button>
+      <button type="button" id="autoReview-openHistory">Open History</button>
+      <button type="button" id="autoReview-pruneHistory">Prune History</button>
+    </div>
+  </section>
+
   <button class="save-btn" id="saveBtn">Save Settings</button>
   <div class="status" id="status"></div>
 
@@ -730,8 +880,34 @@ export function getSettingsHtml(
         const projectMapSettings = {
           addToGitignore: document.getElementById('projectmap-add-gitignore').checked,
         };
+        const autoReviewSettings = {
+          enabled:                   document.getElementById('autoReview-enabled').checked,
+          watchMode:                 document.getElementById('autoReview-watchMode').value,
+          debounceMs:                parseInt(document.getElementById('autoReview-debounceMs').value, 10) || 2500,
+          maxDiffChars:              parseInt(document.getElementById('autoReview-maxDiffChars').value, 10) || 60000,
+          minRiskToRunAgent:         document.getElementById('autoReview-minRiskToRunAgent').value,
+          baselineEnabled:           document.getElementById('autoReview-baselineEnabled').checked,
+          architectureDriftEnabled:  document.getElementById('autoReview-architectureDriftEnabled').checked,
+          requireApprovalForPatch:   document.getElementById('autoReview-requireApprovalForPatch').checked,
+          retentionEnabled:          document.getElementById('autoReview-retentionEnabled').checked,
+          retentionMaxReports:       parseInt(document.getElementById('autoReview-retentionMaxReports').value, 10) || 100,
+          retentionMaxAgeDays:       parseInt(document.getElementById('autoReview-retentionMaxAgeDays').value, 10) || 30,
+        };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, reviewSettings: reviewSettings, contextSettings: contextSettings, projectMapSettings: projectMapSettings });
+        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, reviewSettings: reviewSettings, contextSettings: contextSettings, projectMapSettings: projectMapSettings, autoReviewSettings: autoReviewSettings });
+      });
+
+      document.getElementById('autoReview-runNow')?.addEventListener('click', function() {
+        vscode.postMessage({ type: 'settings.autoReview.runNow' });
+      });
+      document.getElementById('autoReview-openLatest')?.addEventListener('click', function() {
+        vscode.postMessage({ type: 'settings.autoReview.openLatest' });
+      });
+      document.getElementById('autoReview-openHistory')?.addEventListener('click', function() {
+        vscode.postMessage({ type: 'settings.autoReview.openHistory' });
+      });
+      document.getElementById('autoReview-pruneHistory')?.addEventListener('click', function() {
+        vscode.postMessage({ type: 'settings.autoReview.pruneHistory' });
       });
 
       window.addEventListener('message', function (event) {

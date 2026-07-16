@@ -71,9 +71,7 @@ export class SubagentOrchestrator {
 
     if (defs.length === 0) return [];
 
-    // SubagentExecutor is wired with one ProcessRunner today, so run serially to avoid
-    // competing child processes and cross-cancelling on timeout.
-    const maxParallel = 1;
+    const maxParallel = Math.max(1, Math.min(config.maxParallel ?? 1, 4));
     const failOpen = config.failOpen !== false;
     const timeoutMs = typeof config.timeoutMs === 'number' && config.timeoutMs > 0
       ? config.timeoutMs

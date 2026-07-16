@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "providers": {
+    "antigravity": {
+      "enabled": true,
+      "command": "agy"
+    },
+    "codex": {
+      "enabled": true,
+      "command": "codex"
+    },
+    "claude": {
+      "enabled": false,
+      "command": "claude"
+    },
+    "copilot": {
+      "enabled": false,
+      "command": "copilot"
+    },
+    "aider": {
+      "enabled": false,
+      "command": "aider"
+    },
+    "grok": {
+      "enabled": false,
+      "command": "grok"
+    }
+  },
+  "mcp": {
+    "enabled": true,
+    "autoSelectPreset": true,
+    "requireApprovalForHighRiskTools": true,
+    "maxResultChars": 6000,
+    "maxRoundsPerTask": 1,
+    "presets": {
+      "microsoftLearn": {
+        "enabled": true
+      },
+      "context7": {
+        "enabled": true,
+        "apiKey": ""
+      }
+    }
+  },
+  "compact": {
+    "enabled": true,
+    "suggestAfterMessages": 12,
+    "recentMessagesAfterCompact": 6,
+    "maxCompactSummaryChars": 8000
+  },
+  "routing": {
+    "defaultProvider": "claude",
+    "strategy": "balanced",
+    "fallback": {
+      "enabled": true,
+      "maxAttempts": 2,
+      "retrySameProvider": false,
+      "fallbackOn": [
+        "missing_cli",
+        "auth_error",
+        "rate_limit",
+        "timeout",
+        "non_zero_exit",
+        "empty_output"
+      ],
+      "doNotFallbackOn": [
+        "user_cancelled",
+        "permission_denied"
+      ]
+    },
+    "modePreferences": {}
+  },
+  "modelCatalog": {
+    "cacheTtlMs": 300000,
+    "preferDynamicModels": false,
+    "allowSeededFallback": true
+  },
+  "historyRag": {
+    "enabled": true,
+    "maxResults": 5,
+    "maxChars": 6000,
+    "minScore": 1.25
+  },
+  "subagents": {
+    "enabled": false,
+    "mode": "auto",
+    "preset": "balanced",
+    "maxRuns": 4,
+    "maxParallel": 2,
+    "hardCap": 6,
+    "includeReviewer": true,
+    "includeTester": true,
+    "includeSecurity": false,
+    "includeDocs": false,
+    "failOpen": true,
+    "injectMaxChars": 8000,
+    "timeoutMs": 30000,
+    "selectedRoles": [],
+    "modeOverrides": {
+      "debug": {
+        "preset": "balanced",
+        "maxRuns": 4,
+        "maxParallel": 2,
+        "includeTester": true,
+        "includeReviewer": true
+      },
+      "edit": {
+        "preset": "balanced",
+        "maxRuns": 4,
+        "maxParallel": 2,
+        "includeTester": true,
+        "includeReviewer": true
+      },
+      "plan": {
+        "preset": "fast",
+        "maxRuns": 3,
+        "maxParallel": 2,
+        "includeTester": false,
+        "includeReviewer": true
+      },
+      "research": {
+        "preset": "fast",
+        "maxRuns": 2,
+        "maxParallel": 2,
+        "includeTester": false,
+        "includeReviewer": false
+      },
+      "test": {
+        "preset": "balanced",
+        "maxRuns": 4,
+        "maxParallel": 2,
+        "includeTester": true,
+        "includeReviewer": true
+      },
+      "review": {
+        "preset": "safe",
+        "maxRuns": 5,
+        "maxParallel": 2,
+        "includeSecurity": true,
+        "includeTester": true,
+        "includeReviewer": true
+      }
+    }
+  }
+}

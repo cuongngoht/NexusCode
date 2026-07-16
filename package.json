@@ -145,6 +145,41 @@
         "command": "nexus.review.openRules",
         "title": "Nexus: Open Review Rules",
         "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.enable",
+        "title": "Nexus: Enable Auto Review",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.disable",
+        "title": "Nexus: Disable Auto Review",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.runNow",
+        "title": "Nexus: Run Auto Review Now",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.openLatest",
+        "title": "Nexus: Open Latest Auto Review Report",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.openHistory",
+        "title": "Nexus: Open Auto Review History",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.clearHistory",
+        "title": "Nexus: Clear Auto Review History",
+        "category": "Nexus"
+      },
+      {
+        "command": "nexus.autoReview.pruneHistory",
+        "title": "Nexus: Prune Auto Review History",
+        "category": "Nexus"
       }
     ],
     "menus": {
@@ -559,6 +594,71 @@
           ],
           "default": "Two",
           "description": "Which editor column to open the Review Panel in."
+        },
+        "nexus.autoReview.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Nexus Auto Review. Watches for file changes and runs automatic code review. Disabled by default."
+        },
+        "nexus.autoReview.watchMode": {
+          "type": "string",
+          "default": "workingTree",
+          "enum": ["workingTree", "staged", "branch"],
+          "description": "Controls which local changes Auto Review watches: working tree (unstaged), staged, or branch diff."
+        },
+        "nexus.autoReview.debounceMs": {
+          "type": "number",
+          "default": 2500,
+          "minimum": 500,
+          "maximum": 30000,
+          "description": "Delay in milliseconds before running Auto Review after a file change is detected."
+        },
+        "nexus.autoReview.maxDiffChars": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 5000,
+          "maximum": 500000,
+          "description": "Maximum characters of git diff to include in an Auto Review prompt."
+        },
+        "nexus.autoReview.minRiskToRunAgent": {
+          "type": "string",
+          "default": "medium",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Minimum local risk level required before calling the AI agent for review."
+        },
+        "nexus.autoReview.baseline.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Suppress known findings from previous Auto Review runs (stored in .nexus/auto-reviews/baseline.json)."
+        },
+        "nexus.autoReview.architectureDrift.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable architecture drift checks during Auto Review."
+        },
+        "nexus.autoReview.requireApprovalForPatch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require user approval before applying any patch suggested by Auto Review."
+        },
+        "nexus.autoReview.retention.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically prune old Auto Review reports."
+        },
+        "nexus.autoReview.retention.maxReports": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Maximum number of Auto Review reports to keep under .nexus/auto-reviews/reports."
+        },
+        "nexus.autoReview.retention.maxAgeDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Delete Auto Review reports older than this many days."
         },
         "nexus.subagents.edit.maxRuns": {
           "type": "number",

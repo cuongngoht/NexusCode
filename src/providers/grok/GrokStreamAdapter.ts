@@ -209,7 +209,7 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
             this._currentPhase = null;
           }
         }
-        if (text) events.push({ kind: 'content_delta', text });
+        if (text) events.push({ kind: 'content_delta', text: this._normalizeText(text) });
         return events;
       }
 
@@ -239,8 +239,9 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
   // Emit a content_delta, plus a phase chip transition when the text matches a keyword.
   // Only used for non-JSON plain-text fallback.
   private _textEvents(text: string): AgentStreamEvent[] {
-    const events: AgentStreamEvent[] = [{ kind: 'content_delta', text }];
-    const clean = text.replace(ANSI_RE, '').trim();
+    const normalized = this._normalizeText(text);
+    const events: AgentStreamEvent[] = [{ kind: 'content_delta', text: normalized }];
+    const clean = normalized.replace(ANSI_RE, '').trim();
     const phase = PHASES.find(p => p.re.test(clean));
     if (phase && phase.name !== this._currentPhase) {
       if (this._currentPhase) {
@@ -250,5 +251,14 @@ export class GrokStreamAdapter implements IProviderStreamAdapter {
       events.push({ kind: 'tool_call', toolName: phase.name, toolArgs: '', toolKind: phase.kind });
     }
     return events;
+  }
+
+  private _normalizeText(text: string): string {
+    return text
+      .replace(/\*\* +/g, '**')
+      .replace(/ +\*\*/g, '**')
+      .replace(/__ +/g, '__')
+      .replace(/ +__/g, '__')
+      .replace(/ +([,.:;!?])/g, '$1');
   }
 }

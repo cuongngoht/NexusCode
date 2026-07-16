@@ -1,4 +1,5 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, isValidElement } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -29,6 +30,13 @@ const rehypeSanitizeOptions = {
 
 type CodeProps = React.HTMLAttributes<HTMLElement> & ExtraProps;
 
+function extractText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join('');
+  if (isValidElement(node)) return extractText((node as ReactElement<{ children?: ReactNode }>).props.children);
+  return '';
+}
+
 function CodeBlockRenderer({ className, children, node }: CodeProps) {
   // Detect inline code: node's parent is not a 'pre' element
   const isInline = node?.type === 'element'
@@ -39,17 +47,20 @@ function CodeBlockRenderer({ className, children, node }: CodeProps) {
   // We use a heuristic: if className contains 'language-', it's a block code
   const match = /language-(\w+)/.exec(className ?? '');
   const lang = match ? match[1] : '';
-  const text = String(children).replace(/\n$/, '');
+  // children may be React elements (spans) from rehypeHighlight — extract plain text for
+  // action callbacks and mermaid parsing; pass the original nodes for rendering so
+  // syntax-highlighted spans are preserved.
+  const rawText = extractText(children).replace(/\n$/, '');
 
   if (isInline && !lang) {
     return <code className={className}>{children}</code>;
   }
 
   if (lang === 'mermaid') {
-    return <MermaidBlock diagram={text} />;
+    return <MermaidBlock diagram={rawText} />;
   }
 
-  return <CodeBlock language={lang}>{text}</CodeBlock>;
+  return <CodeBlock language={lang} rawText={rawText}>{children}</CodeBlock>;
 }
 
 const components: Components = {

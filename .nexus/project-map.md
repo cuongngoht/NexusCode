@@ -1,43 +1,30 @@
 # Nexus Project Map
 
 ## Workspace
-
 - Root: /Users/cuongngoht/Repo/NexusCode
-- Generated At: 2026-06-03T05:18:20.158Z
-- Files Scanned: 98
+- Generated At: 2026-07-04T04:55:56.908Z
+- Files Scanned: 887
 
 ## Detected Units
 
-### Nexus AI Code
-
+### NexusCode
 - Kind: frontend
 - Root: .
 - Languages: TypeScript
 - Frameworks: Vite
-- Confidence: 1
 - Markers:
   - package.json
   - tsconfig.json
   - vite.config.ts
 
 ## Important Files
-
+- ARCHITECTURE.md
 - CLAUDE.md
 - GEMINI.md
 - README.md
+- SECURITY.md
 - agents.md
 - package-lock.json
 - package.json
 - tsconfig.json
 - tsconfig.webview.json
-
-## Workspace Files
-
-Total: 98 files, 40 folders
-Skipped: 3 ignored folders
-
-## Suggested Context Scopes
-
-- Nexus AI Code
-- whole-workspace
-- git-changes

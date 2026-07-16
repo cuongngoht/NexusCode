@@ -326,7 +326,8 @@
       "code-review-context": "Building review context",
       "subagent-architect": "Architecture review",
       "architecture-memory": "Architecture analysis",
-      "file-intelligence": "File intelligence"
+      "file-intelligence": "File intelligence",
+      "review-analyze": "Analyzing code review"
     },
     "activities": {
       "read": "Reading file",

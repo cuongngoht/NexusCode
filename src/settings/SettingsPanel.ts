@@ -70,6 +70,17 @@ export class SettingsPanel {
       contextMaxChars:         vsCfg.get<number>('context.maxChars', 100_000),
       contextMaxMessages:      vsCfg.get<number>('context.maxMessages', 20),
       projectMapAddToGitignore: vsCfg.get<boolean>('projectMap.addToGitignore', false),
+      autoReviewEnabled:                  vsCfg.get<boolean>('autoReview.enabled', false),
+      autoReviewWatchMode:                vsCfg.get<string>('autoReview.watchMode', 'workingTree'),
+      autoReviewDebounceMs:               vsCfg.get<number>('autoReview.debounceMs', 2500),
+      autoReviewMaxDiffChars:             vsCfg.get<number>('autoReview.maxDiffChars', 60000),
+      autoReviewMinRiskToRunAgent:        vsCfg.get<string>('autoReview.minRiskToRunAgent', 'medium'),
+      autoReviewBaselineEnabled:          vsCfg.get<boolean>('autoReview.baseline.enabled', true),
+      autoReviewArchitectureDriftEnabled: vsCfg.get<boolean>('autoReview.architectureDrift.enabled', true),
+      autoReviewRequireApprovalForPatch:  vsCfg.get<boolean>('autoReview.requireApprovalForPatch', true),
+      autoReviewRetentionEnabled:         vsCfg.get<boolean>('autoReview.retention.enabled', true),
+      autoReviewRetentionMaxReports:      vsCfg.get<number>('autoReview.retention.maxReports', 100),
+      autoReviewRetentionMaxAgeDays:      vsCfg.get<number>('autoReview.retention.maxAgeDays', 30),
     };
     this.panel.webview.html = getSettingsHtml(this.panel.webview, config, vsCodeConfig);
   }
@@ -92,6 +103,23 @@ export class SettingsPanel {
         providerId as ProviderId,
         type === 'settings.installProvider' ? 'install' : 'login',
       );
+      return;
+    }
+
+    if (type === 'settings.autoReview.runNow') {
+      await vscode.commands.executeCommand('nexus.autoReview.runNow');
+      return;
+    }
+    if (type === 'settings.autoReview.openLatest') {
+      await vscode.commands.executeCommand('nexus.autoReview.openLatest');
+      return;
+    }
+    if (type === 'settings.autoReview.openHistory') {
+      await vscode.commands.executeCommand('nexus.autoReview.openHistory');
+      return;
+    }
+    if (type === 'settings.autoReview.pruneHistory') {
+      await vscode.commands.executeCommand('nexus.autoReview.pruneHistory');
       return;
     }
 
@@ -136,6 +164,35 @@ export class SettingsPanel {
       const projectMapSettings = (msg as Record<string, unknown>)['projectMapSettings'] as Record<string, unknown> | undefined;
       if (projectMapSettings && typeof projectMapSettings['addToGitignore'] === 'boolean') {
         await vsCfg.update('projectMap.addToGitignore', projectMapSettings['addToGitignore'], vscode.ConfigurationTarget.Workspace);
+      }
+      const autoReviewSettings = (msg as Record<string, unknown>)['autoReviewSettings'] as Record<string, unknown> | undefined;
+      if (autoReviewSettings) {
+        const boolKeys: string[] = ['enabled', 'baselineEnabled', 'architectureDriftEnabled', 'requireApprovalForPatch', 'retentionEnabled'];
+        const numKeys: string[] = ['debounceMs', 'maxDiffChars', 'retentionMaxReports', 'retentionMaxAgeDays'];
+        const strKeys: string[] = ['watchMode', 'minRiskToRunAgent'];
+        const keyMap: Record<string, string> = {
+          enabled: 'autoReview.enabled',
+          watchMode: 'autoReview.watchMode',
+          debounceMs: 'autoReview.debounceMs',
+          maxDiffChars: 'autoReview.maxDiffChars',
+          minRiskToRunAgent: 'autoReview.minRiskToRunAgent',
+          baselineEnabled: 'autoReview.baseline.enabled',
+          architectureDriftEnabled: 'autoReview.architectureDrift.enabled',
+          requireApprovalForPatch: 'autoReview.requireApprovalForPatch',
+          retentionEnabled: 'autoReview.retention.enabled',
+          retentionMaxReports: 'autoReview.retention.maxReports',
+          retentionMaxAgeDays: 'autoReview.retention.maxAgeDays',
+        };
+        for (const [flatKey, configKey] of Object.entries(keyMap)) {
+          const val = autoReviewSettings[flatKey];
+          if (boolKeys.includes(flatKey) && typeof val === 'boolean') {
+            await vsCfg.update(configKey, val, vscode.ConfigurationTarget.Workspace);
+          } else if (numKeys.includes(flatKey) && typeof val === 'number') {
+            await vsCfg.update(configKey, val, vscode.ConfigurationTarget.Workspace);
+          } else if (strKeys.includes(flatKey) && typeof val === 'string') {
+            await vsCfg.update(configKey, val, vscode.ConfigurationTarget.Workspace);
+          }
+        }
       }
       await this.panel.webview.postMessage({ type: 'settings.saved' });
       vscode.window.showInformationMessage('Nexus settings saved.');

@@ -1,0 +1,306 @@
+{
+  "projectIdentity": {
+    "name": "nexus-ai-code",
+    "type": "vscode-extension",
+    "language": "TypeScript",
+    "runtime": "node",
+    "packageManager": "npm",
+    "isMonorepo": false,
+    "frameworks": [
+      "react",
+      "vite",
+      "fluent-ui"
+    ]
+  },
+  "paths": {
+    "entrypoints": [
+      "src/extension.ts"
+    ],
+    "sourceRoots": [
+      "src"
+    ],
+    "testRoots": [],
+    "uiRoots": [
+      "src/webview-ui"
+    ],
+    "configFiles": [
+      "tsconfig.json",
+      "vite.config.ts",
+      "esbuild.js"
+    ],
+    "rulesFiles": []
+  },
+  "architecture": {
+    "style": "Clean Architecture / Hexagonal",
+    "layers": [
+      "core",
+      "application",
+      "infrastructure"
+    ],
+    "orchestrators": [
+      "src/application/nexus/NexusOrchestrator.test.ts",
+      "src/application/nexus/NexusOrchestrator.ts",
+      "src/application/subagents/SubagentOrchestrator.test.ts",
+      "src/application/subagents/SubagentOrchestrator.ts",
+      "src/context/project-map/NexusDiscoveryOrchestrator.ts",
+      "src/debug/orchestrator/DebugOrchestrator.ts",
+      "src/webview/handlers/ChatReviewOrchestrator.ts"
+    ],
+    "handlers": [
+      "src/webview/handlers/AgentPromptHandler.ts",
+      "src/webview/handlers/AnalyticsHandler.ts",
+      "src/webview/handlers/ArtifactHandler.ts",
+      "src/webview/handlers/AttachmentHandler.ts",
+      "src/webview/handlers/CodeBlockHandler.ts",
+      "src/webview/handlers/CodeReviewCommandHandler.ts",
+      "src/webview/handlers/CommandPromptHandler.ts",
+      "src/webview/handlers/CompactCommandHandler.ts",
+      "src/webview/handlers/DiffHandler.ts",
+      "src/webview/handlers/HistoryHandler.ts"
+    ],
+    "controllers": [
+      "src/auto-review/AutoReviewController.ts",
+      "src/webview/ChatController.ts"
+    ],
+    "routers": [
+      "src/application/AgentRouter.ts",
+      "src/application/routing/ModelRouter.test.ts",
+      "src/application/routing/ModelRouter.ts",
+      "src/application/subagents/SubagentRouter.test.ts",
+      "src/application/subagents/SubagentRouter.ts",
+      "src/mcp/McpToolRouter.test.ts",
+      "src/mcp/McpToolRouter.ts"
+    ],
+    "services": [
+      "src/analytics/AnalyticsService.ts",
+      "src/application/permissions/PermissionService.ts",
+      "src/config/ConfigService.ts",
+      "src/context/file-intelligence/FileIntelligenceService.ts",
+      "src/context/file-intelligence/ProjectMemoryService.ts",
+      "src/context/file-intelligence/__tests__/FileIntelligenceService.test.ts",
+      "src/context/history-search/HistorySearchService.ts",
+      "src/context/history-search/__tests__/historySearchService.test.ts",
+      "src/context/project-memory/ProjectMemoryStatusService.ts",
+      "src/context/project-memory/__tests__/ProjectMemoryStatusService.test.ts"
+    ],
+    "repositories": [
+      "src/context/history-search/index/HistoryIndexRepository.ts",
+      "src/context/history-search/index/MementoHistoryIndexRepository.ts",
+      "src/context/project-memory/ProjectMemoryManifestRepository.ts",
+      "src/context/project-memory/search/ProjectMemoryIndexRepository.ts"
+    ],
+    "eventBus": "src/application/agent-mode/AgentModeEvents.ts",
+    "communicationProtocol": "VS Code Webview postMessage",
+    "moduleSystem": [
+      "src/application/AgentRegistry.ts",
+      "src/application/subagents/SubagentRegistry.test.ts",
+      "src/application/subagents/SubagentRegistry.ts",
+      "src/context/history-search/rag/RagPromptInjector.ts",
+      "src/debug/tools/DebugToolRegistry.ts"
+    ]
+  },
+  "existingFeatures": [
+    {
+      "category": "Authentication / Authorization",
+      "files": [
+        "src/application/agent-mode/AgentCommandGuard.ts",
+        "src/application/agent-mode/AgentSession.ts",
+        "src/application/agent-mode/AgentSessionStore.ts",
+        "src/application/permissions/WorkspaceWriteGuard.ts",
+        "src/debug/writers/DebugSessionWriter.ts",
+        "src/runner/commandGuard.ts"
+      ]
+    },
+    {
+      "category": "Search (BM25 / RAG / Vector)",
+      "files": [
+        "src/context/architecture-memory/search/ArchitectureRagFacade.ts",
+        "src/context/architecture-memory/search/__tests__/ArchitectureRagFacade.test.ts",
+        "src/context/file-intelligence/FileIntelligenceRagFacade.ts",
+        "src/context/history-search/HistoryRagFacade.ts",
+        "src/context/history-search/HistorySearchService.ts",
+        "src/context/history-search/HistorySearchStrategy.ts",
+        "src/context/history-search/__tests__/bm25Scorer.test.ts",
+        "src/context/history-search/__tests__/bm25Tokenizer.test.ts"
+      ]
+    },
+    {
+      "category": "Storage / Database",
+      "files": [
+        "src/context/history-search/index/HistoryIndexRepository.ts",
+        "src/context/history-search/index/MementoHistoryIndexRepository.ts",
+        "src/context/project-memory/ProjectMemoryManifestRepository.ts",
+        "src/context/project-memory/search/ProjectMemoryIndexRepository.ts"
+      ]
+    },
+    {
+      "category": "Caching",
+      "files": [
+        "src/debug/tools/DebugToolRunner.ts",
+        "src/provider-hub/ModelCache.test.ts",
+        "src/provider-hub/ModelCache.ts"
+      ]
+    },
+    {
+      "category": "Logging / Observability",
+      "files": [
+        "src/webview/handlers/LoginHandler.ts",
+        "src/webview-ui/components/ProviderRawLog.tsx",
+        "src/webview-ui/components/analytics/ProductivityMetricsPanel.tsx",
+        "src/webview-ui/components/analytics/QualityMetricsPanel.tsx"
+      ]
+    },
+    {
+      "category": "Configuration / Settings",
+      "files": [
+        "src/auto-review/AutoReviewConfig.ts",
+        "src/config/ConfigService.ts",
+        "src/config/DefaultConfig.ts",
+        "src/config/NexusConfig.ts",
+        "src/context/architecture-memory/ArchitectureConfigLoader.ts",
+        "src/debug/strategies/ConfigFileStrategy.ts",
+        "src/providers/base/ICustomCommandConfigProvider.ts",
+        "src/settings/SettingsHtml.ts",
+        "zod"
+      ]
+    },
+    {
+      "category": "File I/O / Assets",
+      "files": [
+        "src/application/stream/AgentStreamPipeline.test.ts",
+        "src/application/stream/AgentStreamPipeline.ts",
+        "src/application/stream/AgentStreamPipelineFactory.test.ts",
+        "src/application/stream/AgentStreamPipelineFactory.ts",
+        "src/core/agent/IStreamable.ts",
+        "src/core/stream/AgentStreamEvent.ts",
+        "src/core/stream/IProviderStreamAdapter.ts",
+        "src/core/stream/IStreamDecoder.ts"
+      ]
+    },
+    {
+      "category": "Testing Utilities",
+      "files": [
+        "src/analytics/AnalyticsAggregator.test.ts",
+        "src/analytics/CostEstimator.test.ts",
+        "src/application/code-review/CodeReviewArchitecturePolicy.test.ts",
+        "src/application/code-review/CodeReviewContextBuilder.test.ts",
+        "src/application/code-review/CodeReviewPolicy.test.ts",
+        "src/application/code-review/CodeReviewPromptBuilder.test.ts",
+        "src/application/code-review/CodeReviewResultParser.test.ts",
+        "src/application/code-review/materializeReviewOutput.test.ts",
+        "vitest"
+      ]
+    },
+    {
+      "category": "AI / LLM Integration",
+      "files": [
+        "src/application/AgentRegistry.ts",
+        "src/application/AgentRouter.ts",
+        "src/application/agent-mode/AgentBranchManager.ts",
+        "src/application/agent-mode/AgentCheckpoint.ts",
+        "src/application/agent-mode/AgentCommandGuard.ts",
+        "src/application/agent-mode/AgentDiffCollector.ts",
+        "src/application/agent-mode/AgentExecutor.ts",
+        "src/application/agent-mode/AgentFinalReporter.ts"
+      ]
+    },
+    {
+      "category": "Background Jobs / Queues",
+      "files": [
+        "src/auto-review/AutoReviewScheduler.ts"
+      ]
+    },
+    {
+      "category": "CLI / Commands",
+      "files": [
+        "src/application/agent-mode/AgentCommandGuard.ts",
+        "src/cli/commands/doctorCommand.ts",
+        "src/cli/commands/mapCommand.ts",
+        "src/cli/commands/modelCommand.ts",
+        "src/cli/commands/providerCommand.ts",
+        "src/cli/commands/runCommand.ts",
+        "src/cli/console/NexusConsoleCommands.ts",
+        "src/context/commandPromptLibrary.ts",
+        "commander"
+      ]
+    }
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck",
+    "build": "npm run compile:extension",
+    "test": "npm run test:webview",
+    "lint": null,
+    "format": null,
+    "dev": "npm run watch",
+    "custom": {
+      "vscode:prepublish": "npm run vscode:prepublish",
+      "package:list": "npm run package:list",
+      "package:vsix": "npm run package:vsix",
+      "package:verify": "npm run package:verify",
+      "verify:vsix": "npm run verify:vsix"
+    }
+  },
+  "dependencies": {
+    "production": [
+      "@fluentui/react-components",
+      "@fluentui/react-icons",
+      "@modelcontextprotocol/sdk",
+      "commander",
+      "gpt-tokenizer",
+      "mermaid",
+      "react",
+      "react-dom",
+      "react-markdown",
+      "rehype-highlight",
+      "rehype-sanitize",
+      "remark-gfm",
+      "zod"
+    ],
+    "development": [
+      "@testing-library/react",
+      "@types/node",
+      "@types/react",
+      "@types/react-dom",
+      "@types/vscode",
+      "@vitejs/plugin-react",
+      "esbuild",
+      "jsdom",
+      "typescript",
+      "vite",
+      "vitest"
+    ]
+  },
+  "excludeFromIndex": [
+    "node_modules",
+    ".git",
+    "dist",
+    "out",
+    "build",
+    "target",
+    "coverage",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "vendor",
+    ".next",
+    ".nuxt",
+    ".turbo",
+    ".cache",
+    "bin",
+    "obj"
+  ],
+  "confidence": {
+    "projectType": 0.95,
+    "packageManager": 0.95,
+    "architectureStyle": 0.75,
+    "eventBus": 0.95,
+    "communicationProtocol": 0.75
+  },
+  "risks": [
+    {
+      "severity": "low",
+      "message": "Large source tree — indexing/search may be slow"
+    }
+  ],
+  "unknowns": []
+}

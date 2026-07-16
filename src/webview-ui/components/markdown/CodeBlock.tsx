@@ -16,10 +16,11 @@ function isDangerous(cmd: string): boolean {
 interface Props {
   language?: string;
   filename?: string;
-  children: string;
+  rawText: string;
+  children: React.ReactNode;
 }
 
-export function CodeBlock({ language, filename, children }: Props) {
+export function CodeBlock({ language, filename, rawText, children }: Props) {
   const actions = useCodeBlockActions();
   const isShell = /^(bash|sh|zsh|shell|fish|console)$/i.test(language ?? '');
 
@@ -34,7 +35,7 @@ export function CodeBlock({ language, filename, children }: Props) {
               className="nx-cb-action-btn"
               title="Insert into active file"
               aria-label="Insert into active file"
-              onClick={() => actions.onInsertIntoFile!(children, language ?? '')}
+              onClick={() => actions.onInsertIntoFile!(rawText, language ?? '')}
             >
               ↙
             </button>
@@ -45,7 +46,7 @@ export function CodeBlock({ language, filename, children }: Props) {
               className="nx-cb-action-btn"
               title="Create file"
               aria-label="Create file from code"
-              onClick={() => actions.onCreateFile!(children, language ?? '')}
+              onClick={() => actions.onCreateFile!(rawText, language ?? '')}
             >
               +
             </button>
@@ -53,11 +54,11 @@ export function CodeBlock({ language, filename, children }: Props) {
           {isShell && actions.onRunCommand && (
             <button
               type="button"
-              className={`nx-cb-action-btn${isDangerous(children) ? ' nx-cb-action-btn--warn' : ''}`}
-              title={isDangerous(children) ? '⚠ Potentially destructive — click to run' : 'Run command'}
+              className={`nx-cb-action-btn${isDangerous(rawText) ? ' nx-cb-action-btn--warn' : ''}`}
+              title={isDangerous(rawText) ? '⚠ Potentially destructive — click to run' : 'Run command'}
               aria-label="Run command"
               onClick={() => {
-                const cmd = children.trim();
+                const cmd = rawText.trim();
                 if (isDangerous(cmd)) {
                   if (!window.confirm(`⚠ Potentially destructive command:\n\n${cmd}\n\nRun anyway?`)) return;
                 }
@@ -73,12 +74,12 @@ export function CodeBlock({ language, filename, children }: Props) {
               className="nx-cb-action-btn"
               title="Save to Artifacts"
               aria-label="Save code as artifact"
-              onClick={() => actions.onSaveAsArtifact!(children, language ?? '')}
+              onClick={() => actions.onSaveAsArtifact!(rawText, language ?? '')}
             >
               ⊚
             </button>
           )}
-          <CopyButton text={children} className="nx-code-block-copy" />
+          <CopyButton text={rawText} className="nx-code-block-copy" />
         </div>
       </div>
       <pre className={`nx-code-pre ${language ? `language-${language}` : ''}`}>

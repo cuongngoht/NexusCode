@@ -1,0 +1,22 @@
+{
+    "nexus.historyRag.enabled": true,
+    "nexus.review.steps.reviewer": true,
+    "nexus.review.steps.tester": true,
+    "nexus.review.steps.security": true,
+    "nexus.review.steps.architect": true,
+    "nexus.review.maxDiffChars": 60000,
+    "nexus.context.maxChars": 100000,
+    "nexus.context.maxMessages": 20,
+    "nexus.projectMap.addToGitignore": false,
+    "nexus.autoReview.enabled": false,
+    "nexus.autoReview.watchMode": "workingTree",
+    "nexus.autoReview.debounceMs": 2500,
+    "nexus.autoReview.maxDiffChars": 60000,
+    "nexus.autoReview.minRiskToRunAgent": "medium",
+    "nexus.autoReview.baseline.enabled": true,
+    "nexus.autoReview.architectureDrift.enabled": true,
+    "nexus.autoReview.requireApprovalForPatch": true,
+    "nexus.autoReview.retention.enabled": true,
+    "nexus.autoReview.retention.maxReports": 100,
+    "nexus.autoReview.retention.maxAgeDays": 30
+}

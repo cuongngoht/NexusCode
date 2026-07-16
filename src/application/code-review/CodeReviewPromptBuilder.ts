@@ -8,6 +8,7 @@ export interface CodeReviewPromptInput {
   context: CodeReviewContext;
   userPrompt?: string;
   preset?: CodeReviewPreset;
+  projectMemoryContext?: string;
 }
 
 
@@ -65,7 +66,7 @@ export class CodeReviewPromptBuilder {
   }
 
   build(input: CodeReviewPromptInput): string {
-    const { context, userPrompt, preset = 'architecture' } = input;
+    const { context, userPrompt, preset = 'architecture', projectMemoryContext } = input;
     const { target, baseBranch, compareBranch, changedFiles, diffStat, diff, diffTruncated, changedCodeContext, projectRules } = context;
 
     const sections: string[] = [];
@@ -81,6 +82,11 @@ export class CodeReviewPromptBuilder {
     if (target.commitSha) targetLines.push(`Commit: ${target.commitSha}`);
     if (target.filePath) targetLines.push(`File: ${target.filePath}`);
     sections.push(targetLines.join('\n'));
+
+    // Project memory context (BM25-retrieved from .nexus/project-map.md)
+    if (projectMemoryContext) {
+      sections.push(`## Project Context (Retrieved)\n${projectMemoryContext}`);
+    }
 
     // Project rules (if any)
     if (projectRules) {

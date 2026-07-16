@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
+import type { ICompensableStep } from '../../core/pipeline/ICompensableStep';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import type { NexusEvent } from '../../core/events/IEventBus';
 
@@ -87,7 +87,7 @@ function collectKeyFiles(workspaceRoot: string, projectMap?: string): string[] {
   return files.slice(0, MAX_FILES);
 }
 
-export class ReadSourceContextStep implements IPipelineStep {
+export class ReadSourceContextStep implements ICompensableStep {
   readonly label = 'read-source-context';
 
   async execute(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
@@ -111,5 +111,9 @@ export class ReadSourceContextStep implements IPipelineStep {
     if (sections.length > 0) {
       ctx.sourceContext = sections.join('\n\n');
     }
+  }
+
+  async compensate(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
+    ctx.sourceContext = undefined;
   }
 }

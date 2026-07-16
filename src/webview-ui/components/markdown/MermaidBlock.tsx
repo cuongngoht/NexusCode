@@ -50,7 +50,7 @@ export function MermaidBlock({ diagram }: Props) {
   }, [diagram, id]);
 
   if (error) {
-    return <CodeBlock language="mermaid">{diagram}</CodeBlock>;
+    return <CodeBlock language="mermaid" rawText={diagram}>{diagram}</CodeBlock>;
   }
 
   if (svg === null) {
