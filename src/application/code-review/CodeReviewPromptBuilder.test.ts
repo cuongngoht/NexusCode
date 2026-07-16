@@ -104,4 +104,20 @@ describe('CodeReviewPromptBuilder', () => {
     // The prompt warns NOT to recommend patterns unless necessary
     expect(prompt).toContain('Do NOT recommend a design pattern unless');
   });
+
+  it('includes project memory context when provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({
+      context: ctx,
+      projectMemoryContext: '<project_memory>[1] Section: Architecture\nContent: uses Clean Architecture</project_memory>',
+    });
+    expect(prompt).toContain('## Project Context (Retrieved)');
+    expect(prompt).toContain('uses Clean Architecture');
+  });
+
+  it('omits project context section when not provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({ context: ctx });
+    expect(prompt).not.toContain('## Project Context (Retrieved)');
+  });
 });

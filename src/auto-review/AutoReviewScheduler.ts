@@ -3,6 +3,11 @@ import * as crypto from 'crypto';
 import { CodeReviewExecutor } from '../application/code-review/CodeReviewExecutor';
 import type { CodeReviewRunnerFn } from '../application/code-review/CodeReviewExecutor';
 import { CodeReviewContextBuilder } from '../application/code-review/CodeReviewContextBuilder';
+import {
+  ProjectMemoryStatusService,
+  ProjectMemoryRagFacade,
+  FsProjectMemoryIndexRepository,
+} from '../context/project-memory';
 import { readAutoReviewConfig, mapWatchModeToTarget } from './AutoReviewConfig';
 import { scoreRisk } from './risk/RiskScoreEngine';
 import { isRiskAtOrAbove } from './risk/RiskScoreTypes';
@@ -16,6 +21,8 @@ export class AutoReviewScheduler {
   private lastDiffHash: string | null = null;
   private _running = false;
   private readonly contextBuilder = new CodeReviewContextBuilder();
+  private readonly projectMemoryStatusService = new ProjectMemoryStatusService();
+  private readonly projectMemoryRagFacade = new ProjectMemoryRagFacade(new FsProjectMemoryIndexRepository());
 
   constructor(
     private readonly workspaceRoot: string,
@@ -75,6 +82,8 @@ export class AutoReviewScheduler {
         return;
       }
 
+      const projectMemoryContext = await this.buildProjectMemoryContext(context);
+
       const preset = config.architectureDrift.enabled ? 'architecture' : 'balanced';
       const executor = new CodeReviewExecutor(this.runnerFn, this.extensionRoot);
       const codeReview = await executor.run({
@@ -82,6 +91,7 @@ export class AutoReviewScheduler {
         target,
         preset,
         maxDiffChars: config.maxDiffChars,
+        projectMemoryContext,
       });
 
       let baselineSuppressed = 0;
@@ -117,6 +127,31 @@ export class AutoReviewScheduler {
       }
     } finally {
       this._running = false;
+    }
+  }
+
+  private async buildProjectMemoryContext(context: { changedFiles: { path: string }[] }): Promise<string | undefined> {
+    const cfg = vscode.workspace.getConfiguration('nexus');
+    if (!cfg.get<boolean>('projectMemory.rag.enabled', true)) return undefined;
+
+    try {
+      const projectMemoryStatus = await this.projectMemoryStatusService.getStatus(this.workspaceRoot);
+      const changedPaths = context.changedFiles.map(f => f.path).join(' ');
+      const query = changedPaths || 'code review architecture';
+      const { ragContext } = await this.projectMemoryRagFacade.buildRagForPrompt(
+        query,
+        this.workspaceRoot,
+        projectMemoryStatus,
+        {
+          maxResults: cfg.get<number>('projectMemory.rag.maxResults', 5),
+          maxChars: cfg.get<number>('projectMemory.rag.maxChars', 4000),
+          minScore: cfg.get<number>('projectMemory.rag.minScore', 1.0),
+        },
+      );
+      return ragContext ?? undefined;
+    } catch {
+      // Non-blocking: Auto Review must still run even if RAG lookup fails
+      return undefined;
     }
   }
 }

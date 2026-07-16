@@ -16,6 +16,7 @@ export interface RunCodeReviewInput {
   maxFileContextChars?: number;
   blockBelowScore?: number;
   warnBelowScore?: number;
+  projectMemoryContext?: string;
 }
 
 export type CodeReviewRunnerFn = (prompt: string, workspaceRoot: string) => Promise<string>;
@@ -50,7 +51,7 @@ export class CodeReviewExecutor {
     });
 
     // Step 2: Build prompt
-    const prompt = this.promptBuilder.build({ context, userPrompt, preset });
+    const prompt = this.promptBuilder.build({ context, userPrompt, preset, projectMemoryContext: input.projectMemoryContext });
 
     // Step 3: Run agent
     let rawOutput: string;

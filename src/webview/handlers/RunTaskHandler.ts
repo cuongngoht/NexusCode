@@ -743,6 +743,7 @@ export class RunTaskHandler {
         context: reviewCtx,
         userPrompt: cleanedReviewPrompt || undefined,
         preset,
+        projectMemoryContext: ctx.conversationContext,
       });
       if (ctx.subagentResults && ctx.subagentResults.length > 0) {
         const injectMaxChars = vscode.workspace.getConfiguration('nexus').get<number>('subagents.injectMaxChars', 8000);
@@ -965,10 +966,11 @@ export class RunTaskHandler {
 
         const agentBundle = loadAgentPromptBundle(workspaceRoot, agentIds);
         const mcpEnabled = cfg.get<boolean>('mcp.enabled', false);
+        const memoryBlock = ctx.conversationContext ? `${ctx.conversationContext}\n\n` : '';
         const supplementPrompt = buildAugmentedPrompt({
           agentMarkdownBundle: agentBundle,
           userPrompt: cleanedPrompt.trim() || 'Analyze the code changes',
-          existingEnhancedPrompt: `${diffBlock}\n\n${taskInstruction}`,
+          existingEnhancedPrompt: `${memoryBlock}${diffBlock}\n\n${taskInstruction}`,
           mcpEnabled,
         });
 
