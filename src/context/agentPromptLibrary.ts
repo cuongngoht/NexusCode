@@ -68,6 +68,10 @@ function extractFrontmatterBlock(content: string): string {
   return m ? m[1] : '';
 }
 
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+}
+
 function syncFrontmatterIfMissing(srcPath: string, destPath: string): void {
   try {
     const destContent = fs.readFileSync(destPath, 'utf8');
@@ -76,6 +80,11 @@ function syncFrontmatterIfMissing(srcPath: string, destPath: string): void {
     const srcContent = fs.readFileSync(srcPath, 'utf8');
     const srcFm = extractFrontmatterBlock(srcContent);
     if (!srcFm) return; // bundled version has no frontmatter either
+
+    // Only upgrade copies that still match bundled body — never touch customized files
+    const destBody = stripFrontmatter(destContent).trim();
+    const srcBody = stripFrontmatter(srcContent).trim();
+    if (destBody !== srcBody) return;
 
     // Prepend bundled frontmatter to workspace copy
     fs.writeFileSync(destPath, srcFm + destContent, 'utf8');

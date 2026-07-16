@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import * as path from 'path';
 import { CodeReviewPromptBuilder } from './CodeReviewPromptBuilder';
 import type { CodeReviewContext } from './CodeReviewContextBuilder';
 import type { CodeReviewTarget } from './CodeReviewTarget';
 
-const builder = new CodeReviewPromptBuilder();
+const EXTENSION_ROOT = path.join(__dirname, '../../..');
+const builder = new CodeReviewPromptBuilder(EXTENSION_ROOT);
 
 function makeContext(overrides: Partial<CodeReviewContext> = {}): CodeReviewContext {
   const target: CodeReviewTarget = { type: 'branch', baseBranch: 'main' };

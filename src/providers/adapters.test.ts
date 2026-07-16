@@ -109,7 +109,7 @@ describe('provider agents', () => {
   it('passes selected model to Grok', () => {
     const cmd = new GrokAgent().buildCommand(makeTask('fix it', 'grok-3'));
     expect(cmd.executable).toBe('grok');
-    expect(cmd.args).toEqual(['--output-format', 'streaming-json', '--disallowed-tools', 'run_terminal_cmd,kill_task,get_task_output', '--model', 'grok-3', '--single', 'fix it']);
+    expect(cmd.args).toEqual(['--always-approve', '--model', 'grok-3', '--single', 'fix it']);
   });
 
   it('omits --model when no model is selected for Claude', () => {
@@ -135,7 +135,7 @@ describe('provider agents', () => {
   it('omits --model when no model is selected for Grok', () => {
     const cmd = new GrokAgent().buildCommand(makeTask('fix it'));
     expect(cmd.executable).toBe('grok');
-    expect(cmd.args).toEqual(['--output-format', 'streaming-json', '--disallowed-tools', 'run_terminal_cmd,kill_task,get_task_output', '--single', 'fix it']);
+    expect(cmd.args).toEqual(['--always-approve', '--single', 'fix it']);
   });
 });
 
