@@ -367,6 +367,8 @@ export interface AssistantMessage {
   tokenUsage?: TokenRunUsage;
   enhancedPrompt?: string;
   enhancedPromptSnapshot?: EnhancedPromptSnapshot;
+  skillIds?: string[];
+  mentionedAgentIds?: string[];
   planSaved?: boolean;
   planPath?: string;
   pendingPlanApproval?: boolean;
@@ -914,7 +916,7 @@ export type ExtMsg =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
   | { type: 'reasoning'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }>; skillIds?: string[]; mentionedAgentIds?: string[] }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }
@@ -1255,6 +1257,8 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
         errorText: a.errorText,
         timestamp: a.timestamp ?? now,
         tokenUsage: a.tokenUsage,
+        skillIds: a.skillIds,
+        mentionedAgentIds: a.mentionedAgentIds,
         feedback: a.feedback,
         retrySourceMessageId: a.retrySourceMessageId,
         elapsed: a.elapsed,
@@ -1323,6 +1327,8 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
       errorText: m.errorText,
       steps: [],
       tokenUsage: m.tokenUsage,
+      skillIds: m.skillIds,
+      mentionedAgentIds: m.mentionedAgentIds,
       timestamp: m.timestamp ?? 0,
       feedback: m.feedback,
       retrySourceMessageId: m.retrySourceMessageId,
@@ -1818,6 +1824,8 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
                 taskId: msg.taskId,
                 enhancedPrompt: msg.enhancedPrompt,
                 enhancedPromptSnapshot: snapshot,
+                skillIds: msg.skillIds,
+                mentionedAgentIds: msg.mentionedAgentIds,
               })),
               'planning',
             ),
@@ -1846,6 +1854,8 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         taskId: msg.taskId,
         enhancedPrompt: msg.enhancedPrompt,
         enhancedPromptSnapshot: snapshot,
+        skillIds: msg.skillIds,
+        mentionedAgentIds: msg.mentionedAgentIds,
         streamingStage: 'planning',
       };
       return {

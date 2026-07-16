@@ -31,6 +31,7 @@ describe('provider agents', () => {
       '--sandbox',
       'workspace-write',
       'exec',
+      '--ignore-user-config',
       '--model',
       'gpt-5.2',
       'fix it',
@@ -48,6 +49,7 @@ describe('provider agents', () => {
       'workspace-write',
       'exec',
       '--json',
+      '--ignore-user-config',
       '--model',
       'gpt-5.2',
       'fix it',
@@ -59,6 +61,12 @@ describe('provider agents', () => {
     expect(cmd.transport).toBe('codex-jsonl');
     expect(cmd.args).toContain('--experimental-json');
     expect(cmd.args).not.toContain('--json');
+  });
+
+  it('ignores user Codex config when no Nexus model is selected', () => {
+    const cmd = new CodexAgent(true).buildCommand(makeTask('fix it'));
+    expect(cmd.args).toContain('--ignore-user-config');
+    expect(cmd.args).not.toContain('--model');
   });
 
   it('uses non-interactive prompt args for Antigravity with model', () => {
@@ -119,6 +127,7 @@ describe('provider agents', () => {
       '--sandbox',
       'workspace-write',
       'exec',
+      '--ignore-user-config',
       'fix it',
     ]);
   });

@@ -37,6 +37,9 @@ export type PipelineContext = {
   subagentResults?: SubagentContextEntry[];
   reviewEmptyDiff?: boolean;
   enhancedPrompt: string;
+  mentionedSkillIds?: string[];
+  mentionedAgentIds?: string[];
+  enhancedPromptSections?: Array<{ title: string; content: string }>;
   codeReviewRawOutput?: string;
   stepWarnings?: Array<{ stepLabel: string; message: string }>;
   isCancellationRequested?: () => boolean;

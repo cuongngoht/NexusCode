@@ -89,6 +89,10 @@ export class CodexAgent extends BaseAgent {
     } else if (flag === 'experimental') {
       args.push('--experimental-json');
     }
+    // Ignore ~/.codex/config.toml defaults (e.g. model=gpt-5.6-sol) unless the user picked
+    // a model in Nexus. User config can reference models that require a newer Codex build
+    // than the one on PATH, which surfaces as opaque [stream] JSON errors in the webview.
+    args.push('--ignore-user-config');
     if (task.model) {
       args.push('--model', task.model);
     }

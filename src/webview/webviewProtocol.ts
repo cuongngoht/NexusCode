@@ -66,7 +66,7 @@ export type ExtensionMessage =
   | { type: 'stdout'; chunk: string }
   | { type: 'stderr'; chunk: string }
   | { type: 'reasoning'; chunk: string }
-  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }> }
+  | { type: 'taskStarted'; taskId: string; provider: string; mode: string; model?: string; enhancedPrompt?: string; enhancedPromptSections?: Array<{ title: string; content: string }>; skillIds?: string[]; mentionedAgentIds?: string[] }
   | { type: 'taskCompleted'; taskId: string; exitCode: number }
   | { type: 'taskStopped'; taskId: string }
   | { type: 'taskError'; taskId: string; message: string }

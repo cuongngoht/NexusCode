@@ -91,7 +91,14 @@ export class RunAgentUseCase {
 
     this.activeTask = task;
     task.start();
-    this.eventBus.emit({ kind: 'task_started', task, enhancedPrompt: task.enhancedPrompt });
+    this.eventBus.emit({
+      kind: 'task_started',
+      task,
+      enhancedPrompt: task.enhancedPrompt,
+      enhancedPromptSections: task.enhancedPromptSections as Array<{ title: string; content: string }> | undefined,
+      skillIds: task.skillIds as string[] | undefined,
+      mentionedAgentIds: task.mentionedAgentIds as string[] | undefined,
+    });
     this.eventBus.emit({
       kind: 'token_usage_updated',
       task,

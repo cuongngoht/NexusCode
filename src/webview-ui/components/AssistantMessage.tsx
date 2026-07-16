@@ -172,6 +172,28 @@ export const AssistantMessage = memo(function AssistantMessage({
               {meta}
             </span>
           )}
+          {message.skillIds && message.skillIds.length > 0 && (
+            <button
+              type="button"
+              className="fl-asst-agent nx-asst-chip"
+              disabled={!message.enhancedPromptSnapshot}
+              onClick={() => setShowPromptModal(true)}
+              title={t.agent.viewPrompt}
+            >
+              {interp(t.agent.skillChip, { ids: message.skillIds.join(', ') })}
+            </button>
+          )}
+          {message.mentionedAgentIds && message.mentionedAgentIds.length > 0 && (
+            <button
+              type="button"
+              className="fl-asst-agent nx-asst-chip"
+              disabled={!message.enhancedPromptSnapshot}
+              onClick={() => setShowPromptModal(true)}
+              title={t.agent.viewPrompt}
+            >
+              {interp(t.agent.agentChip, { ids: message.mentionedAgentIds.map(id => `@${id}`).join(', ') })}
+            </button>
+          )}
         </div>
 
         <div className="fl-blocks">

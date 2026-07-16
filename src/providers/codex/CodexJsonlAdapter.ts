@@ -38,6 +38,22 @@ function label(text: string): string {
   return text.length > LABEL_MAX ? text.slice(0, LABEL_MAX - 1) + '…' : text;
 }
 
+/** Codex sometimes nests API errors as JSON strings inside `message` fields. */
+function extractCodexErrorMessage(raw: string | undefined, fallback: string): string {
+  if (!raw?.trim()) return fallback;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('{')) return trimmed;
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      message?: string;
+      error?: { message?: string };
+    };
+    return parsed.error?.message ?? parsed.message ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 export class CodexJsonlAdapter implements IProviderStreamAdapter {
   adapt(frame: DecodedFrame): AgentStreamEvent[] {
     if (frame.type !== 'line') return [];
@@ -61,9 +77,15 @@ export class CodexJsonlAdapter implements IProviderStreamAdapter {
       case 'turn.completed':
         return [{ kind: 'stream_done' }];
       case 'turn.failed':
-        return [{ kind: 'stream_error', message: event.error?.message ?? 'Codex turn failed' }];
+        return [{
+          kind: 'stream_error',
+          message: extractCodexErrorMessage(event.error?.message, 'Codex turn failed'),
+        }];
       case 'error':
-        return [{ kind: 'stream_error', message: event.message ?? 'Codex stream error' }];
+        return [{
+          kind: 'stream_error',
+          message: extractCodexErrorMessage(event.message, 'Codex stream error'),
+        }];
       default:
         // thread.started, turn.started, item.updated, unknown future types
         return [];
@@ -119,7 +141,10 @@ export class CodexJsonlAdapter implements IProviderStreamAdapter {
           : [];
 
       case 'error':
-        return [{ kind: 'stream_error', message: item.message ?? 'Codex item error' }];
+        return [{
+          kind: 'stream_error',
+          message: extractCodexErrorMessage(item.message, 'Codex item error'),
+        }];
 
       default:
         // reasoning, todo_list — intentionally not rendered

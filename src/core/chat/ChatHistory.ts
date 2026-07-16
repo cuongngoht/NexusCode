@@ -36,6 +36,8 @@ export interface SerializedAssistantMessage {
   timestamp: number;
   tokenUsage?: TokenRunUsage;
   enhancedPromptMeta?: EnhancedPromptSnapshotMeta;
+  skillIds?: string[];
+  mentionedAgentIds?: string[];
   feedback?: { rating: 'good' | 'bad' | null; ratedAt?: number };
   retrySourceMessageId?: string;
   elapsed?: number;

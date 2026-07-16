@@ -360,11 +360,17 @@ export class RunTaskHandler {
             mode,
             model?.trim() || undefined,
             workspaceRoot,
+            ctx.mentionedSkillIds,
+            ctx.mentionedAgentIds,
+            ctx.enhancedPromptSections,
           );
           this.eventBus.emit({
             kind: 'task_started',
             task: debugTask,
             enhancedPrompt: ctx.enhancedPrompt,
+            enhancedPromptSections: ctx.enhancedPromptSections,
+            skillIds: ctx.mentionedSkillIds,
+            mentionedAgentIds: ctx.mentionedAgentIds,
           });
 
           this.setupDebugIntelligenceListener(debugTask, workspaceRoot, effectivePrompt);
@@ -775,6 +781,9 @@ export class RunTaskHandler {
     const { skillIds, cleanedPrompt: skillCleaned } = parseSkillMentions(agentCleanedPrompt, knownSkillIds);
     const taskPrompt = skillIds.length > 0 ? skillCleaned : agentCleanedPrompt;
 
+    ctx.mentionedAgentIds = agentIds.length > 0 ? agentIds : undefined;
+    ctx.mentionedSkillIds = skillIds.length > 0 ? skillIds : undefined;
+
     let prompt = buildEnhancedPrompt(taskPrompt, {
       workspace,
       packages,
@@ -832,6 +841,11 @@ export class RunTaskHandler {
         existingEnhancedPrompt: prompt,
         mcpEnabled,
       });
+
+      const sections: Array<{ title: string; content: string }> = [];
+      if (skillBundle) sections.push({ title: 'Skill Instructions', content: skillBundle });
+      if (agentBundle) sections.push({ title: 'Agent Instructions', content: agentBundle });
+      ctx.enhancedPromptSections = sections.length > 0 ? sections : undefined;
     }
 
     if (ctx.subagentResults && ctx.subagentResults.length > 0) {
@@ -897,6 +911,9 @@ export class RunTaskHandler {
           mode,
           model?.trim() || undefined,
           workspaceRoot,
+          ctx.mentionedSkillIds,
+          ctx.mentionedAgentIds,
+          ctx.enhancedPromptSections,
         );
 
         if (cfg.get<boolean>('runGitStatusAfterTask', true)) {
@@ -981,6 +998,9 @@ export class RunTaskHandler {
           'ask',
           model?.trim() || undefined,
           workspaceRoot,
+          undefined,
+          agentIds,
+          [{ title: 'Agent Instructions', content: agentBundle }],
         );
 
         await this.runAgent.execute(task);

@@ -148,7 +148,9 @@
     "retryWithCurrent": "Thử lại với cài đặt hiện tại",
     "feedbackGood": "Phản hồi tốt",
     "feedbackBad": "Phản hồi không tốt",
-    "copied": "Đã sao chép"
+    "copied": "Đã sao chép",
+    "skillChip": "Skill: {{ids}}",
+    "agentChip": "{{ids}}"
   },
   "agentCapability": {
     "agent": "Agent",
@@ -377,6 +379,8 @@
     "productivity": "Năng suất",
     "quality": "Chất lượng",
     "mostExpensiveWorkflows": "Workflow tốn kém nhất",
+    "mostUsedAgents": "@Agent dùng nhiều nhất",
+    "mostUsedSkills": "#Skill dùng nhiều nhất",
     "conversationUsage": "Sử dụng theo cuộc trò chuyện",
     "export": "Xuất",
     "clear": "Xóa phân tích",
@@ -423,7 +427,9 @@
       "workflow": "Workflow",
       "cost": "Chi phí",
       "conversation": "Cuộc trò chuyện",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "agent": "Agent",
+      "skill": "Skill"
     }
   },
   "codeReview": {

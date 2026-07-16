@@ -174,6 +174,8 @@ export class ChatController {
             provider: event.task.agentId,
             model: event.task.model,
             mode: event.task.mode,
+            agentId: event.mentionedAgentIds?.join(','),
+            skillIds: event.skillIds,
             startedAt: event.task.startedAt,
           });
         } else if (event.kind === 'token_usage_updated' && event.phase === 'final') {

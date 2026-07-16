@@ -4377,6 +4377,20 @@ html, body, #root {
   font-size: 11px;
 }
 
+.nx-asst-chip {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nx-asst-chip:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
 .nx-line-stderr--block {
   display: block;
 }

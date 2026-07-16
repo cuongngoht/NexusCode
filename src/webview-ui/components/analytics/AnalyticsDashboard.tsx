@@ -11,6 +11,7 @@ import { ProductivityMetricsPanel } from './ProductivityMetricsPanel';
 import { QualityMetricsPanel } from './QualityMetricsPanel';
 import { WorkflowCostTable } from './WorkflowCostTable';
 import { ConversationUsageTable } from './ConversationUsageTable';
+import { MostUsedTable } from './MostUsedTable';
 
 interface Props {
   summary?: AnalyticsDashboardSummary;
@@ -146,6 +147,7 @@ export function AnalyticsDashboard({ summary, loading, error, dispatch }: Props)
             <QualityMetricsPanel summary={summary} />
           </div>
 
+          <MostUsedTable agents={summary.mostUsedAgents} skills={summary.mostUsedSkills} />
           <WorkflowCostTable workflows={summary.mostExpensiveWorkflows} />
           <ConversationUsageTable conversations={summary.byConversation} />
         </>

@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "status": "ready",
+  "status": "stale",
   "workspaceRootHash": "b4be4a1f414d91eaf68c7b20b0a13405e1c3d7897a57ac3810355547da54a4b6",
   "workspaceRootName": "NexusCode",
   "schemaVersion": "project-memory-v1",
-  "scanId": "431806fa-4461-46db-976e-1c83a8eee2eb",
+  "scanId": "be37048f-217f-43d5-9712-35c53aca57a2",
   "source": "manual_scan",
   "createdAt": 1783140956817,
-  "updatedAt": 1784199032930,
-  "lastFullScanAt": 1784199032930,
+  "updatedAt": 1784199928641,
+  "lastFullScanAt": 1784199082467,
   "filesIndexed": 963,
   "modulesIndexed": 1
 }

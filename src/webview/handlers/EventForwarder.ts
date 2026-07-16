@@ -20,6 +20,8 @@ export class EventForwarder {
           model: event.task.model,
           enhancedPrompt: event.enhancedPrompt ?? event.task.enhancedPrompt,
           enhancedPromptSections: event.enhancedPromptSections,
+          skillIds: event.skillIds,
+          mentionedAgentIds: event.mentionedAgentIds,
         });
         this._postNexus({
           kind: 'task.started',

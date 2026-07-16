@@ -148,7 +148,9 @@
     "retryWithCurrent": "Retry with current settings",
     "feedbackGood": "Good response",
     "feedbackBad": "Bad response",
-    "copied": "Copied"
+    "copied": "Copied",
+    "skillChip": "Skill: {{ids}}",
+    "agentChip": "{{ids}}"
   },
   "agentCapability": {
     "agent": "Agent",
@@ -377,6 +379,8 @@
     "productivity": "Productivity",
     "quality": "Quality",
     "mostExpensiveWorkflows": "Most Expensive Workflows",
+    "mostUsedAgents": "Most Used @Agents",
+    "mostUsedSkills": "Most Used #Skills",
     "conversationUsage": "Usage by Conversation",
     "export": "Export",
     "clear": "Clear Analytics",
@@ -423,7 +427,9 @@
       "workflow": "Workflow",
       "cost": "Cost",
       "conversation": "Conversation",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "agent": "Agent",
+      "skill": "Skill"
     }
   },
   "codeReview": {

@@ -29,6 +29,9 @@ export class AgentTask {
     readonly mode: TaskMode,
     readonly model?: string,
     readonly cwd?: string,
+    readonly skillIds?: ReadonlyArray<string>,
+    readonly mentionedAgentIds?: ReadonlyArray<string>,
+    readonly enhancedPromptSections?: ReadonlyArray<{ title: string; content: string }>,
   ) {
     this.id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     this.startedAt = Date.now();

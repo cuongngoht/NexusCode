@@ -83,6 +83,30 @@ describe('CodexJsonlAdapter', () => {
     expect(events).toEqual([{ kind: 'stream_error', message: 'rate limit exceeded' }]);
   });
 
+  it('unwraps nested JSON API errors in turn.failed', () => {
+    const nested = JSON.stringify({
+      type: 'error',
+      status: 400,
+      error: { type: 'invalid_request_error', message: 'The model requires a newer version of Codex.' },
+    });
+    const events = adapter.adapt(lineFrame(
+      JSON.stringify({ type: 'turn.failed', error: { message: nested } }),
+    ));
+    expect(events).toEqual([{ kind: 'stream_error', message: 'The model requires a newer version of Codex.' }]);
+  });
+
+  it('unwraps nested JSON API errors in top-level error events', () => {
+    const nested = JSON.stringify({
+      type: 'error',
+      status: 400,
+      error: { message: 'not supported with a ChatGPT account' },
+    });
+    const events = adapter.adapt(lineFrame(
+      JSON.stringify({ type: 'error', message: nested }),
+    ));
+    expect(events).toEqual([{ kind: 'stream_error', message: 'not supported with a ChatGPT account' }]);
+  });
+
   it('ignores lifecycle events that carry no renderable content', () => {
     expect(adapter.adapt(lineFrame('{"type":"thread.started","thread_id":"abc"}'))).toHaveLength(0);
     expect(adapter.adapt(lineFrame('{"type":"turn.started"}'))).toHaveLength(0);
