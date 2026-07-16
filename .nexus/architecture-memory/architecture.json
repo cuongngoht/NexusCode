@@ -1,7 +1,7 @@
 {
   "version": 1,
   "schemaVersion": "architecture-memory-v1",
-  "generatedAt": 1783140960129,
+  "generatedAt": 1784198926271,
   "workspaceRoot": "/Users/cuongngoht/Repo/NexusCode",
   "detectedStyle": "clean-architecture",
   "configSource": "heuristic",
@@ -2144,6 +2144,7 @@
         "crypto",
         "../application/code-review/CodeReviewExecutor",
         "../application/code-review/CodeReviewContextBuilder",
+        "../context/project-memory",
         "./AutoReviewConfig",
         "./risk/RiskScoreEngine",
         "./risk/RiskScoreTypes",
@@ -2156,6 +2157,7 @@
       "resolvedImportPaths": [
         "src/application/code-review/CodeReviewExecutor.ts",
         "src/application/code-review/CodeReviewContextBuilder.ts",
+        "src/context/project-memory/index.ts",
         "src/auto-review/AutoReviewConfig.ts",
         "src/auto-review/risk/RiskScoreEngine.ts",
         "src/auto-review/risk/RiskScoreTypes.ts",
@@ -11796,6 +11798,12 @@
       },
       {
         "from": "src/auto-review/AutoReviewScheduler.ts",
+        "to": "src/context/project-memory/index.ts",
+        "fromLayer": "unknown",
+        "toLayer": "infrastructure"
+      },
+      {
+        "from": "src/auto-review/AutoReviewScheduler.ts",
         "to": "src/auto-review/AutoReviewConfig.ts",
         "fromLayer": "unknown",
         "toLayer": "unknown"
@@ -18491,7 +18499,7 @@
         "toLayer": "core"
       }
     ],
-    "builtAt": 1783140960128
+    "builtAt": 1784198926270
   },
   "violations": [
     {

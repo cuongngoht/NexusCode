@@ -4,5 +4,5 @@
 
 ### [LOW] Large source tree — indexing/search may be slow
 
-- **Evidence:** 887 files scanned
+- **Evidence:** 962 files scanned
 - **Mitigation:** Review .nexusignore / .gitignore to exclude generated files.

@@ -10,7 +10,7 @@
       "command": "codex"
     },
     "claude": {
-      "enabled": false,
+      "enabled": true,
       "command": "claude"
     },
     "copilot": {
@@ -22,7 +22,7 @@
       "command": "aider"
     },
     "grok": {
-      "enabled": false,
+      "enabled": true,
       "command": "grok"
     }
   },

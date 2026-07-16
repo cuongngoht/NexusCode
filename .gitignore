@@ -3,3 +3,6 @@ out/
 *.vsix
 .DS_Store
 media/webview/
+
+# Added by Nexus AI Code
+.nexus/

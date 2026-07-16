@@ -7,7 +7,7 @@
     "nexus.review.maxDiffChars": 60000,
     "nexus.context.maxChars": 100000,
     "nexus.context.maxMessages": 20,
-    "nexus.projectMap.addToGitignore": false,
+    "nexus.projectMap.addToGitignore": true,
     "nexus.autoReview.enabled": false,
     "nexus.autoReview.watchMode": "workingTree",
     "nexus.autoReview.debounceMs": 2500,
