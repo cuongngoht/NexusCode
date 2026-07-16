@@ -76,13 +76,13 @@
     "allowSeededFallback": true
   },
   "historyRag": {
-    "enabled": true,
+    "enabled": false,
     "maxResults": 5,
     "maxChars": 6000,
     "minScore": 1.25
   },
   "subagents": {
-    "enabled": false,
+    "enabled": true,
     "mode": "auto",
     "preset": "balanced",
     "maxRuns": 4,
