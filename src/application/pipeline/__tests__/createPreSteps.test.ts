@@ -7,6 +7,15 @@ describe('createPreSteps', () => {
     expect(steps.map(s => s.label)).toEqual(['architecture-memory', 'knowledge-base', 'knowledge-facts', 'review-files']);
   });
 
+  it('does not include FileIntelligenceContextStep for review mode even when file-intelligence deps are provided', () => {
+    const steps = createPreSteps('review', {
+      extensionPath: '/tmp/ext',
+      fileIntelligenceStore: {} as any,
+      fileIntelligenceIgnoreFilter: {} as any,
+    });
+    expect(steps.map(s => s.label)).toEqual(['architecture-memory', 'knowledge-base', 'knowledge-facts', 'review-files']);
+  });
+
   it('runs ArchitectureMemoryStep, KnowledgeBaseStep, and KnowledgeFactsStep for the default mode (e.g. edit)', () => {
     const steps = createPreSteps('edit', { extensionPath: '/tmp/ext' });
     expect(steps.map(s => s.label)).toEqual(['architecture-memory', 'knowledge-base', 'knowledge-facts']);

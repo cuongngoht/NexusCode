@@ -55,10 +55,11 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
       return withFileIntelligence([new DebugPreStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()], deps);
 
     case 'review':
-      return withFileIntelligence(
-        [new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep(), new ReviewFileContextStep()],
-        deps,
-      );
+      // NOTE: no withFileIntelligence() here — RunTaskHandler never reads
+      // ctx.fileIntelligenceContext for review mode (it already has diff-scoped
+      // context from ReviewFileContextStep), so running that step here would
+      // just be wasted git + file-intelligence lookups.
+      return [new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep(), new ReviewFileContextStep()];
 
     default:
       return withFileIntelligence([new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()], deps);
