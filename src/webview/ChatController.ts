@@ -28,6 +28,8 @@ import { CodeBlockHandler } from './handlers/CodeBlockHandler';
 import { AnalyticsHandler } from './handlers/AnalyticsHandler';
 import { HistorySearchHandler } from './handlers/HistorySearchHandler';
 import { ProjectMemoryHandler } from './handlers/ProjectMemoryHandler';
+import { McpStatusHandler } from './handlers/McpStatusHandler';
+import { McpPresetRegistry } from '../mcp/McpPresetRegistry';
 import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
 import { HistoryRagFacade } from '../context/history-search/HistoryRagFacade';
@@ -83,6 +85,7 @@ export class ChatController {
   private readonly analyticsHandler?: AnalyticsHandler;
   private readonly historySearchHandler: HistorySearchHandler;
   private readonly projectMemoryHandler: ProjectMemoryHandler;
+  private readonly mcpStatusHandler: McpStatusHandler;
   readonly historyRagFacade: HistoryRagFacade;
 
   constructor(
@@ -133,9 +136,10 @@ export class ChatController {
     const permissionService = new PermissionService(post as (msg: unknown) => void);
     const projectLearning = new ProjectLearningCoordinator();
     const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService, projectLearning);
-    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade, fileIntelligenceDeps, projectLearning, knowledgeFactsDeps);
+    this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade, fileIntelligenceDeps, projectLearning, knowledgeFactsDeps, configService);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);
+    this.mcpStatusHandler = new McpStatusHandler(post, configService, new McpPresetRegistry());
     this.reviewHandler   = new ReviewHandler(post, workspaceState);
     this.chatReviewOrchestrator = new ChatReviewOrchestrator(
       post as (msg: ExtensionMessage) => void,
@@ -232,11 +236,15 @@ export class ChatController {
         await this.skillPromptHandler.sendSkillPrompts();
         await this.commandPromptHandler.sendCommandDefs();
         await this.projectMemoryHandler.getStatus();
+        await this.mcpStatusHandler.sendStatus();
         void this.historySearchHandler.ensureIndex();
         {
           const reviewHistory = this._workspaceState.get<import('../application/code-review/CodeReviewReport').CodeReviewReport[]>('nexus.review.history') ?? [];
           this._post({ type: 'reviewHistoryLoaded', reports: reviewHistory });
         }
+        break;
+      case 'refreshMcpStatus':
+        await this.mcpStatusHandler.sendStatus();
         break;
       case 'runTask': {
         const intercepted = await this.chatReviewOrchestrator.tryIntercept(
@@ -432,6 +440,10 @@ export class ChatController {
 
   async refreshProviders(): Promise<void> {
     await this.providerHandler.refresh();
+  }
+
+  async refreshMcpStatus(): Promise<void> {
+    await this.mcpStatusHandler.sendStatus();
   }
 
   async reloadAgentPrompts(): Promise<void> {

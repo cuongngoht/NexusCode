@@ -56,6 +56,7 @@ import type { SubagentPlanConfig } from '../../application/subagents/SubagentPla
 import { SubagentSummary } from '../../application/subagents/SubagentSummary';
 import { classifySubagentIntent } from '../../application/subagents/SubagentIntentClassifier';
 import type { SubagentMode, SubagentPreset, ReviewStepSettings } from '../../config/NexusConfig';
+import type { ConfigService } from '../../config/ConfigService';
 import { loadResearchContext } from '../../context/research/researchFolderLoader';
 import { buildResearchContextBlock } from '../../context/research/researchPromptBuilder';
 import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFacade';
@@ -141,7 +142,23 @@ export class RunTaskHandler {
     private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
     private readonly projectLearning: ProjectLearningCoordinator = new ProjectLearningCoordinator(),
     private readonly knowledgeFactsDeps?: KnowledgeFactsDeps,
+    private readonly configService?: ConfigService,
   ) {}
+
+  /**
+   * MCP enablement source of truth is `.nexus/config.json` (same as RunAgentUseCase).
+   * Falls back to the VS Code setting when no ConfigService is injected.
+   */
+  private async isMcpEnabled(): Promise<boolean> {
+    if (this.configService) {
+      try {
+        return (await this.configService.loadConfig()).mcp.enabled;
+      } catch {
+        return false;
+      }
+    }
+    return vscode.workspace.getConfiguration('nexus').get<boolean>('mcp.enabled', false);
+  }
 
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
   private readonly backfillModuleUsage = new BackfillModuleUsageUseCase();
@@ -378,7 +395,7 @@ export class RunTaskHandler {
 
       if (providerId === 'nexus') {
         if (enableEnhancement) {
-          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot);
+          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, await this.isMcpEnabled());
         }
         // Route debug mode through the dedicated DebugOrchestrator
         if (mode === 'debug' && this.debugOrchestrator) {
@@ -546,7 +563,7 @@ export class RunTaskHandler {
         if (this._stopRequested) return;
 
         if (enableEnhancement) {
-          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, reviewPreset);
+          ctx.enhancedPrompt = this.buildFinalPrompt(ctx, mode, workspaceRoot, await this.isMcpEnabled(), reviewPreset);
         }
 
         if (this._stopRequested) return;
@@ -787,7 +804,7 @@ export class RunTaskHandler {
     return result.ok;
   }
 
-  private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, reviewPreset?: CodeReviewPreset): string {
+  private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, mcpEnabled: boolean, reviewPreset?: CodeReviewPreset): string {
     const workspace = scanWorkspace(workspaceRoot);
     const packages = detectPackageInfo(workspaceRoot);
     const rules = loadRules(workspaceRoot);
@@ -876,7 +893,6 @@ export class RunTaskHandler {
     if (agentIds.length > 0 || skillIds.length > 0) {
       const agentBundle = agentIds.length > 0 ? loadAgentPromptBundle(workspaceRoot, agentIds) : undefined;
       const skillBundle = skillIds.length > 0 ? loadSkillPromptBundle(workspaceRoot, skillIds) : undefined;
-      const mcpEnabled = vscode.workspace.getConfiguration('nexus').get<boolean>('mcp.enabled', false);
 
       // When a review-capable agent is mentioned outside review mode, inject diff context
       // so the agent has actual code changes to work with.
@@ -1060,7 +1076,7 @@ export class RunTaskHandler {
           : '# Task\n\nProvide your analysis of the code changes above according to your role and guidelines.';
 
         const agentBundle = loadAgentPromptBundle(workspaceRoot, agentIds);
-        const mcpEnabled = cfg.get<boolean>('mcp.enabled', false);
+        const mcpEnabled = await this.isMcpEnabled();
         const memoryBlock = ctx.conversationContext ? `${ctx.conversationContext}\n\n` : '';
         const supplementPrompt = buildAugmentedPrompt({
           agentMarkdownBundle: agentBundle,

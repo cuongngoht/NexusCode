@@ -180,7 +180,10 @@ export function activate(context: vscode.ExtensionContext): void {
         context.extensionUri,
         configService,
         detector,
-        () => { void provider.refreshProviders(); },
+        () => {
+          void provider.refreshProviders();
+          void provider.refreshMcpStatus();
+        },
       );
     }),
   );

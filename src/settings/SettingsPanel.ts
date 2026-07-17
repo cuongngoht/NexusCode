@@ -136,6 +136,12 @@ export class SettingsPanel {
       if (historyRag && typeof historyRag['enabled'] === 'boolean') {
         await vsCfg.update('historyRag.enabled', historyRag['enabled'], vscode.ConfigurationTarget.Workspace);
       }
+      // Mirror mcp.enabled so the VS Code Settings UI stays consistent
+      // (runtime reads MCP enablement from .nexus/config.json via ConfigService)
+      const mcp = p['mcp'] as Record<string, unknown> | undefined;
+      if (mcp && typeof mcp['enabled'] === 'boolean') {
+        await vsCfg.update('mcp.enabled', mcp['enabled'], vscode.ConfigurationTarget.Workspace);
+      }
       // Sync review step toggles to VS Code workspace settings
       const reviewSteps = (msg as Record<string, unknown>)['reviewSteps'] as Record<string, unknown> | undefined;
       if (reviewSteps) {
