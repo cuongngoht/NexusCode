@@ -440,7 +440,7 @@ export function getSettingsHtml(
       <input type="checkbox" id="projectmap-add-gitignore" ${projectMapAddToGitignore ? 'checked' : ''} />
       <span>Add <code>.nexus/</code> to <code>.gitignore</code></span>
     </label>
-    <p class="description">When enabled, Nexus automatically appends <code>.nexus/</code> to the root <code>.gitignore</code> after each project scan so the folder is not tracked by git.</p>
+    <p class="description">When enabled, Nexus automatically appends <code>.nexus/</code> to the root <code>.gitignore</code> the first time it writes to that folder — from the very first task, not just after a project scan — so it is never tracked by git.</p>
   </section>
 
   <section class="settings-section">

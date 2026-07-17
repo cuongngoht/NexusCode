@@ -6,6 +6,7 @@ import { BrainstormAgentsStep } from './BrainstormAgentsStep';
 import { DebugPreStep } from './DebugPreStep';
 import { ReviewFileContextStep } from './review/ReviewFileContextStep';
 import { ArchitectureMemoryStep } from './ArchitectureMemoryStep';
+import { KnowledgeBaseStep } from './KnowledgeBaseStep';
 import { FileIntelligenceContextStep } from './FileIntelligenceContextStep';
 import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
@@ -29,6 +30,9 @@ function withFileIntelligence(steps: IPipelineStep[], deps: PreStepDeps): IPipel
 export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep[] {
   switch (mode) {
     case 'scan-project':
+      // NOTE: this branch is unreachable — RunTaskHandler.run() returns early for
+      // 'scan-project' before ever calling createPreSteps(). Do not add KnowledgeBaseStep
+      // here; it would just be more dead code.
       return withFileIntelligence(
         [new ScanProjectStep(deps.extensionPath), new ArchitectureMemoryStep()],
         deps,
@@ -40,17 +44,21 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
           new ScanProjectStep(deps.extensionPath),
           new ReadSourceContextStep(),
           new BrainstormAgentsStep(deps.extensionPath),
+          new KnowledgeBaseStep(),
         ],
         deps,
       );
 
     case 'debug':
-      return withFileIntelligence([new DebugPreStep()], deps);
+      return withFileIntelligence([new DebugPreStep(), new KnowledgeBaseStep()], deps);
 
     case 'review':
+      // NOTE: review's prompt is built entirely by CodeReviewPromptBuilder, which never
+      // reads ctx.architectureContext or ctx.knowledgeBaseContext — adding either step
+      // here would be a silent no-op.
       return withFileIntelligence([new ReviewFileContextStep()], deps);
 
     default:
-      return withFileIntelligence([new ArchitectureMemoryStep()], deps);
+      return withFileIntelligence([new ArchitectureMemoryStep(), new KnowledgeBaseStep()], deps);
   }
 }

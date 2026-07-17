@@ -11,6 +11,7 @@ import { AgentReviewRunner } from './AgentReviewRunner';
 import { AgentDiffCollector } from './AgentDiffCollector';
 import { AgentFinalReporter } from './AgentFinalReporter';
 import { AgentBranchManager } from './AgentBranchManager';
+import { KnowledgeBaseWriter } from '../../context/knowledge-base/KnowledgeBaseWriter';
 import { loadAgentModePolicy, type AgentModePolicy } from './AgentModePolicy';
 import type { AgentSession, AgentSessionStatus } from './AgentSession';
 import type { AgentStep, AgentStepType } from './AgentStep';
@@ -40,6 +41,7 @@ export class AgentExecutor {
     private readonly eventBus: IEventBus,
     private readonly post: (msg: unknown) => void,
     private readonly permissionService?: PermissionService,
+    private readonly knowledgeBaseWriter: KnowledgeBaseWriter = new KnowledgeBaseWriter(),
   ) {}
 
   private getStore(workspaceRoot: string): AgentSessionStore {
@@ -290,6 +292,18 @@ export class AgentExecutor {
       await this.runStep(session, store, timeline, 'final_summary', 'Generating final report', async () => {
         const reporter = new AgentFinalReporter();
         const summary = await reporter.build(session!, { testResult, recoveryResult, reviewResult, diffSummary });
+        void this.knowledgeBaseWriter.write(session!.workspaceRoot, {
+          mode: 'agent',
+          providerId: session!.providerId,
+          model: session!.model,
+          originalPrompt: session!.originalPrompt,
+          status: summary.status,
+          changedFiles: summary.changedFiles.map(f => ({ path: f.path, status: f.status })),
+          implementationSummary: summary.implementationSummary,
+          warnings: summary.warnings,
+          nextSteps: summary.nextSteps,
+          source: 'agent-mode',
+        }).catch(() => { /* best-effort — never fail the session on a write error */ });
         store!.markCompleted(sessionId);
         const completed = store!.get(sessionId) ?? session!;
         this.postAgentMessage({ type: 'agentSessionUpdated', session: toSessionViewModel(completed) });

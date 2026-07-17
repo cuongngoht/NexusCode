@@ -57,6 +57,7 @@ import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../../review/ReviewPanel';
 import type { PermissionService } from '../../application/permissions/PermissionService';
 import { NexusDiscoveryOrchestrator } from '../../context/project-map/NexusDiscoveryOrchestrator';
+import { ensureNexusInGitignore } from '../../context/project-map/NexusGitignoreManager';
 import {
   FsProjectMemoryManifestRepository,
   PROJECT_MEMORY_SCHEMA_VERSION,
@@ -70,6 +71,7 @@ import type { IFileIntelligenceStore } from '../../context/file-intelligence/Fil
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
 import type { FileTouchEvent, FileTouchSource } from '../../context/file-intelligence/types';
 import { SagaRunner } from '../../application/pipeline/SagaRunner';
+import { KnowledgeBaseWriter } from '../../context/knowledge-base/KnowledgeBaseWriter';
 
 export interface FileIntelligenceDeps {
   service: FileIntelligenceService;
@@ -123,6 +125,7 @@ export class RunTaskHandler {
     private readonly projectMemoryStatusService: ProjectMemoryStatusService = new ProjectMemoryStatusService(),
     private readonly projectMemoryRagFacade?: ProjectMemoryRagFacade,
     private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
+    private readonly knowledgeBaseWriter: KnowledgeBaseWriter = new KnowledgeBaseWriter(),
   ) {}
 
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
@@ -152,6 +155,10 @@ export class RunTaskHandler {
 
     const workspaceRoot = requireWorkspaceRoot(this.post);
     if (!workspaceRoot) return;
+
+    if (vscode.workspace.getConfiguration('nexus').get<boolean>('projectMap.addToGitignore', true)) {
+      ensureNexusInGitignore(workspaceRoot);
+    }
 
     if (this.hasActive()) {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'A task is already running. Stop it first.' });
@@ -393,16 +400,33 @@ export class RunTaskHandler {
             });
             const okResult = new AgentResult(0, '', '', Date.now() - debugTask.startedAt);
             this.eventBus.emit({ kind: 'task_completed', task: debugTask, result: okResult });
+            void this.knowledgeBaseWriter.write(workspaceRoot, {
+              mode, providerId, model, originalPrompt: effectivePrompt, status: 'completed',
+              skillIds: ctx.mentionedSkillIds, changedFiles: getGitStatus(workspaceRoot).changes,
+              source: 'task-pipeline',
+            }).catch(() => {});
           } catch (err) {
             const msg = String(err);
             const failResult = new AgentResult(1, '', msg, Date.now() - debugTask.startedAt);
             this.eventBus.emit({ kind: 'task_error', task: debugTask, error: msg });
             // also emit completed with failure for listeners that only key off completed
             this.eventBus.emit({ kind: 'task_completed', task: debugTask, result: failResult });
+            void this.knowledgeBaseWriter.write(workspaceRoot, {
+              mode, providerId, model, originalPrompt: effectivePrompt, status: 'failed',
+              skillIds: ctx.mentionedSkillIds, changedFiles: getGitStatus(workspaceRoot).changes,
+              source: 'task-pipeline',
+            }).catch(() => {});
           }
           return;
         }
-        await this.orchestrator.run(ctx, 'auto');
+        const nexusOutcome = await this.orchestrator.run(ctx, 'auto');
+        if (nexusOutcome) {
+          void this.knowledgeBaseWriter.write(workspaceRoot, {
+            mode, providerId: nexusOutcome.task.agentId, model, originalPrompt: ctx.originalPrompt,
+            skillIds: ctx.mentionedSkillIds, status: nexusOutcome.result.succeeded ? 'completed' : 'failed',
+            changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+          }).catch(() => {});
+        }
       } else {
         const subagentCfg = cfg;
         const subagentMode = subagentCfg.get<SubagentMode>('subagents.mode', 'auto');
@@ -547,7 +571,14 @@ export class RunTaskHandler {
     this._pipelineActive = true;
     try {
       if (effectiveProvider === 'nexus') {
-        await this.orchestrator.run(ctx, 'code');
+        const codeOutcome = await this.orchestrator.run(ctx, 'code');
+        if (codeOutcome) {
+          void this.knowledgeBaseWriter.write(workspaceRoot, {
+            mode: 'edit', providerId: codeOutcome.task.agentId, model, originalPrompt: approvedPlanPrompt,
+            status: codeOutcome.result.succeeded ? 'completed' : 'failed',
+            changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+          }).catch(() => {});
+        }
       } else {
         // Non-nexus provider: run the agent directly with the 'code' step label
         this.eventBus.emit({
@@ -572,8 +603,13 @@ export class RunTaskHandler {
           this.setupGitStatusListener(task, workspaceRoot);
         }
         try {
-          await this.runAgent.execute(task);
+          const result = await this.runAgent.execute(task);
           this.eventBus.emit({ kind: 'step_completed', stepLabel: 'code' });
+          void this.knowledgeBaseWriter.write(workspaceRoot, {
+            mode: 'edit', providerId: effectiveProvider, model, originalPrompt: approvedPlanPrompt,
+            status: result.succeeded ? 'completed' : 'failed',
+            changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+          }).catch(() => {});
         } catch {
           this.eventBus.emit({ kind: 'step_error', stepLabel: 'code', error: '' });
         }
@@ -799,6 +835,7 @@ export class RunTaskHandler {
       extensionRoot: this.extensionPath,
       researchContext,
       architectureContext: ctx.architectureContext,
+      knowledgeBaseContext: ctx.knowledgeBaseContext,
       fileIntelligenceContext: ctx.fileIntelligenceContext,
     });
 
@@ -945,7 +982,12 @@ export class RunTaskHandler {
           this.setupCodeReviewListener(task, cfg, reviewTarget);
         }
 
-        await this.runAgent.execute(task);
+        const result = await this.runAgent.execute(task);
+        void this.knowledgeBaseWriter.write(workspaceRoot, {
+          mode, providerId, model, originalPrompt: ctx.originalPrompt,
+          skillIds: ctx.mentionedSkillIds, status: result.succeeded ? 'completed' : 'failed',
+          changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+        }).catch(() => {});
       },
     };
   }

@@ -37,6 +37,8 @@ export interface PromptContext {
   researchContext?: string;
   /** Architecture memory context injected when architecture analysis is available. */
   architectureContext?: string;
+  /** Knowledge base context injected when relevant prior task entries exist. */
+  knowledgeBaseContext?: string;
   /** Per-file intelligence context injected when file profiles are available. */
   fileIntelligenceContext?: string;
 }
@@ -125,6 +127,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Architecture Context');
     lines.push(ctx.architectureContext);
+  }
+
+  if (ctx.knowledgeBaseContext) {
+    lines.push('');
+    lines.push('# Project Knowledge Base');
+    lines.push(ctx.knowledgeBaseContext);
   }
 
   if (ctx.fileIntelligenceContext) {

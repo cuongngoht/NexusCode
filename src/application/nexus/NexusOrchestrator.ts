@@ -23,7 +23,10 @@ export class NexusOrchestrator {
     private readonly eventBus: IEventBus,
   ) {}
 
-  async run(ctx: PipelineContext, requestedStage: 'auto' | NexusStage = 'auto'): Promise<void> {
+  async run(
+    ctx: PipelineContext,
+    requestedStage: 'auto' | NexusStage = 'auto',
+  ): Promise<{ task: AgentTask; result: AgentResult } | undefined> {
     const flow: NexusStage[] = requestedStage === 'auto' ? MODE_FLOW[ctx.mode] : [requestedStage];
     const willAutoApprove = ctx.autoApprove && flow.includes('plan') && isCodingMode(ctx.mode);
     const totalSteps = willAutoApprove ? flow.length + 1 : flow.length;
@@ -31,7 +34,7 @@ export class NexusOrchestrator {
     for (let i = 0; i < flow.length; i++) {
       const stage = flow[i];
       const outcome = await this.runStage(stage, ctx, i, totalSteps);
-      if (!outcome.ok) return;
+      if (!outcome.ok) return undefined;
 
       if (stage === 'plan' && isCodingMode(ctx.mode) && outcome.agentResult?.succeeded && outcome.agentResult.stdout.trim()) {
         const plan = outcome.agentResult.stdout.trim();
@@ -39,13 +42,21 @@ export class NexusOrchestrator {
         this.eventBus.emit({ kind: 'plan_saved', task: outcome.task!, planPath });
         this.eventBus.emit({ kind: 'plan_ready_for_approval', task: outcome.task!, planPath, plan, mode: ctx.mode, model: ctx.model });
 
-        if (!ctx.autoApprove) break;
+        // Paused awaiting plan approval — no terminal outcome yet.
+        if (!ctx.autoApprove) return undefined;
 
         ctx.enhancedPrompt = NexusPlanStore.buildApprovedPlanPrompt(plan);
-        await this.runStage('code', ctx, i + 1, totalSteps);
-        break;
+        const codeOutcome = await this.runStage('code', ctx, i + 1, totalSteps);
+        if (!codeOutcome.ok || !codeOutcome.task || !codeOutcome.agentResult) return undefined;
+        return { task: codeOutcome.task, result: codeOutcome.agentResult };
+      }
+
+      if (i === flow.length - 1 && outcome.task && outcome.agentResult) {
+        return { task: outcome.task, result: outcome.agentResult };
       }
     }
+
+    return undefined;
   }
 
   private async runStage(

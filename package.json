@@ -752,8 +752,8 @@
         },
         "nexus.projectMap.addToGitignore": {
           "type": "boolean",
-          "default": false,
-          "description": "Add the .nexus folder to the root .gitignore so it is not tracked by git."
+          "default": true,
+          "description": "Automatically add .nexus/ to the root .gitignore so Nexus's local cache/session/knowledge-base data is never tracked by git. Applies from the very first task, not just project scans."
         },
         "nexus.historyRag.enabled": {
           "type": "boolean",
