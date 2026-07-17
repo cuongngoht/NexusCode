@@ -1,5 +1,6 @@
 import type { NexusConfig } from '../config/NexusConfig';
 import type { AgentTask } from '../core/agent';
+import type { IMcpApprovalGate } from './McpApprovalGate';
 import type { IMcpBroker } from './McpBroker';
 import type { IMcpExecutionPolicy } from './McpExecutionPolicy';
 import type { IMcpIntentParser } from './McpIntentParser';
@@ -9,6 +10,8 @@ import type { IMcpResultCompressor } from './McpResultCompressor';
 import type { IMcpToolRouter } from './McpToolRouter';
 
 export class McpToolUseCase {
+  private approvalGate?: IMcpApprovalGate;
+
   constructor(
     private readonly registry: IMcpPresetRegistry,
     private readonly selector: IMcpPresetSelectionPolicy,
@@ -18,6 +21,13 @@ export class McpToolUseCase {
     private readonly broker: IMcpBroker,
     private readonly compressor: IMcpResultCompressor,
   ) {}
+
+  // Setter injection: the use case is built in extension.ts before any
+  // webview (and thus PermissionService) exists; the active ChatController
+  // attaches the gate when it is created.
+  setApprovalGate(gate: IMcpApprovalGate): void {
+    this.approvalGate = gate;
+  }
 
   async tryHandleToolIntent(input: {
     task: AgentTask;
@@ -63,12 +73,38 @@ export class McpToolUseCase {
     }
 
     if (decision.requiresApproval) {
-      return [
-        '## MCP Request Requires Approval',
-        decision.reason,
-        '',
-        'Approval UI is not implemented for this tool yet.',
-      ].join('\n');
+      if (!this.approvalGate) {
+        return [
+          '## MCP Request Denied',
+          decision.reason,
+          '',
+          'This tool requires approval, but no approval UI is attached. The tool was not executed.',
+        ].join('\n');
+      }
+
+      const outcome = await this.approvalGate.requestApproval(
+        {
+          presetId: preset.id,
+          presetDisplayName: preset.displayName,
+          toolName: route.toolName,
+          arguments: route.arguments,
+          reason: decision.reason,
+          cwd: input.task.cwd,
+        },
+        input.config.mcp.approvalTimeoutMs,
+      );
+
+      if (outcome !== 'approved') {
+        const detail = outcome === 'timeout'
+          ? 'The approval request timed out.'
+          : 'The user denied the request.';
+        return [
+          '## MCP Request Denied',
+          decision.reason,
+          '',
+          `${detail} The tool was not executed.`,
+        ].join('\n');
+      }
     }
 
     try {

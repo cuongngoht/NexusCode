@@ -3,6 +3,7 @@ import type { DebugChainContext } from '../orchestrator/DebugChainContext';
 import type { DebugStepResult } from '../orchestrator/DebugStep';
 import type { DebugState } from '../orchestrator/DebugState';
 import { Bm25Index } from '../search/Bm25Index';
+import { getBm25CacheFor } from '../search/Bm25DocumentCache';
 import { buildDebugQueries } from '../search/DebugQueryBuilder';
 import { mergeSearchResults, deduplicatePaths } from '../search/SearchResultMerger';
 import type { DebugSearchResult } from '../search/DebugSearchResult';
@@ -44,6 +45,7 @@ export class Bm25RetrievalStep extends BaseDebugStep {
     const index = await Bm25Index.build(ctx.workspaceRoot, {
       excludeDirs: ctx.projectExcludeFromIndex,
       maxFileBytes: ctx.maxFileBytes,
+      cache: getBm25CacheFor(ctx.workspaceRoot),
     });
 
     // Build queries from the debug signal

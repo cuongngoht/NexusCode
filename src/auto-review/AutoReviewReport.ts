@@ -12,6 +12,7 @@ export interface AutoReviewReport {
   skipReason?: string;
   codeReview?: CodeReviewReport;
   baselineSuppressed?: number;
+  architectureDrift?: { checked: boolean; newViolationCount: number };
 }
 
 export interface AutoReviewIndexEntry {

@@ -15,6 +15,7 @@ export interface McpConfig {
   enabled: boolean
   autoSelectPreset: boolean
   requireApprovalForHighRiskTools: boolean
+  approvalTimeoutMs: number
   maxResultChars: number
   maxRoundsPerTask: number
   presets: {

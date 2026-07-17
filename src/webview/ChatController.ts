@@ -43,6 +43,8 @@ import { createDefaultDebugOrchestrator } from '../debug/orchestrator/DebugOrche
 import { AgentExecutor } from '../application/agent-mode/AgentExecutor';
 import { ReviewPanel } from '../review/ReviewPanel';
 import { PermissionService } from '../application/permissions/PermissionService';
+import { PermissionMcpApprovalGate } from '../application/permissions/PermissionMcpApprovalGate';
+import type { McpToolUseCase } from '../mcp/McpToolUseCase';
 import type { ProviderId } from '../core/types';
 import {
   ProjectMemoryStatusService,
@@ -107,6 +109,7 @@ export class ChatController {
     globalStorageUri?: vscode.Uri,
     fileIntelligenceDeps?: FileIntelligenceDeps,
     knowledgeFactsDeps?: KnowledgeFactsDeps,
+    mcpToolUseCase?: McpToolUseCase,
   ) {
     // Build history search / RAG infrastructure
     this._workspaceState = workspaceState ?? globalState;
@@ -134,6 +137,9 @@ export class ChatController {
 
     const debugOrchestrator = createDefaultDebugOrchestrator({ eventBus, runUseCase: runAgent });
     const permissionService = new PermissionService(post as (msg: unknown) => void);
+    // Last-attached webview wins: there is one shared RunAgentUseCase, and the
+    // active chat is the one running the task that can trigger MCP approvals.
+    mcpToolUseCase?.setApprovalGate(new PermissionMcpApprovalGate(permissionService));
     const projectLearning = new ProjectLearningCoordinator();
     const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService, projectLearning);
     this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade, fileIntelligenceDeps, projectLearning, knowledgeFactsDeps, configService);

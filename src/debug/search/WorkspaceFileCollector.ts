@@ -76,6 +76,7 @@ export interface CollectedFile {
   relativePath: string;
   absolutePath: string;
   sizeBytes: number;
+  mtimeMs: number;
 }
 
 function shouldExcludeDir(dirName: string, extraExcludes: Set<string>): boolean {
@@ -128,6 +129,7 @@ export function collectWorkspaceFiles(
           relativePath: path.relative(workspaceRoot, absPath).replace(/\\/g, '/'),
           absolutePath: absPath,
           sizeBytes: stat.size,
+          mtimeMs: stat.mtimeMs,
         });
       }
     }

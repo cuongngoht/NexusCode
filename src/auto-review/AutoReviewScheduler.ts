@@ -9,9 +9,11 @@ import {
   FsProjectMemoryIndexRepository,
 } from '../context/project-memory';
 import { readAutoReviewConfig, mapWatchModeToTarget } from './AutoReviewConfig';
-import { scoreRisk } from './risk/RiskScoreEngine';
+import { scoreRisk, boostRisk } from './risk/RiskScoreEngine';
 import { isRiskAtOrAbove } from './risk/RiskScoreTypes';
 import { generateFingerprint } from './baseline/ReviewFingerprint';
+import { ArchitectureDriftDetector, type ArchitectureDriftResult } from './architecture/ArchitectureDriftDetector';
+import { CodeReviewPolicy } from '../application/code-review/CodeReviewPolicy';
 import type { AutoReviewStateStore } from './AutoReviewStateStore';
 import type { ReviewBaselineStore } from './baseline/ReviewBaselineStore';
 import type { AutoReviewReport } from './AutoReviewReport';
@@ -23,6 +25,7 @@ export class AutoReviewScheduler {
   private readonly contextBuilder = new CodeReviewContextBuilder();
   private readonly projectMemoryStatusService = new ProjectMemoryStatusService();
   private readonly projectMemoryRagFacade = new ProjectMemoryRagFacade(new FsProjectMemoryIndexRepository());
+  private readonly driftDetector = new ArchitectureDriftDetector();
 
   constructor(
     private readonly workspaceRoot: string,
@@ -70,12 +73,28 @@ export class AutoReviewScheduler {
 
       const risk = scoreRisk(context.diff, context.changedFiles);
 
-      if (!isRiskAtOrAbove(risk.level, config.minRiskToRunAgent)) {
+      let drift: ArchitectureDriftResult | undefined;
+      if (config.architectureDrift.enabled) {
+        try {
+          drift = await this.driftDetector.detect(this.workspaceRoot, context.changedFiles);
+        } catch {
+          // Non-blocking: Auto Review must still run even if the drift check fails
+        }
+      }
+      const driftReportInfo = drift
+        ? { checked: drift.checked, newViolationCount: drift.newViolations.length }
+        : undefined;
+      const effectiveRisk = drift && drift.riskBoost.score > 0
+        ? boostRisk(risk, drift.riskBoost.score, drift.riskBoost.factors)
+        : risk;
+
+      if (!isRiskAtOrAbove(effectiveRisk.level, config.minRiskToRunAgent)) {
         const skippedReport: AutoReviewReport = {
           id, timestamp, workspaceRoot: this.workspaceRoot,
-          watchMode: config.watchMode, diffHash, risk,
+          watchMode: config.watchMode, diffHash, risk: effectiveRisk,
           skipped: true,
-          skipReason: `Risk level '${risk.level}' is below threshold '${config.minRiskToRunAgent}'`,
+          skipReason: `Risk level '${effectiveRisk.level}' is below threshold '${config.minRiskToRunAgent}'`,
+          architectureDrift: driftReportInfo,
         };
         this.stateStore.saveReport(skippedReport);
         if (config.retention.enabled) this.stateStore.pruneOldReports(config);
@@ -95,7 +114,8 @@ export class AutoReviewScheduler {
       });
 
       let baselineSuppressed = 0;
-      let filteredFindings = codeReview.findings;
+      // Drift findings go through the same baseline suppression as agent findings
+      let filteredFindings = [...(drift?.findings ?? []), ...codeReview.findings];
       if (config.baseline.enabled) {
         const before = filteredFindings.length;
         filteredFindings = filteredFindings.filter(f => {
@@ -105,21 +125,27 @@ export class AutoReviewScheduler {
         baselineSuppressed = before - filteredFindings.length;
       }
 
-      const reviewWithBaseline = { ...codeReview, findings: filteredFindings };
+      const reviewWithBaseline = {
+        ...codeReview,
+        findings: filteredFindings,
+        stats: new CodeReviewPolicy().calculateStats(filteredFindings),
+      };
 
       const finalReport: AutoReviewReport = {
         id, timestamp, workspaceRoot: this.workspaceRoot,
-        watchMode: config.watchMode, diffHash, risk,
+        watchMode: config.watchMode, diffHash, risk: effectiveRisk,
         skipped: false,
         codeReview: reviewWithBaseline,
         baselineSuppressed,
+        architectureDrift: driftReportInfo,
       };
 
       this.stateStore.saveReport(finalReport);
       if (config.retention.enabled) this.stateStore.pruneOldReports(config);
 
       const blockers = reviewWithBaseline.findings.filter(f => f.blocking).length;
-      const msg = `Auto Review: ${reviewWithBaseline.verdict} — ${reviewWithBaseline.findings.length} finding(s)${blockers > 0 ? ` (${blockers} blocking)` : ''}`;
+      const driftCount = driftReportInfo?.newViolationCount ?? 0;
+      const msg = `Auto Review: ${reviewWithBaseline.verdict} — ${reviewWithBaseline.findings.length} finding(s)${blockers > 0 ? ` (${blockers} blocking)` : ''}${driftCount > 0 ? ` (${driftCount} architecture drift)` : ''}`;
 
       const action = await vscode.window.showInformationMessage(msg, 'Open Report');
       if (action === 'Open Report') {

@@ -85,6 +85,11 @@ const STYLE_SPECS: StyleSpec[] = [
   },
 ];
 
+export function boundariesForStyle(style: ArchitectureStyle): LayerBoundary[] {
+  const spec = STYLE_SPECS.find(s => s.style === style);
+  return spec ? spec.boundaries : [];
+}
+
 export class ArchitectureStyleDetector {
   async detect(workspaceRoot: string): Promise<StyleDetectionResult> {
     const folders = await collectSourceFolders(workspaceRoot);

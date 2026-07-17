@@ -16,7 +16,7 @@ export {
 } from './types';
 
 export { ArchitectureConfigLoader } from './ArchitectureConfigLoader';
-export { ArchitectureStyleDetector, type StyleDetectionResult } from './ArchitectureStyleDetector';
+export { ArchitectureStyleDetector, boundariesForStyle, type StyleDetectionResult } from './ArchitectureStyleDetector';
 export { LayerDetector, buildLayerDetectorFromConfig } from './LayerDetector';
 export { PatternDetector } from './PatternDetector';
 export { ModuleDetector, parseImports, isEligibleFile } from './ModuleDetector';

@@ -14,6 +14,7 @@ export const DEFAULT_CONFIG: NexusConfig = {
     enabled: false,
     autoSelectPreset: true,
     requireApprovalForHighRiskTools: true,
+    approvalTimeoutMs: 120_000,
     maxResultChars: 6000,
     maxRoundsPerTask: 1,
     presets: {

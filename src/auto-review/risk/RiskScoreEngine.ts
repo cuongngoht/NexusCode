@@ -37,11 +37,21 @@ export function scoreRisk(diff: string, changedFiles: Array<{ path: string }>): 
   // Clamp score
   score = Math.min(100, score);
 
-  let level: RiskLevel;
-  if (score <= 25) level = 'low';
-  else if (score <= 50) level = 'medium';
-  else if (score <= 75) level = 'high';
-  else level = 'critical';
+  return { level: levelForScore(score), score, factors };
+}
 
-  return { level, score, factors };
+export function levelForScore(score: number): RiskLevel {
+  if (score <= 25) return 'low';
+  if (score <= 50) return 'medium';
+  if (score <= 75) return 'high';
+  return 'critical';
+}
+
+export function boostRisk(risk: RiskScore, extraScore: number, extraFactors: string[]): RiskScore {
+  const score = Math.min(100, risk.score + extraScore);
+  return {
+    level: levelForScore(score),
+    score,
+    factors: [...risk.factors, ...extraFactors],
+  };
 }

@@ -132,6 +132,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.globalStorageUri,
     fileIntelligenceDeps,
     knowledgeFactsDeps,
+    mcpToolUseCase,
   );
 
   context.subscriptions.push(

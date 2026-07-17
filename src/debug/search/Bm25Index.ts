@@ -1,12 +1,13 @@
-// TODO: cache incremental index by file path + mtime + size.
 import * as fs from 'fs';
 import { tokenize, tokenizePath } from './Bm25Tokenizer';
 import { collectWorkspaceFiles } from './WorkspaceFileCollector';
+import type { Bm25DocumentCache } from './Bm25DocumentCache';
 import type { DebugSearchResult } from './DebugSearchResult';
 
 export interface Bm25BuildOptions {
   excludeDirs?: string[];
   maxFileBytes?: number;
+  cache?: Bm25DocumentCache;
 }
 
 interface DocumentEntry {
@@ -37,35 +38,55 @@ export class Bm25Index {
 
     const docs: DocumentEntry[] = [];
     const docFreq = new Map<string, number>();
+    const cache = options.cache;
 
     for (const file of files) {
-      let content = '';
-      try {
-        content = fs.readFileSync(file.absolutePath, 'utf8');
-      } catch {
-        continue;
-      }
+      let termFreq: Map<string, number>;
+      let docLength: number;
 
-      // Combine path tokens + content tokens
-      const pathTokens = tokenizePath(file.relativePath);
-      const contentTokens = tokenize(content);
-      const allTokens = [...pathTokens, ...contentTokens];
+      const cached = cache?.get(file);
+      if (cached) {
+        termFreq = cached.termFreq;
+        docLength = cached.docLength;
+      } else {
+        let content = '';
+        try {
+          content = fs.readFileSync(file.absolutePath, 'utf8');
+        } catch {
+          continue;
+        }
 
-      const termFreq = new Map<string, number>();
-      for (const token of allTokens) {
-        termFreq.set(token, (termFreq.get(token) ?? 0) + 1);
+        // Combine path tokens + content tokens
+        const pathTokens = tokenizePath(file.relativePath);
+        const contentTokens = tokenize(content);
+        const allTokens = [...pathTokens, ...contentTokens];
+
+        termFreq = new Map<string, number>();
+        for (const token of allTokens) {
+          termFreq.set(token, (termFreq.get(token) ?? 0) + 1);
+        }
+        docLength = allTokens.length;
+
+        cache?.set(file, {
+          mtimeMs: file.mtimeMs,
+          sizeBytes: file.sizeBytes,
+          termFreq,
+          docLength,
+        });
       }
 
       docs.push({
         relativePath: file.relativePath,
         termFreq,
-        docLength: allTokens.length,
+        docLength,
       });
 
       for (const term of termFreq.keys()) {
         docFreq.set(term, (docFreq.get(term) ?? 0) + 1);
       }
     }
+
+    cache?.prune(new Set(files.map(f => f.absolutePath)));
 
     const N = docs.length;
     const avgDocLength = N === 0 ? 1 : docs.reduce((s, d) => s + d.docLength, 0) / N;

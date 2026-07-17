@@ -2,6 +2,7 @@ import type { DebugSearchAdapter } from './DebugSearchAdapter';
 import type { DebugChainContext } from '../orchestrator/DebugChainContext';
 import type { DebugSearchResult } from '../search/DebugSearchResult';
 import { Bm25Index } from '../search/Bm25Index';
+import { getBm25CacheFor } from '../search/Bm25DocumentCache';
 import { buildDebugQueries } from '../search/DebugQueryBuilder';
 
 /**
@@ -19,6 +20,7 @@ export class InternalWorkspaceSearchAdapter implements DebugSearchAdapter {
     const index = await Bm25Index.build(ctx.workspaceRoot, {
       excludeDirs: ctx.projectExcludeFromIndex,
       maxFileBytes: ctx.maxFileBytes,
+      cache: getBm25CacheFor(ctx.workspaceRoot),
     });
     const queries = ctx.signal
       ? buildDebugQueries(ctx.signal, ctx.originalPrompt)
