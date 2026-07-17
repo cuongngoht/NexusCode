@@ -39,6 +39,8 @@ export interface PromptContext {
   architectureContext?: string;
   /** Knowledge base context injected when relevant prior task entries exist. */
   knowledgeBaseContext?: string;
+  /** Evidence-based knowledge facts context injected when relevant verified/candidate facts exist. */
+  knowledgeFactsContext?: string;
   /** Per-file intelligence context injected when file profiles are available. */
   fileIntelligenceContext?: string;
 }
@@ -133,6 +135,12 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Project Knowledge Base');
     lines.push(ctx.knowledgeBaseContext);
+  }
+
+  if (ctx.knowledgeFactsContext) {
+    lines.push('');
+    lines.push('# Knowledge Facts');
+    lines.push(ctx.knowledgeFactsContext);
   }
 
   if (ctx.fileIntelligenceContext) {

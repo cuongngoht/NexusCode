@@ -122,4 +122,52 @@ describe('CodeReviewPromptBuilder', () => {
     const prompt = builder.build({ context: ctx });
     expect(prompt).not.toContain('## Project Context (Retrieved)');
   });
+
+  it('includes architecture context when provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({
+      context: ctx,
+      architectureContext: '## Architecture Context (clean architecture)\n[module] src/core/Foo.ts — layer: core',
+    });
+    expect(prompt).toContain('## Architecture Context (Retrieved)');
+    expect(prompt).toContain('src/core/Foo.ts');
+  });
+
+  it('omits architecture context section when not provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({ context: ctx });
+    expect(prompt).not.toContain('## Architecture Context (Retrieved)');
+  });
+
+  it('includes knowledge base context when provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({
+      context: ctx,
+      knowledgeBaseContext: 'Task journal: previously fixed a similar bug in src/foo.ts',
+    });
+    expect(prompt).toContain('## Project Knowledge Base (Retrieved)');
+    expect(prompt).toContain('previously fixed a similar bug');
+  });
+
+  it('omits knowledge base context section when not provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({ context: ctx });
+    expect(prompt).not.toContain('## Project Knowledge Base (Retrieved)');
+  });
+
+  it('includes knowledge facts context when provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({
+      context: ctx,
+      knowledgeFactsContext: '[invariant] IEventBus: emit is synchronous',
+    });
+    expect(prompt).toContain('## Knowledge Facts (Retrieved)');
+    expect(prompt).toContain('emit is synchronous');
+  });
+
+  it('omits knowledge facts context section when not provided', () => {
+    const ctx = makeContext();
+    const prompt = builder.build({ context: ctx });
+    expect(prompt).not.toContain('## Knowledge Facts (Retrieved)');
+  });
 });

@@ -3,6 +3,7 @@ import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import type { NexusEvent } from '../../core/events/IEventBus';
 import { ArchitectureMemoryLoader, ArchitectureMemoryValidator } from '../../context/architecture-memory';
 import { ArchitectureRagFacade } from '../../context/architecture-memory/search/ArchitectureRagFacade';
+import { ModuleUsageLoader } from '../../context/knowledge-base/ModuleUsageLoader';
 
 export class ArchitectureMemoryStep implements ICompensableStep {
   readonly label = 'architecture-memory';
@@ -11,6 +12,7 @@ export class ArchitectureMemoryStep implements ICompensableStep {
     private readonly loader: ArchitectureMemoryLoader = new ArchitectureMemoryLoader(),
     private readonly validator: ArchitectureMemoryValidator = new ArchitectureMemoryValidator(),
     private readonly ragFacade: ArchitectureRagFacade = new ArchitectureRagFacade(),
+    private readonly usageLoader: ModuleUsageLoader = new ModuleUsageLoader(),
   ) {}
 
   async execute(ctx: PipelineContext, _emit: (e: NexusEvent) => void): Promise<void> {
@@ -21,8 +23,9 @@ export class ArchitectureMemoryStep implements ICompensableStep {
       const { valid } = this.validator.validate(memory);
       if (!valid) return;
 
+      const usage = await this.usageLoader.load(ctx.workspaceRoot).catch(() => undefined);
       const query = buildQuery(ctx);
-      const architectureContext = this.ragFacade.build(memory, query);
+      const architectureContext = this.ragFacade.build(memory, query, {}, usage);
       if (architectureContext) {
         ctx.architectureContext = architectureContext;
       }

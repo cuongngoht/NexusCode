@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ArchitectureIndexBuilder } from '../ArchitectureIndexBuilder';
 import type { ArchitectureMemory } from '../../types';
+import type { ModuleUsageIndex } from '../../../knowledge-base/moduleUsageTypes';
 
 function makeMemory(overrides: Partial<ArchitectureMemory> = {}): ArchitectureMemory {
   return {
@@ -211,6 +212,43 @@ describe('ArchitectureIndexBuilder', () => {
     const memory = makeMemory();
     const index = builder.build(memory);
     expect(index.detectedStyle).toBe('clean-architecture');
+  });
+
+  it('build(memory) with no usage arg is unchanged (backward compat)', () => {
+    const memory = makeMemory();
+    const withoutArg = builder.build(memory);
+    const withUndefined = builder.build(memory, undefined);
+    expect(withoutArg.documents).toEqual(withUndefined.documents);
+  });
+
+  it('build(memory, usage) includes touch-count text in the module doc content', () => {
+    const memory = makeMemory();
+    const usage: ModuleUsageIndex = {
+      version: 1,
+      schemaVersion: 'module-usage-v1',
+      updatedAt: Date.now(),
+      modules: {
+        'src/core/domain/User.ts': {
+          path: 'src/core/domain/User.ts',
+          touchCount: 3,
+          lastTouchedAt: Date.now(),
+          lastTouchedMode: 'edit',
+          recentSummaries: [{ taskId: 't1', at: Date.now(), summary: 'Added validation' }],
+          recentWarnings: [],
+          seenTaskIds: ['t1'],
+        },
+      },
+    };
+
+    const index = builder.build(memory, usage);
+    const userDoc = index.documents.find(d => d.id === 'module::src/core/domain/User.ts');
+    expect(userDoc!.content).toContain('touched 3 times');
+    expect(userDoc!.content).toContain('Added validation');
+
+    // A module with no usage entry is rendered exactly as without usage data.
+    const repoDoc = index.documents.find(d => d.id === 'module::src/infrastructure/db/UserRepository.ts');
+    const repoDocWithoutUsage = builder.build(memory).documents.find(d => d.id === 'module::src/infrastructure/db/UserRepository.ts');
+    expect(repoDoc).toEqual(repoDocWithoutUsage);
   });
 
   it('handles empty modules gracefully', () => {

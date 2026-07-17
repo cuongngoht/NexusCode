@@ -12,6 +12,21 @@ export {
 export { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
 export { KnowledgeBaseLoader } from './KnowledgeBaseLoader';
 
+export {
+  MODULE_USAGE_SCHEMA_VERSION,
+  MODULE_USAGE_FILE,
+  MAX_RECENT_SUMMARIES,
+  MAX_WARNINGS,
+  MAX_SEEN_TASK_IDS,
+  isValidModuleUsageIndexShape,
+  type ModuleUsageRecord,
+  type ModuleUsageIndex,
+  type ModuleUsageSummaryEntry,
+  type ModuleUsageWarningEntry,
+} from './moduleUsageTypes';
+export { ModuleUsageProjector } from './ModuleUsageProjector';
+export { ModuleUsageLoader } from './ModuleUsageLoader';
+
 export { KnowledgeBaseIndexBuilder } from './search/KnowledgeBaseIndexBuilder';
 export { KnowledgeBaseRagFacade, type KnowledgeBaseRagOptions } from './search/KnowledgeBaseRagFacade';
 export type {

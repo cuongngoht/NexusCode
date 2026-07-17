@@ -79,7 +79,10 @@ import { FileIntelligenceMergePolicy } from './context/file-intelligence/FileInt
 import { FileIntelligenceConfidenceScorer } from './context/file-intelligence/FileIntelligenceConfidenceScorer';
 import { FileIntelligenceFreshnessPolicy } from './context/file-intelligence/FileIntelligenceFreshnessPolicy';
 import { NexusIgnoreMatcher } from './context/project-map/NexusIgnoreMatcher';
-import type { FileIntelligenceDeps } from './webview/handlers/RunTaskHandler';
+import type { FileIntelligenceDeps, KnowledgeFactsDeps } from './webview/handlers/RunTaskHandler';
+import { EnrichmentConsentGate } from './application/knowledge-facts/EnrichmentConsentGate';
+import { EnrichmentBudgetTracker } from './application/knowledge-facts/EnrichmentBudgetTracker';
+import { EnrichAndRecordFactsUseCase } from './application/knowledge-facts/EnrichAndRecordFactsUseCase';
 
 export function activate(context: vscode.ExtensionContext): void {
   const registry = createAgentRegistry();
@@ -106,6 +109,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
   );
 
+  const knowledgeFactsDeps = createKnowledgeFactsDeps(registry, runner, context.workspaceState);
+
   // Analytics
   const analyticsService = createAnalyticsService(context.globalStorageUri);
   // Prune old analytics on startup
@@ -126,6 +131,7 @@ export function activate(context: vscode.ExtensionContext): void {
     analyticsService,
     context.globalStorageUri,
     fileIntelligenceDeps,
+    knowledgeFactsDeps,
   );
 
   context.subscriptions.push(
@@ -422,6 +428,21 @@ function createAnalyticsService(globalStorageUri: vscode.Uri): AnalyticsService 
     analyticsExporter,
     vscode.workspace.getConfiguration('nexus'),
   );
+}
+
+function createKnowledgeFactsDeps(
+  registry: AgentRegistry,
+  runner: ProcessRunner,
+  workspaceState: vscode.Memento,
+): KnowledgeFactsDeps {
+  const aiRunner = new ProjectMapAiRunner(registry, runner);
+  const consentGate = new EnrichmentConsentGate(
+    workspaceState,
+    (message, ...items) => Promise.resolve(vscode.window.showInformationMessage(message, ...items)),
+  );
+  const budgetTracker = new EnrichmentBudgetTracker(workspaceState);
+  const enrichAndRecordFacts = new EnrichAndRecordFactsUseCase(aiRunner);
+  return { consentGate, budgetTracker, enrichAndRecordFacts };
 }
 
 function createFileIntelligenceDeps(workspaceRoot: string): FileIntelligenceDeps {

@@ -6,6 +6,7 @@ import type { ExtensionMessage } from '../webviewProtocol';
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
 import type { ProviderId, TaskMode } from '../../core/types';
 import { AgentTask } from '../../core/agent';
+import type { AgentId } from '../../core/agent';
 import { AgentResult } from '../../core/agent/AgentResult';
 import type { PipelineContext } from '../../core/pipeline/PipelineContext';
 import type { IPipelineStep } from '../../core/pipeline/IPipelineStep';
@@ -14,6 +15,13 @@ import { NexusOrchestrator } from '../../application/nexus/NexusOrchestrator';
 import { NexusPlanStore } from '../../application/nexus/NexusPlanStore';
 import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectMapUseCase';
 import { BuildArchitectureMemoryUseCase } from '../../application/usecases/BuildArchitectureMemoryUseCase';
+import { BackfillModuleUsageUseCase } from '../../application/usecases/BackfillModuleUsageUseCase';
+import { RetentionSweepUseCase } from '../../application/knowledge-facts/RetentionSweepUseCase';
+import type { EnrichmentConsentGate } from '../../application/knowledge-facts/EnrichmentConsentGate';
+import type { EnrichmentBudgetTracker } from '../../application/knowledge-facts/EnrichmentBudgetTracker';
+import type { EnrichAndRecordFactsUseCase } from '../../application/knowledge-facts/EnrichAndRecordFactsUseCase';
+import { evaluateEnrichmentTrigger, type EnrichmentTriggerInput } from '../../application/knowledge-facts/EnrichmentTriggerEvaluator';
+import { readKnowledgeFactsConfig } from '../../application/knowledge-facts/KnowledgeFactsConfig';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
 import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
@@ -71,12 +79,18 @@ import type { IFileIntelligenceStore } from '../../context/file-intelligence/Fil
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
 import type { FileTouchEvent, FileTouchSource } from '../../context/file-intelligence/types';
 import { SagaRunner } from '../../application/pipeline/SagaRunner';
-import { KnowledgeBaseWriter } from '../../context/knowledge-base/KnowledgeBaseWriter';
+import { ProjectLearningCoordinator, type RunHandle } from '../../application/learning/ProjectLearningCoordinator';
 
 export interface FileIntelligenceDeps {
   service: FileIntelligenceService;
   store: IFileIntelligenceStore;
   ignoreFilter: FileIntelligenceIgnoreFilter;
+}
+
+export interface KnowledgeFactsDeps {
+  consentGate: EnrichmentConsentGate;
+  budgetTracker: EnrichmentBudgetTracker;
+  enrichAndRecordFacts: EnrichAndRecordFactsUseCase;
 }
 
 const RUN_STEP_LABEL = 'analyze';
@@ -125,10 +139,13 @@ export class RunTaskHandler {
     private readonly projectMemoryStatusService: ProjectMemoryStatusService = new ProjectMemoryStatusService(),
     private readonly projectMemoryRagFacade?: ProjectMemoryRagFacade,
     private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
-    private readonly knowledgeBaseWriter: KnowledgeBaseWriter = new KnowledgeBaseWriter(),
+    private readonly projectLearning: ProjectLearningCoordinator = new ProjectLearningCoordinator(),
+    private readonly knowledgeFactsDeps?: KnowledgeFactsDeps,
   ) {}
 
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
+  private readonly backfillModuleUsage = new BackfillModuleUsageUseCase();
+  private readonly retentionSweep = new RetentionSweepUseCase();
   private readonly sagaRunner = new SagaRunner();
 
   hasActive(): boolean {
@@ -334,6 +351,16 @@ export class RunTaskHandler {
           } catch {
             // non-blocking — architecture memory is best-effort
           }
+          try {
+            await this.backfillModuleUsage.execute(workspaceRoot);
+          } catch {
+            // non-blocking — module usage backfill is best-effort and one-time
+          }
+          try {
+            await this.retentionSweep.execute(workspaceRoot);
+          } catch {
+            // non-blocking — knowledge-facts retention sweep is best-effort
+          }
           this.post({
             type: 'projectScanCompleted',
             fileCount: result.mapOutput.tree.files.length,
@@ -382,6 +409,7 @@ export class RunTaskHandler {
 
           this.setupDebugIntelligenceListener(debugTask, workspaceRoot, effectivePrompt);
 
+          const debugLearningHandle = this.projectLearning.beginRun(workspaceRoot, mode);
           try {
             await this.debugOrchestrator.run({
               workspaceRoot,
@@ -400,10 +428,9 @@ export class RunTaskHandler {
             });
             const okResult = new AgentResult(0, '', '', Date.now() - debugTask.startedAt);
             this.eventBus.emit({ kind: 'task_completed', task: debugTask, result: okResult });
-            void this.knowledgeBaseWriter.write(workspaceRoot, {
+            void this.projectLearning.completeRun(debugLearningHandle, {
               mode, providerId, model, originalPrompt: effectivePrompt, status: 'completed',
-              skillIds: ctx.mentionedSkillIds, changedFiles: getGitStatus(workspaceRoot).changes,
-              source: 'task-pipeline',
+              skillIds: ctx.mentionedSkillIds, source: 'task-pipeline',
             }).catch(() => {});
           } catch (err) {
             const msg = String(err);
@@ -411,20 +438,20 @@ export class RunTaskHandler {
             this.eventBus.emit({ kind: 'task_error', task: debugTask, error: msg });
             // also emit completed with failure for listeners that only key off completed
             this.eventBus.emit({ kind: 'task_completed', task: debugTask, result: failResult });
-            void this.knowledgeBaseWriter.write(workspaceRoot, {
+            void this.projectLearning.completeRun(debugLearningHandle, {
               mode, providerId, model, originalPrompt: effectivePrompt, status: 'failed',
-              skillIds: ctx.mentionedSkillIds, changedFiles: getGitStatus(workspaceRoot).changes,
-              source: 'task-pipeline',
+              skillIds: ctx.mentionedSkillIds, source: 'task-pipeline',
             }).catch(() => {});
           }
           return;
         }
+        const nexusLearningHandle = this.projectLearning.beginRun(workspaceRoot, mode);
         const nexusOutcome = await this.orchestrator.run(ctx, 'auto');
         if (nexusOutcome) {
-          void this.knowledgeBaseWriter.write(workspaceRoot, {
+          void this.projectLearning.completeRun(nexusLearningHandle, {
             mode, providerId: nexusOutcome.task.agentId, model, originalPrompt: ctx.originalPrompt,
             skillIds: ctx.mentionedSkillIds, status: nexusOutcome.result.succeeded ? 'completed' : 'failed',
-            changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+            source: 'task-pipeline',
           }).catch(() => {});
         }
       } else {
@@ -482,8 +509,9 @@ export class RunTaskHandler {
         const { supplementAgentIds, supplementCleanedPrompt } =
           this.detectReviewSupplement(mode, effectivePrompt, workspaceRoot);
 
+        const learningHandle = this.projectLearning.beginRun(workspaceRoot, mode);
         const postSteps = this.buildPostSteps(
-          ctx, supplementAgentIds, supplementCleanedPrompt, providerId, mode, model, workspaceRoot, cfg,
+          ctx, supplementAgentIds, supplementCleanedPrompt, providerId, mode, model, workspaceRoot, cfg, learningHandle,
         );
 
         const totalSteps = preSteps.length + subagentCount + postSteps.length;
@@ -571,12 +599,13 @@ export class RunTaskHandler {
     this._pipelineActive = true;
     try {
       if (effectiveProvider === 'nexus') {
+        const applyPlanNexusHandle = this.projectLearning.beginRun(workspaceRoot, 'edit');
         const codeOutcome = await this.orchestrator.run(ctx, 'code');
         if (codeOutcome) {
-          void this.knowledgeBaseWriter.write(workspaceRoot, {
+          void this.projectLearning.completeRun(applyPlanNexusHandle, {
             mode: 'edit', providerId: codeOutcome.task.agentId, model, originalPrompt: approvedPlanPrompt,
             status: codeOutcome.result.succeeded ? 'completed' : 'failed',
-            changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+            source: 'task-pipeline',
           }).catch(() => {});
         }
       } else {
@@ -602,13 +631,14 @@ export class RunTaskHandler {
         if (cfg.get<boolean>('runGitStatusAfterTask', true)) {
           this.setupGitStatusListener(task, workspaceRoot);
         }
+        const applyPlanHandle = this.projectLearning.beginRun(workspaceRoot, 'edit');
         try {
           const result = await this.runAgent.execute(task);
           this.eventBus.emit({ kind: 'step_completed', stepLabel: 'code' });
-          void this.knowledgeBaseWriter.write(workspaceRoot, {
+          void this.projectLearning.completeRun(applyPlanHandle, {
             mode: 'edit', providerId: effectiveProvider, model, originalPrompt: approvedPlanPrompt,
             status: result.succeeded ? 'completed' : 'failed',
-            changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+            source: 'task-pipeline',
           }).catch(() => {});
         } catch {
           this.eventBus.emit({ kind: 'step_error', stepLabel: 'code', error: '' });
@@ -786,6 +816,9 @@ export class RunTaskHandler {
         userPrompt: cleanedReviewPrompt || undefined,
         preset,
         projectMemoryContext: ctx.conversationContext,
+        architectureContext: ctx.architectureContext,
+        knowledgeBaseContext: ctx.knowledgeBaseContext,
+        knowledgeFactsContext: ctx.knowledgeFactsContext,
       });
       if (ctx.subagentResults && ctx.subagentResults.length > 0) {
         const injectMaxChars = vscode.workspace.getConfiguration('nexus').get<number>('subagents.injectMaxChars', 8000);
@@ -836,6 +869,7 @@ export class RunTaskHandler {
       researchContext,
       architectureContext: ctx.architectureContext,
       knowledgeBaseContext: ctx.knowledgeBaseContext,
+      knowledgeFactsContext: ctx.knowledgeFactsContext,
       fileIntelligenceContext: ctx.fileIntelligenceContext,
     });
 
@@ -915,6 +949,7 @@ export class RunTaskHandler {
     model: string | undefined,
     workspaceRoot: string,
     cfg: vscode.WorkspaceConfiguration,
+    learningHandle: RunHandle,
   ): IPipelineStep[] {
     // When @agent is used in review mode, the agent's own guidelines drive the review.
     // Skip the generic CodeReviewPromptBuilder step entirely.
@@ -922,7 +957,7 @@ export class RunTaskHandler {
       return [this.makeAgentSupplementStep(ctx, supplementAgentIds, supplementCleanedPrompt, providerId, model, workspaceRoot, cfg)];
     }
     const steps: IPipelineStep[] = [
-      this.makeExecuteStep(ctx, providerId, mode, model, workspaceRoot, cfg),
+      this.makeExecuteStep(ctx, providerId, mode, model, workspaceRoot, cfg, learningHandle),
     ];
     if (supplementAgentIds.length > 0) {
       steps.push(this.makeAgentSupplementStep(ctx, supplementAgentIds, supplementCleanedPrompt, providerId, model, workspaceRoot, cfg));
@@ -937,6 +972,7 @@ export class RunTaskHandler {
     model: string | undefined,
     workspaceRoot: string,
     cfg: vscode.WorkspaceConfiguration,
+    learningHandle: RunHandle,
   ): IPipelineStep {
     return {
       label: mode === 'review' ? 'review-analyze' : RUN_STEP_LABEL,
@@ -983,10 +1019,10 @@ export class RunTaskHandler {
         }
 
         const result = await this.runAgent.execute(task);
-        void this.knowledgeBaseWriter.write(workspaceRoot, {
+        void this.projectLearning.completeRun(learningHandle, {
           mode, providerId, model, originalPrompt: ctx.originalPrompt,
           skillIds: ctx.mentionedSkillIds, status: result.succeeded ? 'completed' : 'failed',
-          changedFiles: getGitStatus(workspaceRoot).changes, source: 'task-pipeline',
+          source: 'task-pipeline',
         }).catch(() => {});
       },
     };
@@ -1347,6 +1383,12 @@ export class RunTaskHandler {
             }));
             service.processAsync(confirmedEvents);
           }
+
+          if (changedFiles.length > 0 && rootCause) {
+            this.maybeTriggerKnowledgeFactEnrichment(workspaceRoot, task.id, task.agentId, {
+              debugRootCauseConfirmed: true,
+            }, rootCause);
+          }
         } catch {
           // best-effort
         }
@@ -1354,6 +1396,42 @@ export class RunTaskHandler {
     };
 
     this.eventBus.on('*', listener);
+  }
+
+  /**
+   * Fire-and-forget AI-assisted Knowledge Facts enrichment. Gated behind config
+   * (nexus.knowledgeFacts.enrichmentEnabled, off by default), one-time user consent, and a daily
+   * call budget — never awaited by the caller, never allowed to affect the primary task.
+   */
+  private maybeTriggerKnowledgeFactEnrichment(
+    workspaceRoot: string,
+    taskId: string,
+    provider: AgentId,
+    signal: EnrichmentTriggerInput,
+    contextForPrompt: string,
+  ): void {
+    if (!this.knowledgeFactsDeps) return;
+    const cfg = readKnowledgeFactsConfig();
+    if (!cfg.enrichmentEnabled) return;
+
+    const trigger = evaluateEnrichmentTrigger(signal, cfg.minRiskToEnrich);
+    if (!trigger) return;
+
+    const { consentGate, budgetTracker, enrichAndRecordFacts } = this.knowledgeFactsDeps;
+    if (!budgetTracker.canRunNow(cfg.maxEnrichmentCallsPerDay)) return;
+
+    void (async () => {
+      try {
+        const consented = await consentGate.ensureConsent();
+        if (!consented) return;
+        if (!budgetTracker.canRunNow(cfg.maxEnrichmentCallsPerDay)) return;
+
+        await budgetTracker.recordRun();
+        await enrichAndRecordFacts.execute({ workspaceRoot, provider, triggerReason: trigger, contextForPrompt, taskId });
+      } catch {
+        // best-effort — enrichment must never surface an error to the user
+      }
+    })();
   }
 
   // Part 2 — capture files the CLI read as context during any task

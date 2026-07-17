@@ -626,6 +626,45 @@
           "enum": ["low", "medium", "high", "critical"],
           "description": "Minimum local risk level required before calling the AI agent for review."
         },
+        "nexus.knowledgeFacts.enrichmentEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable AI-assisted enrichment of Knowledge Facts after significant changes, debug fixes, or review findings. Requires one-time consent."
+        },
+        "nexus.knowledgeFacts.maxEnrichmentCallsPerDay": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Maximum number of AI enrichment calls per day for Knowledge Facts."
+        },
+        "nexus.knowledgeFacts.minRiskToEnrich": {
+          "type": "string",
+          "default": "medium",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Minimum risk level required before triggering AI enrichment from a significant diff."
+        },
+        "nexus.knowledgeFacts.retention.maxEvidencePerFact": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 5000,
+          "description": "Maximum number of evidence entries kept per Knowledge Fact before the oldest are dropped."
+        },
+        "nexus.knowledgeFacts.retention.maxEvidenceAgeDays": {
+          "type": "number",
+          "default": 180,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Maximum age in days of an evidence entry before it is dropped from a Knowledge Fact."
+        },
+        "nexus.knowledgeFacts.retention.staleCleanupDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Number of days a stale or superseded Knowledge Fact is kept before being permanently deleted."
+        },
         "nexus.autoReview.baseline.enabled": {
           "type": "boolean",
           "default": true,

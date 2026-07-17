@@ -7,6 +7,7 @@ import { DebugPreStep } from './DebugPreStep';
 import { ReviewFileContextStep } from './review/ReviewFileContextStep';
 import { ArchitectureMemoryStep } from './ArchitectureMemoryStep';
 import { KnowledgeBaseStep } from './KnowledgeBaseStep';
+import { KnowledgeFactsStep } from './KnowledgeFactsStep';
 import { FileIntelligenceContextStep } from './FileIntelligenceContextStep';
 import type { IFileIntelligenceStore } from '../../context/file-intelligence/FileIntelligenceStore';
 import type { FileIntelligenceIgnoreFilter } from '../../context/file-intelligence/FileIntelligenceIgnoreFilter';
@@ -45,20 +46,21 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
           new ReadSourceContextStep(),
           new BrainstormAgentsStep(deps.extensionPath),
           new KnowledgeBaseStep(),
+          new KnowledgeFactsStep(),
         ],
         deps,
       );
 
     case 'debug':
-      return withFileIntelligence([new DebugPreStep(), new KnowledgeBaseStep()], deps);
+      return withFileIntelligence([new DebugPreStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()], deps);
 
     case 'review':
-      // NOTE: review's prompt is built entirely by CodeReviewPromptBuilder, which never
-      // reads ctx.architectureContext or ctx.knowledgeBaseContext — adding either step
-      // here would be a silent no-op.
-      return withFileIntelligence([new ReviewFileContextStep()], deps);
+      return withFileIntelligence(
+        [new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep(), new ReviewFileContextStep()],
+        deps,
+      );
 
     default:
-      return withFileIntelligence([new ArchitectureMemoryStep(), new KnowledgeBaseStep()], deps);
+      return withFileIntelligence([new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()], deps);
   }
 }

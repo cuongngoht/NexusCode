@@ -14,7 +14,7 @@ import type { ConversationCompactor } from '../context/ConversationCompactor';
 import type { AnalyticsService } from '../analytics/AnalyticsService';
 import type { CodeReviewTarget } from '../application/code-review/CodeReviewTarget';
 import type { CodeReviewPreset } from '../application/code-review/CodeReviewPromptBuilder';
-import type { FileIntelligenceDeps } from './handlers/RunTaskHandler';
+import type { FileIntelligenceDeps, KnowledgeFactsDeps } from './handlers/RunTaskHandler';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'nexus.chatView';
@@ -36,6 +36,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly analyticsService?: AnalyticsService,
     private readonly globalStorageUri?: vscode.Uri,
     private readonly fileIntelligenceDeps?: FileIntelligenceDeps,
+    private readonly knowledgeFactsDeps?: KnowledgeFactsDeps,
   ) { }
 
   resolveWebviewView(
@@ -71,6 +72,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.analyticsService,
       this.globalStorageUri,
       this.fileIntelligenceDeps,
+      this.knowledgeFactsDeps,
     );
 
     webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {

@@ -2,6 +2,7 @@ import { tokenize } from '../../history-search/bm25/Bm25Tokenizer';
 import { bm25Score } from '../../history-search/bm25/Bm25Scorer';
 import { DEFAULT_BM25_CONFIG } from '../../history-search/bm25/Bm25Types';
 import type { ArchitectureLayer, ArchitectureMemory } from '../types';
+import type { ModuleUsageIndex } from '../../knowledge-base/moduleUsageTypes';
 import { ArchitectureIndexBuilder } from './ArchitectureIndexBuilder';
 import type { ArchitectureSearchResult } from './ArchitectureDocument';
 
@@ -18,10 +19,10 @@ export class ArchitectureRagFacade {
     private readonly indexBuilder: ArchitectureIndexBuilder = new ArchitectureIndexBuilder(),
   ) {}
 
-  build(memory: ArchitectureMemory, prompt: string, opts: ArchitectureRagOptions = {}): string {
+  build(memory: ArchitectureMemory, prompt: string, opts: ArchitectureRagOptions = {}, usage?: ModuleUsageIndex): string {
     const { maxResults = 6, maxChars = 3000, minScore = 1.0 } = opts;
 
-    const index = this.indexBuilder.build(memory);
+    const index = this.indexBuilder.build(memory, usage);
     if (index.documents.length === 0) return '';
 
     const queryTokens = tokenize(prompt);
@@ -30,7 +31,7 @@ export class ArchitectureRagFacade {
     const results = this.search(queryTokens, index, maxResults, minScore);
     if (results.length === 0) return '';
 
-    return this.formatContext(results, memory, maxChars);
+    return this.formatContext(results, memory, maxChars, usage);
   }
 
   private search(
@@ -74,6 +75,7 @@ export class ArchitectureRagFacade {
     results: ArchitectureSearchResult[],
     memory: ArchitectureMemory,
     maxChars: number,
+    usage?: ModuleUsageIndex,
   ): string {
     const lines: string[] = [];
 
@@ -98,6 +100,10 @@ export class ArchitectureRagFacade {
         if (!m) continue;
         const patternSuffix = m.patterns.length > 0 ? ` | patterns: ${m.patterns.join(', ')}` : '';
         lines.push(`[module] ${m.path} — layer: ${m.layer}${patternSuffix}`);
+        const record = usage?.modules[m.path];
+        if (record) {
+          lines.push(`  touched ${record.touchCount}x, last for ${record.lastTouchedMode}${record.recentSummaries[0] ? `: ${record.recentSummaries[0].summary}` : ''}`);
+        }
       } else if (doc.source === 'violation') {
         const v = violationMap.get(doc.id);
         if (!v) continue;

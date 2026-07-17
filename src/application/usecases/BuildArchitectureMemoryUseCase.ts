@@ -4,6 +4,7 @@ import {
   ArchitectureMemoryWriter,
   ArchitectureConfigLoader,
   DependencyGraphBuilder,
+  isEligibleFile,
   type ArchitectureMemory,
   type ArchitectureStyle,
 } from '../../context/architecture-memory';
@@ -35,17 +36,7 @@ export class BuildArchitectureMemoryUseCase {
   ) {}
 
   async execute(input: BuildArchitectureMemoryInput): Promise<BuildArchitectureMemoryOutput> {
-    const eligibleFiles = input.files.filter(f => {
-      const norm = f.replace(/\\/g, '/');
-      return (
-        (norm.endsWith('.ts') || norm.endsWith('.tsx')) &&
-        !norm.endsWith('.test.ts') &&
-        !norm.endsWith('.test.tsx') &&
-        !norm.endsWith('.spec.ts') &&
-        !norm.endsWith('.spec.tsx') &&
-        !norm.endsWith('.d.ts')
-      );
-    });
+    const eligibleFiles = input.files.filter(isEligibleFile);
 
     const memory = await this.builder.build(input.workspaceRoot, eligibleFiles);
     const markdown = this.renderer.render(memory);

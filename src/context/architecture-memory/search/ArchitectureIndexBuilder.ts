@@ -1,5 +1,6 @@
 import { tokenize } from '../../history-search/bm25/Bm25Tokenizer';
 import type { ArchitectureLayer, ArchitectureMemory, ArchitectureStyle } from '../types';
+import type { ModuleUsageIndex } from '../../knowledge-base/moduleUsageTypes';
 import type {
   ArchitectureCorpusStats,
   ArchitectureDocument,
@@ -38,10 +39,10 @@ const STYLE_BOUNDARIES: Partial<Record<ArchitectureStyle, StyleBoundary[]>> = {
 };
 
 export class ArchitectureIndexBuilder {
-  build(memory: ArchitectureMemory): ArchitectureSearchIndex {
+  build(memory: ArchitectureMemory, usage?: ModuleUsageIndex): ArchitectureSearchIndex {
     const documents: ArchitectureDocument[] = [];
 
-    this.buildModuleDocs(memory, documents);
+    this.buildModuleDocs(memory, documents, usage);
     this.buildViolationDocs(memory, documents);
     this.buildLayerDocs(memory, documents);
     this.buildRuleDocs(memory, documents);
@@ -56,11 +57,16 @@ export class ArchitectureIndexBuilder {
     };
   }
 
-  private buildModuleDocs(memory: ArchitectureMemory, out: ArchitectureDocument[]): void {
+  private buildModuleDocs(memory: ArchitectureMemory, out: ArchitectureDocument[], usage?: ModuleUsageIndex): void {
     for (const m of memory.modules) {
       const parts = [m.path, 'layer', m.layer];
       if (m.patterns.length > 0) parts.push('patterns', ...m.patterns);
       if (m.sourceEvidence.length > 0) parts.push(...m.sourceEvidence);
+      const record = usage?.modules[m.path];
+      if (record) {
+        parts.push(`touched ${record.touchCount} times`, `last touched for ${record.lastTouchedMode}`);
+        if (record.recentSummaries[0]) parts.push(record.recentSummaries[0].summary);
+      }
       const content = parts.join(' ');
       out.push({
         id: `module::${m.path}`,

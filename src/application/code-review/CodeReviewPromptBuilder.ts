@@ -9,6 +9,9 @@ export interface CodeReviewPromptInput {
   userPrompt?: string;
   preset?: CodeReviewPreset;
   projectMemoryContext?: string;
+  architectureContext?: string;
+  knowledgeBaseContext?: string;
+  knowledgeFactsContext?: string;
 }
 
 
@@ -66,7 +69,7 @@ export class CodeReviewPromptBuilder {
   }
 
   build(input: CodeReviewPromptInput): string {
-    const { context, userPrompt, preset = 'architecture', projectMemoryContext } = input;
+    const { context, userPrompt, preset = 'architecture', projectMemoryContext, architectureContext, knowledgeBaseContext, knowledgeFactsContext } = input;
     const { target, baseBranch, compareBranch, changedFiles, diffStat, diff, diffTruncated, changedCodeContext, projectRules } = context;
 
     const sections: string[] = [];
@@ -86,6 +89,21 @@ export class CodeReviewPromptBuilder {
     // Project memory context (BM25-retrieved from .nexus/project-map.md)
     if (projectMemoryContext) {
       sections.push(`## Project Context (Retrieved)\n${projectMemoryContext}`);
+    }
+
+    // Architecture memory context (BM25-retrieved from .nexus/architecture-memory/)
+    if (architectureContext) {
+      sections.push(`## Architecture Context (Retrieved)\n${architectureContext}`);
+    }
+
+    // Knowledge base context (BM25-retrieved from .nexus/knowledge-base/entries/)
+    if (knowledgeBaseContext) {
+      sections.push(`## Project Knowledge Base (Retrieved)\n${knowledgeBaseContext}`);
+    }
+
+    // Evidence-based knowledge facts (BM25-retrieved from .nexus/knowledge-base/facts/)
+    if (knowledgeFactsContext) {
+      sections.push(`## Knowledge Facts (Retrieved)\n${knowledgeFactsContext}`);
     }
 
     // Project rules (if any)

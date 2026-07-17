@@ -67,7 +67,7 @@ export class ModuleDetector {
   }
 }
 
-function isEligibleFile(relPath: string): boolean {
+export function isEligibleFile(relPath: string): boolean {
   const normalized = relPath.replace(/\\/g, '/');
   if (!normalized.endsWith('.ts') && !normalized.endsWith('.tsx')) return false;
   if (normalized.endsWith('.test.ts') || normalized.endsWith('.test.tsx')) return false;

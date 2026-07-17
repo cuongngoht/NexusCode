@@ -11,7 +11,7 @@ import { AgentReviewRunner } from './AgentReviewRunner';
 import { AgentDiffCollector } from './AgentDiffCollector';
 import { AgentFinalReporter } from './AgentFinalReporter';
 import { AgentBranchManager } from './AgentBranchManager';
-import { KnowledgeBaseWriter } from '../../context/knowledge-base/KnowledgeBaseWriter';
+import { ProjectLearningCoordinator, type RunHandle } from '../learning/ProjectLearningCoordinator';
 import { loadAgentModePolicy, type AgentModePolicy } from './AgentModePolicy';
 import type { AgentSession, AgentSessionStatus } from './AgentSession';
 import type { AgentStep, AgentStepType } from './AgentStep';
@@ -35,13 +35,14 @@ export interface RunAgentModeInput {
 
 export class AgentExecutor {
   private readonly sessionStores = new Map<string, AgentSessionStore>();
+  private readonly learningHandles = new Map<string, RunHandle>();
 
   constructor(
     private readonly runAgentUseCase: RunAgentUseCase,
     private readonly eventBus: IEventBus,
     private readonly post: (msg: unknown) => void,
     private readonly permissionService?: PermissionService,
-    private readonly knowledgeBaseWriter: KnowledgeBaseWriter = new KnowledgeBaseWriter(),
+    private readonly projectLearning: ProjectLearningCoordinator = new ProjectLearningCoordinator(),
   ) {}
 
   private getStore(workspaceRoot: string): AgentSessionStore {
@@ -72,6 +73,7 @@ export class AgentExecutor {
 
     this.postAgentMessage({ type: 'agentSessionUpdated', session: toSessionViewModel(session) });
     await timeline.append({ sessionId: session.id, type: 'session_created', message: 'Agent session created.' });
+    this.learningHandles.set(session.id, this.projectLearning.beginRun(input.workspaceRoot, 'agent'));
 
     try {
       // Optional: create working branch
@@ -147,6 +149,7 @@ export class AgentExecutor {
       const updated = store.get(session.id) ?? session;
       this.postAgentMessage({ type: 'agentSessionUpdated', session: toSessionViewModel(updated) });
       await timeline.append({ sessionId: session.id, type: 'session_failed', message: `Session failed: ${msg}` });
+      this.learningHandles.delete(session.id);
       this.emitError(msg);
     }
   }
@@ -292,13 +295,15 @@ export class AgentExecutor {
       await this.runStep(session, store, timeline, 'final_summary', 'Generating final report', async () => {
         const reporter = new AgentFinalReporter();
         const summary = await reporter.build(session!, { testResult, recoveryResult, reviewResult, diffSummary });
-        void this.knowledgeBaseWriter.write(session!.workspaceRoot, {
+        const learningHandle = this.learningHandles.get(sessionId) ?? this.projectLearning.beginRun(session!.workspaceRoot, 'agent');
+        this.learningHandles.delete(sessionId);
+        void this.projectLearning.completeRun(learningHandle, {
           mode: 'agent',
           providerId: session!.providerId,
           model: session!.model,
           originalPrompt: session!.originalPrompt,
           status: summary.status,
-          changedFiles: summary.changedFiles.map(f => ({ path: f.path, status: f.status })),
+          changedFilesOverride: summary.changedFiles.map(f => ({ path: f.path, status: f.status })),
           implementationSummary: summary.implementationSummary,
           warnings: summary.warnings,
           nextSteps: summary.nextSteps,
@@ -316,6 +321,7 @@ export class AgentExecutor {
       const failed = store.get(sessionId) ?? session;
       this.postAgentMessage({ type: 'agentSessionUpdated', session: toSessionViewModel(failed) });
       await timeline.append({ sessionId, type: 'session_failed', message: `Session failed: ${msg}` });
+      this.learningHandles.delete(sessionId);
       this.emitError(msg);
     }
   }
@@ -335,6 +341,7 @@ export class AgentExecutor {
     session.rejectReason = reason;
     session.status = 'cancelled';
     store.update(session);
+    this.learningHandles.delete(sessionId);
 
     const timeline = new AgentTimeline(session.workspaceRoot, this.eventBus);
     await timeline.append({ sessionId, type: 'approval_rejected', message: `Plan rejected${reason ? ': ' + reason : ''}.` });

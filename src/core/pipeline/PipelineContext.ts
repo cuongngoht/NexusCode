@@ -25,6 +25,7 @@ export type PipelineContext = {
   sourceContext?: string;
   architectureContext?: string;
   knowledgeBaseContext?: string;
+  knowledgeFactsContext?: string;
   fileIntelligenceContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
