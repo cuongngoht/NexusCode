@@ -380,6 +380,10 @@ export interface AssistantMessage {
   elapsed?: number;
   streamingStage?: StreamingStage;
   streamingLabel?: string;
+  /** Live per-tool activities that aren't attached to a running pipeline step (single-shot/agent runs). */
+  activities?: Activity[];
+  /** Value of `elapsed` at the last stdout/activity — drives the "still working" heartbeat. */
+  lastOutputElapsed?: number;
   ragSources?: { conversationId: string; conversationTitle: string; role: string; score: number }[];
   // Optional metadata fields
   actualProvider?: string;
@@ -1438,6 +1442,32 @@ function stageFromStepLabel(label: string): StreamingStage {
   return 'planning';
 }
 
+/** Maps a live agent-session status to a streaming stage. Returns undefined for terminal states. */
+function stageFromAgentStatus(status: AgentSessionStatus): StreamingStage | undefined {
+  switch (status) {
+    case 'created':
+    case 'waiting_approval':
+    case 'waiting_permission':
+      return 'queued';
+    case 'scanning':
+      return 'researching';
+    case 'planning':
+      return 'planning';
+    case 'executing':
+    case 'recovering':
+    case 'checkpointing':
+      return 'editing';
+    case 'testing':
+      return 'testing';
+    case 'reviewing':
+      return 'reviewing';
+    case 'collecting_diff':
+      return 'summarizing';
+    default:
+      return undefined; // completed / failed / cancelled — don't override the live stage
+  }
+}
+
 function setStreamingStage(conv: Conversation, stage: StreamingStage, label?: string): Conversation {
   const msgs = conv.messages.map(m => {
     if (m.role === 'assistant' && (m as AssistantMessage).isStreaming) {
@@ -1483,8 +1513,14 @@ function splitChunkToLines(chunk: string, kind: 'stdout' | 'stderr'): OutputLine
 
 export function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case 'tick':
-      return { ...state, elapsed: state.elapsed + 1 };
+    case 'tick': {
+      const elapsed = state.elapsed + 1;
+      if (!state.isRunning) return { ...state, elapsed };
+      // Keep the live elapsed on the streaming message so the timer + heartbeat advance every second.
+      return updateConversationById({ ...state, elapsed }, getRunConvId(state), conv =>
+        updateLastAssistant(conv, m => (m.isStreaming ? { ...m, elapsed } : m)),
+      );
+    }
 
     case 'stopTask':
       return { ...state, isStopping: true };
@@ -1883,6 +1919,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         updateLastAssistant(conv, m => ({
           ...m,
           lines: truncateLines([...m.lines, ...lines]),
+          lastOutputElapsed: state.elapsed,
         })),
       );
     }
@@ -1963,12 +2000,17 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       return updateConversationById(state, getRunConvId(state), conv =>
         setStreamingStage(
           updateLastAssistant(conv, m => {
-            const steps = m.steps.map((s, i) =>
-              i === m.steps.length - 1 && s.status === 'running'
-                ? { ...s, activities: [...s.activities, newActivity] }
-                : s,
-            );
-            return { ...m, steps };
+            const hasRunningStep = m.steps.length > 0 && m.steps[m.steps.length - 1].status === 'running';
+            if (hasRunningStep) {
+              const steps = m.steps.map((s, i) =>
+                i === m.steps.length - 1 && s.status === 'running'
+                  ? { ...s, activities: [...s.activities, newActivity] }
+                  : s,
+              );
+              return { ...m, steps, lastOutputElapsed: state.elapsed };
+            }
+            // No running step (single-shot / agent run) — keep the chip on the message itself.
+            return { ...m, activities: [...(m.activities ?? []), newActivity], lastOutputElapsed: state.elapsed };
           }),
           actStage,
           msg.label,
@@ -1977,26 +2019,35 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'activityDone': {
+      const resolveActivity = (list: Activity[]): Activity[] => {
+        const activities = [...list];
+        let found = false;
+        for (let j = activities.length - 1; j >= 0; j--) {
+          if (activities[j].label === msg.label && activities[j].status === 'running') {
+            activities[j] = { ...activities[j], status: msg.status };
+            found = true;
+            break;
+          }
+        }
+        // No prior running activity (e.g. agy emits done directly) — add it
+        if (!found) {
+          activities.push({ kind: msg.activityKind as Activity['kind'], status: msg.status, label: msg.label });
+        }
+        return activities;
+      };
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => {
-          const steps = m.steps.map((s, i) => {
-            if (i !== m.steps.length - 1 || s.status !== 'running') return s;
-            const activities = [...s.activities];
-            let found = false;
-            for (let j = activities.length - 1; j >= 0; j--) {
-              if (activities[j].label === msg.label && activities[j].status === 'running') {
-                activities[j] = { ...activities[j], status: msg.status };
-                found = true;
-                break;
-              }
-            }
-            // No prior running activity (e.g. agy emits done directly) — add it
-            if (!found) {
-              activities.push({ kind: msg.activityKind as Activity['kind'], status: msg.status, label: msg.label });
-            }
-            return { ...s, activities };
-          });
-          return { ...m, steps };
+          const hasRunningStep = m.steps.length > 0 && m.steps[m.steps.length - 1].status === 'running';
+          if (hasRunningStep) {
+            const steps = m.steps.map((s, i) =>
+              i === m.steps.length - 1 && s.status === 'running'
+                ? { ...s, activities: resolveActivity(s.activities) }
+                : s,
+            );
+            return { ...m, steps, lastOutputElapsed: state.elapsed };
+          }
+          // No running step — resolve against the message-level activity list.
+          return { ...m, activities: resolveActivity(m.activities ?? []), lastOutputElapsed: state.elapsed };
         }),
       );
     }
@@ -2279,8 +2330,16 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
 
     // ── Agent Mode handlers ────────────────────────────────────────────────
 
-    case 'agentSessionUpdated':
-      return { ...state, agentSession: msg.session };
+    case 'agentSessionUpdated': {
+      const next = { ...state, agentSession: msg.session };
+      // Surface the agent's live phase (scanning → planning → executing → reviewing …) on the
+      // streaming message so it stops sitting on a generic "Planning" spinner.
+      const stage = stageFromAgentStatus(msg.session.status);
+      if (!state.isRunning || !stage) return next;
+      return updateConversationById(next, getRunConvId(next), conv =>
+        setStreamingStage(conv, stage, undefined),
+      );
+    }
 
     case 'codeReviewReport': {
       const report = msg.report;

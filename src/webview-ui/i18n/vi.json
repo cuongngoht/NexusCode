@@ -545,7 +545,10 @@
     "summarizing": "Đang tóm tắt",
     "completed": "Hoàn thành",
     "failed": "Thất bại",
-    "stopped": "Đã dừng"
+    "stopped": "Đã dừng",
+    "stillWorking": "Vẫn đang xử lý…",
+    "thinking": "Đang suy nghĩ…",
+    "waitingForOutput": "Đang chờ phản hồi…"
   },
   "streamStatus": {
     "running": "Đang chạy",

@@ -134,6 +134,12 @@ export const AssistantMessage = memo(function AssistantMessage({
   const agentLabel = (t.agent.modeLabel as Record<string, string>)[message.mode] ?? message.mode;
   const meta = [message.providerLabel, message.model].filter(Boolean).join(' · ');
 
+  // Last few non-empty stdout lines — a dim live "peek" of what the CLI is printing right now.
+  const outputTail = message.lines
+    .filter(l => l.kind === 'stdout' && l.text.trim())
+    .slice(-3)
+    .map(l => l.text);
+
   const handleCopy = () => {
     const text = message.lines.filter(l => l.kind === 'stdout').map(l => l.text).join('\n');
     navigator.clipboard.writeText(text).catch(() => { /* clipboard unavailable */ });
@@ -247,7 +253,14 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
 
           {message.streamingStage != null
-            ? <StreamingStatusBar stage={message.streamingStage} label={message.streamingLabel} elapsed={message.elapsed} />
+            ? <StreamingStatusBar
+                stage={message.streamingStage}
+                label={message.streamingLabel}
+                elapsed={message.elapsed}
+                tail={message.isStreaming ? outputTail : undefined}
+                activities={message.isStreaming ? message.activities : undefined}
+                lastOutputElapsed={message.lastOutputElapsed}
+              />
             : <StatusPill message={message} />
           }
           {message.reviewProgressNote && (

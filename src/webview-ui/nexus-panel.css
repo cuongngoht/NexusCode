@@ -4455,6 +4455,56 @@ html, body, #root {
 .nx-streaming-icon { font-size: 11px; }
 .nx-streaming-label { font-weight: var(--fontWeightMedium); }
 
+.nx-streaming-heartbeat {
+  font-size: 11px;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* ---- Live activity: wrapper, per-tool chips, raw output tail ---- */
+.nx-streaming { display: flex; flex-direction: column; gap: 4px; }
+
+.nx-streaming-activities {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 2px;
+}
+
+.nx-streaming-activity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--nx-text-muted);
+}
+.nx-streaming-activity--done { opacity: 0.8; }
+.nx-streaming-activity--error { color: var(--nx-danger); }
+.nx-streaming-activity-status { font-size: 10px; }
+.nx-streaming-activity--done .nx-streaming-activity-status { color: var(--nx-success); }
+.nx-streaming-activity-kind { font-size: 11px; flex-shrink: 0; }
+.nx-streaming-activity-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-streaming-tail {
+  margin: 0;
+  padding: 4px 8px;
+  max-height: 3.6em;
+  overflow: hidden;
+  font-family: var(--fontFamilyMonospace, monospace);
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--nx-text-muted);
+  opacity: 0.7;
+  background: var(--colorNeutralBackground3, rgba(127,127,127,0.06));
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---- File Change Cards ---- */
 .nx-git-groups {
   overflow-y: auto;

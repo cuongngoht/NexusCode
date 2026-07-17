@@ -545,7 +545,10 @@
     "summarizing": "Summarizing",
     "completed": "Done",
     "failed": "Failed",
-    "stopped": "Stopped"
+    "stopped": "Stopped",
+    "stillWorking": "Still working…",
+    "thinking": "Thinking…",
+    "waitingForOutput": "Waiting for output…"
   },
   "streamStatus": {
     "running": "Running",
