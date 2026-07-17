@@ -89,7 +89,7 @@
       "src/context/project-memory/ProjectMemoryManifestRepository.ts",
       "src/context/project-memory/search/ProjectMemoryIndexRepository.ts"
     ],
-    "eventBus": "src/application/agent-mode/AgentModeEvents.ts",
+    "eventBus": ".nexus/file-intelligence/src__core__events__IEventBus.ts.json",
     "communicationProtocol": "VS Code Webview postMessage",
     "moduleSystem": [
       "src/application/AgentRegistry.ts",
@@ -153,6 +153,7 @@
     {
       "category": "Configuration / Settings",
       "files": [
+        "src/application/knowledge-facts/KnowledgeFactsConfig.ts",
         "src/auto-review/AutoReviewConfig.ts",
         "src/config/ConfigService.ts",
         "src/config/DefaultConfig.ts",
@@ -160,7 +161,6 @@
         "src/context/architecture-memory/ArchitectureConfigLoader.ts",
         "src/debug/strategies/ConfigFileStrategy.ts",
         "src/providers/base/ICustomCommandConfigProvider.ts",
-        "src/settings/SettingsHtml.ts",
         "zod"
       ]
     },

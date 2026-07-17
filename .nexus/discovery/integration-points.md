@@ -2,9 +2,11 @@
 
 ## Event & Messaging
 
-- **Event bus definition:** `src/application/agent-mode/AgentModeEvents.ts`
+- **Event bus definition:** `.nexus/file-intelligence/src__core__events__IEventBus.ts.json`
 - To add a new event type: extend the union type in that file.
 - **Event/message type files:**
+  - `.nexus/file-intelligence/src__webview-ui__components__AssistantMessage.tsx.json`
+  - `.nexus/file-intelligence/src__webview-ui__messages.ts.json`
   - `src/application/agent-mode/AgentModeEvents.ts`
   - `src/core/stream/AgentStreamEvent.ts`
   - `src/core/stream/NexusStreamEvent.ts`
@@ -16,7 +18,7 @@
 ## Communication Protocol
 
 - **Primary protocol:** VS Code Webview postMessage
-- **Message contract:** `src/webview/webviewProtocol.ts`
+- **Message contract:** `.nexus/file-intelligence/src__webview-ui__components__AssistantMessage.tsx.json`
 - To extend: add new message types to that file and handle them in the receiver.
 - **UI source roots:** src/webview-ui
 

@@ -11,8 +11,8 @@
 
 ## Workspace
 
-- **Files:** 963
-- **Folders:** 215
+- **Files:** 1151
+- **Folders:** 233
 - **Architecture:** Clean Architecture / Hexagonal
 
 ## Frameworks

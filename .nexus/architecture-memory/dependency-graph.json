@@ -56,6 +56,16 @@
     "src/application/code-review/synthesis/ReviewDimensionFactory.ts",
     "src/application/code-review/synthesis/SecurityDimension.ts",
     "src/application/code-review/synthesis/TestDimension.ts",
+    "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+    "src/application/knowledge-facts/EnrichmentBudgetTracker.ts",
+    "src/application/knowledge-facts/EnrichmentConsentGate.ts",
+    "src/application/knowledge-facts/EnrichmentTriggerEvaluator.ts",
+    "src/application/knowledge-facts/EvidenceLivenessChecker.ts",
+    "src/application/knowledge-facts/KnowledgeFactsConfig.ts",
+    "src/application/knowledge-facts/PromoteKnowledgeFactUseCase.ts",
+    "src/application/knowledge-facts/ResolveContradictionUseCase.ts",
+    "src/application/knowledge-facts/RetentionSweepUseCase.ts",
+    "src/application/learning/ProjectLearningCoordinator.ts",
     "src/application/nexus/AgentCapabilityMatrix.ts",
     "src/application/nexus/ModeCapabilityPolicy.ts",
     "src/application/nexus/NexusOrchestrator.ts",
@@ -73,6 +83,8 @@
     "src/application/pipeline/BrainstormAgentsStep.ts",
     "src/application/pipeline/DebugPreStep.ts",
     "src/application/pipeline/FileIntelligenceContextStep.ts",
+    "src/application/pipeline/KnowledgeBaseStep.ts",
+    "src/application/pipeline/KnowledgeFactsStep.ts",
     "src/application/pipeline/ReadSourceContextStep.ts",
     "src/application/pipeline/SagaRunner.ts",
     "src/application/pipeline/ScanProjectStep.ts",
@@ -104,9 +116,12 @@
     "src/application/subagents/SubagentResultStore.ts",
     "src/application/subagents/SubagentRouter.ts",
     "src/application/subagents/SubagentSummary.ts",
+    "src/application/usecases/ArchitectureRefreshGate.ts",
+    "src/application/usecases/BackfillModuleUsageUseCase.ts",
     "src/application/usecases/BuildArchitectureMemoryUseCase.ts",
     "src/application/usecases/BuildProjectMapUseCase.ts",
     "src/application/usecases/DetectAgentsUseCase.ts",
+    "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
     "src/application/usecases/RunAgentUseCase.ts",
     "src/application/usecases/SummarizeProjectMapUseCase.ts",
     "src/artifacts/ArtifactPreviewer.ts",
@@ -150,6 +165,7 @@
     "src/context/architecture-memory/ArchitectureMarkdownRenderer.ts",
     "src/context/architecture-memory/ArchitectureMemoryBuilder.ts",
     "src/context/architecture-memory/ArchitectureMemoryLoader.ts",
+    "src/context/architecture-memory/ArchitectureMemoryMerger.ts",
     "src/context/architecture-memory/ArchitectureMemoryValidator.ts",
     "src/context/architecture-memory/ArchitectureMemoryWriter.ts",
     "src/context/architecture-memory/ArchitecturePromptBuilder.ts",
@@ -198,6 +214,29 @@
     "src/context/history-search/rag/RagContextBuilder.ts",
     "src/context/history-search/rag/RagPromptInjector.ts",
     "src/context/history-search/types.ts",
+    "src/context/knowledge-base/KnowledgeBaseLoader.ts",
+    "src/context/knowledge-base/KnowledgeBaseWriter.ts",
+    "src/context/knowledge-base/ModuleUsageLoader.ts",
+    "src/context/knowledge-base/ModuleUsageProjector.ts",
+    "src/context/knowledge-base/index.ts",
+    "src/context/knowledge-base/moduleUsageTypes.ts",
+    "src/context/knowledge-base/search/KnowledgeBaseDocument.ts",
+    "src/context/knowledge-base/search/KnowledgeBaseIndexBuilder.ts",
+    "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+    "src/context/knowledge-base/types.ts",
+    "src/context/knowledge-facts/CanonicalKeyBuilder.ts",
+    "src/context/knowledge-facts/ContradictionDetector.ts",
+    "src/context/knowledge-facts/JsonKnowledgeFactsStore.ts",
+    "src/context/knowledge-facts/KnowledgeFactClassifier.ts",
+    "src/context/knowledge-facts/KnowledgeFactsLoader.ts",
+    "src/context/knowledge-facts/KnowledgeFactsStore.ts",
+    "src/context/knowledge-facts/enrichment/KnowledgeFactAiValidator.ts",
+    "src/context/knowledge-facts/enrichment/KnowledgeFactPromptBuilder.ts",
+    "src/context/knowledge-facts/index.ts",
+    "src/context/knowledge-facts/search/FactsDocument.ts",
+    "src/context/knowledge-facts/search/FactsIndexBuilder.ts",
+    "src/context/knowledge-facts/search/FactsRagFacade.ts",
+    "src/context/knowledge-facts/types.ts",
     "src/context/packageDetector.ts",
     "src/context/planLoader.ts",
     "src/context/project-map/NexusDiscoveryOrchestrator.ts",
@@ -328,6 +367,7 @@
     "src/debug/writers/DebugPlanWriter.ts",
     "src/debug/writers/DebugSessionWriter.ts",
     "src/extension.ts",
+    "src/git/ChangedFilePathResolver.ts",
     "src/git/gitBranch.ts",
     "src/git/gitDiff.ts",
     "src/git/gitReviewContext.ts",
@@ -463,6 +503,7 @@
     "src/webview-ui/components/analytics/AnalyticsSummaryCards.tsx",
     "src/webview-ui/components/analytics/ConversationUsageTable.tsx",
     "src/webview-ui/components/analytics/CostChart.tsx",
+    "src/webview-ui/components/analytics/MostUsedTable.tsx",
     "src/webview-ui/components/analytics/ProductivityMetricsPanel.tsx",
     "src/webview-ui/components/analytics/ProviderReliabilityChart.tsx",
     "src/webview-ui/components/analytics/QualityMetricsPanel.tsx",
@@ -707,6 +748,12 @@
     {
       "from": "src/application/agent-mode/AgentExecutor.ts",
       "to": "src/application/agent-mode/AgentBranchManager.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/agent-mode/AgentExecutor.ts",
+      "to": "src/application/learning/ProjectLearningCoordinator.ts",
       "fromLayer": "application",
       "toLayer": "application"
     },
@@ -1383,6 +1430,138 @@
       "toLayer": "application"
     },
     {
+      "from": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "to": "src/core/agent/index.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "to": "src/infrastructure/ai/ProjectMapAiRunner.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "to": "src/context/project-map/summary/AiJsonExtractor.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "to": "src/context/knowledge-facts/enrichment/KnowledgeFactPromptBuilder.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "to": "src/context/knowledge-facts/enrichment/KnowledgeFactAiValidator.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "to": "src/context/knowledge-facts/index.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/EvidenceLivenessChecker.ts",
+      "to": "src/context/file-intelligence/FileIntelligenceFreshnessPolicy.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/EvidenceLivenessChecker.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/KnowledgeFactsConfig.ts",
+      "to": "src/application/knowledge-facts/EnrichmentTriggerEvaluator.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/knowledge-facts/PromoteKnowledgeFactUseCase.ts",
+      "to": "src/context/knowledge-facts/index.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/PromoteKnowledgeFactUseCase.ts",
+      "to": "src/application/knowledge-facts/EvidenceLivenessChecker.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/knowledge-facts/ResolveContradictionUseCase.ts",
+      "to": "src/context/knowledge-facts/index.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/knowledge-facts/RetentionSweepUseCase.ts",
+      "to": "src/context/knowledge-facts/index.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/core/agent/AgentTask.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/core/types.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/context/knowledge-base/KnowledgeBaseWriter.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/context/knowledge-base/types.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/context/knowledge-base/ModuleUsageProjector.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/git/gitStatus.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/git/ChangedFilePathResolver.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/learning/ProjectLearningCoordinator.ts",
+      "to": "src/application/knowledge-facts/RetentionSweepUseCase.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
       "from": "src/application/nexus/AgentCapabilityMatrix.ts",
       "to": "src/core/agent/AgentTask.ts",
       "fromLayer": "application",
@@ -1557,6 +1736,12 @@
       "toLayer": "infrastructure"
     },
     {
+      "from": "src/application/pipeline/ArchitectureMemoryStep.ts",
+      "to": "src/context/knowledge-base/ModuleUsageLoader.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
       "from": "src/application/pipeline/BrainstormAgentsStep.ts",
       "to": "src/core/pipeline/IPipelineStep.ts",
       "fromLayer": "application",
@@ -1649,6 +1834,66 @@
     {
       "from": "src/application/pipeline/FileIntelligenceContextStep.ts",
       "to": "src/context/file-intelligence/FileIntelligenceRagFacade.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeBaseStep.ts",
+      "to": "src/core/pipeline/ICompensableStep.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeBaseStep.ts",
+      "to": "src/core/pipeline/PipelineContext.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeBaseStep.ts",
+      "to": "src/core/events/IEventBus.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeBaseStep.ts",
+      "to": "src/context/knowledge-base/KnowledgeBaseLoader.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeBaseStep.ts",
+      "to": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeFactsStep.ts",
+      "to": "src/core/pipeline/ICompensableStep.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeFactsStep.ts",
+      "to": "src/core/pipeline/PipelineContext.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeFactsStep.ts",
+      "to": "src/core/events/IEventBus.ts",
+      "fromLayer": "application",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeFactsStep.ts",
+      "to": "src/context/knowledge-facts/KnowledgeFactsLoader.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/pipeline/KnowledgeFactsStep.ts",
+      "to": "src/context/knowledge-facts/search/FactsRagFacade.ts",
       "fromLayer": "application",
       "toLayer": "infrastructure"
     },
@@ -1763,6 +2008,18 @@
     {
       "from": "src/application/pipeline/createPreSteps.ts",
       "to": "src/application/pipeline/ArchitectureMemoryStep.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/pipeline/createPreSteps.ts",
+      "to": "src/application/pipeline/KnowledgeBaseStep.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/pipeline/createPreSteps.ts",
+      "to": "src/application/pipeline/KnowledgeFactsStep.ts",
       "fromLayer": "application",
       "toLayer": "application"
     },
@@ -2271,6 +2528,24 @@
       "toLayer": "application"
     },
     {
+      "from": "src/application/usecases/BackfillModuleUsageUseCase.ts",
+      "to": "src/context/knowledge-base/KnowledgeBaseLoader.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/usecases/BackfillModuleUsageUseCase.ts",
+      "to": "src/context/knowledge-base/ModuleUsageProjector.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/usecases/BackfillModuleUsageUseCase.ts",
+      "to": "src/context/knowledge-base/moduleUsageTypes.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
       "from": "src/application/usecases/BuildArchitectureMemoryUseCase.ts",
       "to": "src/context/architecture-memory/index.ts",
       "fromLayer": "application",
@@ -2339,6 +2614,36 @@
     {
       "from": "src/application/usecases/DetectAgentsUseCase.ts",
       "to": "src/application/AgentRegistry.ts",
+      "fromLayer": "application",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
+      "to": "src/git/ChangedFilePathResolver.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
+      "to": "src/context/architecture-memory/index.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
+      "to": "src/context/architecture-memory/ArchitectureStyleDetector.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
+      "to": "src/context/project-map/NexusFileTreeScanner.ts",
+      "fromLayer": "application",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/application/usecases/RefreshArchitectureMemoryUseCase.ts",
+      "to": "src/application/usecases/ArchitectureRefreshGate.ts",
       "fromLayer": "application",
       "toLayer": "application"
     },
@@ -3225,6 +3530,12 @@
       "toLayer": "infrastructure"
     },
     {
+      "from": "src/context/architecture-memory/ArchitectureMemoryMerger.ts",
+      "to": "src/context/architecture-memory/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
       "from": "src/context/architecture-memory/ArchitectureMemoryValidator.ts",
       "to": "src/context/architecture-memory/types.ts",
       "fromLayer": "infrastructure",
@@ -3310,6 +3621,12 @@
     },
     {
       "from": "src/context/architecture-memory/search/ArchitectureIndexBuilder.ts",
+      "to": "src/context/knowledge-base/moduleUsageTypes.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/architecture-memory/search/ArchitectureIndexBuilder.ts",
       "to": "src/context/architecture-memory/search/ArchitectureDocument.ts",
       "fromLayer": "infrastructure",
       "toLayer": "infrastructure"
@@ -3335,6 +3652,12 @@
     {
       "from": "src/context/architecture-memory/search/ArchitectureRagFacade.ts",
       "to": "src/context/architecture-memory/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/architecture-memory/search/ArchitectureRagFacade.ts",
+      "to": "src/context/knowledge-base/moduleUsageTypes.ts",
       "fromLayer": "infrastructure",
       "toLayer": "infrastructure"
     },
@@ -3749,6 +4072,228 @@
     {
       "from": "src/context/history-search/rag/RagContextBuilder.ts",
       "to": "src/context/history-search/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/KnowledgeBaseLoader.ts",
+      "to": "src/context/knowledge-base/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/KnowledgeBaseWriter.ts",
+      "to": "src/context/knowledge-base/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/ModuleUsageLoader.ts",
+      "to": "src/context/knowledge-base/moduleUsageTypes.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/ModuleUsageProjector.ts",
+      "to": "src/context/knowledge-base/moduleUsageTypes.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/ModuleUsageProjector.ts",
+      "to": "src/context/knowledge-base/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/moduleUsageTypes.ts",
+      "to": "src/core/agent/AgentTask.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseIndexBuilder.ts",
+      "to": "src/context/history-search/bm25/Bm25Tokenizer.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseIndexBuilder.ts",
+      "to": "src/context/knowledge-base/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseIndexBuilder.ts",
+      "to": "src/context/knowledge-base/search/KnowledgeBaseDocument.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "to": "src/context/history-search/bm25/Bm25Tokenizer.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "to": "src/context/history-search/bm25/Bm25Scorer.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "to": "src/context/history-search/bm25/Bm25Types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "to": "src/context/knowledge-base/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "to": "src/context/knowledge-base/search/KnowledgeBaseIndexBuilder.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts",
+      "to": "src/context/knowledge-base/search/KnowledgeBaseDocument.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-base/types.ts",
+      "to": "src/core/agent/AgentTask.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/context/knowledge-base/types.ts",
+      "to": "src/core/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "core"
+    },
+    {
+      "from": "src/context/knowledge-facts/CanonicalKeyBuilder.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/ContradictionDetector.ts",
+      "to": "src/context/knowledge-facts/CanonicalKeyBuilder.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/ContradictionDetector.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/JsonKnowledgeFactsStore.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/JsonKnowledgeFactsStore.ts",
+      "to": "src/context/knowledge-facts/KnowledgeFactsStore.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/KnowledgeFactClassifier.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/KnowledgeFactsLoader.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/KnowledgeFactsLoader.ts",
+      "to": "src/context/knowledge-facts/KnowledgeFactsStore.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/KnowledgeFactsLoader.ts",
+      "to": "src/context/knowledge-facts/JsonKnowledgeFactsStore.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/KnowledgeFactsStore.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/enrichment/KnowledgeFactAiValidator.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsIndexBuilder.ts",
+      "to": "src/context/history-search/bm25/Bm25Tokenizer.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsIndexBuilder.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsIndexBuilder.ts",
+      "to": "src/context/knowledge-facts/search/FactsDocument.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsRagFacade.ts",
+      "to": "src/context/history-search/bm25/Bm25Tokenizer.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsRagFacade.ts",
+      "to": "src/context/history-search/bm25/Bm25Scorer.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsRagFacade.ts",
+      "to": "src/context/history-search/bm25/Bm25Types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsRagFacade.ts",
+      "to": "src/context/knowledge-facts/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsRagFacade.ts",
+      "to": "src/context/knowledge-facts/search/FactsIndexBuilder.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/context/knowledge-facts/search/FactsRagFacade.ts",
+      "to": "src/context/knowledge-facts/search/FactsDocument.ts",
       "fromLayer": "infrastructure",
       "toLayer": "infrastructure"
     },
@@ -5649,6 +6194,30 @@
       "toLayer": "interface"
     },
     {
+      "from": "src/extension.ts",
+      "to": "src/application/knowledge-facts/EnrichmentConsentGate.ts",
+      "fromLayer": "unknown",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/extension.ts",
+      "to": "src/application/knowledge-facts/EnrichmentBudgetTracker.ts",
+      "fromLayer": "unknown",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/extension.ts",
+      "to": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "fromLayer": "unknown",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/git/ChangedFilePathResolver.ts",
+      "to": "src/core/types.ts",
+      "fromLayer": "infrastructure",
+      "toLayer": "core"
+    },
+    {
       "from": "src/git/gitReviewContext.ts",
       "to": "src/core/types.ts",
       "fromLayer": "infrastructure",
@@ -6778,6 +7347,12 @@
     },
     {
       "from": "src/webview/ChatController.ts",
+      "to": "src/application/learning/ProjectLearningCoordinator.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/ChatController.ts",
       "to": "src/core/tokens/TokenUsage.ts",
       "fromLayer": "interface",
       "toLayer": "core"
@@ -7474,6 +8049,48 @@
     },
     {
       "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/usecases/BackfillModuleUsageUseCase.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/knowledge-facts/RetentionSweepUseCase.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/knowledge-facts/EnrichmentConsentGate.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/knowledge-facts/EnrichmentBudgetTracker.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/knowledge-facts/EnrichmentTriggerEvaluator.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/knowledge-facts/KnowledgeFactsConfig.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
       "to": "src/application/pipeline/createPreSteps.ts",
       "fromLayer": "interface",
       "toLayer": "application"
@@ -7720,6 +8337,12 @@
     },
     {
       "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/context/project-map/NexusGitignoreManager.ts",
+      "fromLayer": "interface",
+      "toLayer": "infrastructure"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
       "to": "src/context/project-memory/index.ts",
       "fromLayer": "interface",
       "toLayer": "infrastructure"
@@ -7751,6 +8374,12 @@
     {
       "from": "src/webview/handlers/RunTaskHandler.ts",
       "to": "src/application/pipeline/SagaRunner.ts",
+      "fromLayer": "interface",
+      "toLayer": "application"
+    },
+    {
+      "from": "src/webview/handlers/RunTaskHandler.ts",
+      "to": "src/application/learning/ProjectLearningCoordinator.ts",
       "fromLayer": "interface",
       "toLayer": "application"
     },
@@ -8523,6 +9152,12 @@
       "toLayer": "unknown"
     },
     {
+      "from": "src/webview-ui/components/analytics/AnalyticsDashboard.tsx",
+      "to": "src/webview-ui/components/analytics/MostUsedTable.tsx",
+      "fromLayer": "unknown",
+      "toLayer": "unknown"
+    },
+    {
       "from": "src/webview-ui/components/analytics/AnalyticsFilters.tsx",
       "to": "src/webview-ui/i18n/index.ts",
       "fromLayer": "unknown",
@@ -8560,6 +9195,18 @@
     },
     {
       "from": "src/webview-ui/components/analytics/CostChart.tsx",
+      "to": "src/webview-ui/messages.ts",
+      "fromLayer": "unknown",
+      "toLayer": "unknown"
+    },
+    {
+      "from": "src/webview-ui/components/analytics/MostUsedTable.tsx",
+      "to": "src/webview-ui/i18n/index.ts",
+      "fromLayer": "unknown",
+      "toLayer": "unknown"
+    },
+    {
+      "from": "src/webview-ui/components/analytics/MostUsedTable.tsx",
       "to": "src/webview-ui/messages.ts",
       "fromLayer": "unknown",
       "toLayer": "unknown"
@@ -9237,5 +9884,5 @@
       "toLayer": "core"
     }
   ],
-  "builtAt": 1784199082691
+  "builtAt": 1784299651729
 }

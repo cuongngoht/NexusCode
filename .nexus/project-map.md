@@ -2,8 +2,8 @@
 
 ## Workspace
 - Root: /Users/cuongngoht/Repo/NexusCode
-- Generated At: 2026-07-16T10:51:22.465Z
-- Files Scanned: 963
+- Generated At: 2026-07-17T14:47:31.572Z
+- Files Scanned: 1151
 
 ## Detected Units
 

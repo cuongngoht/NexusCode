@@ -46,12 +46,22 @@
 
 ## Use Cases
 
+- src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts
+- src/application/knowledge-facts/PromoteKnowledgeFactUseCase.ts
+- src/application/knowledge-facts/ResolveContradictionUseCase.ts
+- src/application/knowledge-facts/RetentionSweepUseCase.ts
+- src/application/knowledge-facts/__tests__/EnrichAndRecordFactsUseCase.test.ts
+- src/application/knowledge-facts/__tests__/PromoteKnowledgeFactUseCase.test.ts
+- src/application/knowledge-facts/__tests__/ResolveContradictionUseCase.test.ts
+- src/application/knowledge-facts/__tests__/RetentionSweepUseCase.test.ts
+- src/application/usecases/BackfillModuleUsageUseCase.ts
 - src/application/usecases/BuildArchitectureMemoryUseCase.ts
 - src/application/usecases/BuildProjectMapUseCase.ts
 - src/application/usecases/DetectAgentsUseCase.ts
+- src/application/usecases/RefreshArchitectureMemoryUseCase.ts
 - src/application/usecases/RunAgentUseCase.ts
 - src/application/usecases/SummarizeProjectMapUseCase.ts
-- src/mcp/McpToolUseCase.ts
+- … and 4 more
 
 ## Services
 
@@ -108,7 +118,7 @@
 - src/context/file-intelligence/FileIntelligenceStore.ts
 - src/context/file-intelligence/JsonFileIntelligenceStore.ts
 - src/context/file-intelligence/__tests__/FileIntelligenceStore.test.ts
-- src/context/research/__tests__/activeResearchStore.test.ts
+- src/context/knowledge-facts/JsonKnowledgeFactsStore.ts
 - … and 5 more
 
 ## Routers

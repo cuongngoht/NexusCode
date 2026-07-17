@@ -1,6 +1,6 @@
 # Architecture Memory
 
-Generated: 2026-07-16T10:51:22.691Z
+Generated: 2026-07-17T14:47:31.729Z
 Workspace: /Users/cuongngoht/Repo/NexusCode
 Detected style: Clean architecture (heuristic)
 
@@ -19,23 +19,55 @@ Detected style: Clean architecture (heuristic)
 | Layer | Files |
 |-------|-------|
 | core | 28 |
-| application | 102 |
-| infrastructure | 160 |
+| application | 117 |
+| infrastructure | 185 |
 | interface | 51 |
 | support | 3 |
-| unknown | 172 |
+| unknown | 173 |
 
-## Dependency Violations (46 errors, 0 warnings)
+## Dependency Violations (73 errors, 0 warnings)
 
-### Errors (46)
+### Errors (73)
 
 - `src/application/code-review/materializeReviewOutput.ts` → `src/infrastructure/stream/LineDecoder.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/code-review/materializeReviewOutput.ts` → `src/providers/grok/GrokStreamAdapter.ts` (application → infrastructure)
   _application must not import from infrastructure_
+- `src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts` → `src/infrastructure/ai/ProjectMapAiRunner.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts` → `src/context/project-map/summary/AiJsonExtractor.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts` → `src/context/knowledge-facts/enrichment/KnowledgeFactPromptBuilder.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts` → `src/context/knowledge-facts/enrichment/KnowledgeFactAiValidator.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts` → `src/context/knowledge-facts/index.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/EvidenceLivenessChecker.ts` → `src/context/file-intelligence/FileIntelligenceFreshnessPolicy.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/EvidenceLivenessChecker.ts` → `src/context/knowledge-facts/types.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/PromoteKnowledgeFactUseCase.ts` → `src/context/knowledge-facts/index.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/ResolveContradictionUseCase.ts` → `src/context/knowledge-facts/index.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/knowledge-facts/RetentionSweepUseCase.ts` → `src/context/knowledge-facts/index.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/learning/ProjectLearningCoordinator.ts` → `src/context/knowledge-base/KnowledgeBaseWriter.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/learning/ProjectLearningCoordinator.ts` → `src/context/knowledge-base/types.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/learning/ProjectLearningCoordinator.ts` → `src/context/knowledge-base/ModuleUsageProjector.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/learning/ProjectLearningCoordinator.ts` → `src/git/gitStatus.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/learning/ProjectLearningCoordinator.ts` → `src/git/ChangedFilePathResolver.ts` (application → infrastructure)
+  _application must not import from infrastructure_
 - `src/application/pipeline/ArchitectureMemoryStep.ts` → `src/context/architecture-memory/index.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/pipeline/ArchitectureMemoryStep.ts` → `src/context/architecture-memory/search/ArchitectureRagFacade.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/pipeline/ArchitectureMemoryStep.ts` → `src/context/knowledge-base/ModuleUsageLoader.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/pipeline/FileIntelligenceContextStep.ts` → `src/context/file-intelligence/FileIntelligenceStore.ts` (application → infrastructure)
   _application must not import from infrastructure_
@@ -46,6 +78,14 @@ Detected style: Clean architecture (heuristic)
 - `src/application/pipeline/FileIntelligenceContextStep.ts` → `src/context/file-intelligence/FileIntelligenceContextBuilder.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/pipeline/FileIntelligenceContextStep.ts` → `src/context/file-intelligence/FileIntelligenceRagFacade.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/pipeline/KnowledgeBaseStep.ts` → `src/context/knowledge-base/KnowledgeBaseLoader.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/pipeline/KnowledgeBaseStep.ts` → `src/context/knowledge-base/search/KnowledgeBaseRagFacade.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/pipeline/KnowledgeFactsStep.ts` → `src/context/knowledge-facts/KnowledgeFactsLoader.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/pipeline/KnowledgeFactsStep.ts` → `src/context/knowledge-facts/search/FactsRagFacade.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/pipeline/createPreSteps.ts` → `src/context/file-intelligence/FileIntelligenceStore.ts` (application → infrastructure)
   _application must not import from infrastructure_
@@ -85,6 +125,12 @@ Detected style: Clean architecture (heuristic)
   _application must not import from infrastructure_
 - `src/application/subagents/SubagentExecutor.ts` → `src/core/runner/IProcessRunner.ts` (application → infrastructure)
   _application must not import from infrastructure_
+- `src/application/usecases/BackfillModuleUsageUseCase.ts` → `src/context/knowledge-base/KnowledgeBaseLoader.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/usecases/BackfillModuleUsageUseCase.ts` → `src/context/knowledge-base/ModuleUsageProjector.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/usecases/BackfillModuleUsageUseCase.ts` → `src/context/knowledge-base/moduleUsageTypes.ts` (application → infrastructure)
+  _application must not import from infrastructure_
 - `src/application/usecases/BuildArchitectureMemoryUseCase.ts` → `src/context/architecture-memory/index.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/usecases/BuildArchitectureMemoryUseCase.ts` → `src/context/architecture-memory/ArchitectureStyleDetector.ts` (application → infrastructure)
@@ -102,6 +148,14 @@ Detected style: Clean architecture (heuristic)
 - `src/application/usecases/BuildProjectMapUseCase.ts` → `src/context/project-map/types.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/usecases/BuildProjectMapUseCase.ts` → `src/context/project-memory/index.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/usecases/RefreshArchitectureMemoryUseCase.ts` → `src/git/ChangedFilePathResolver.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/usecases/RefreshArchitectureMemoryUseCase.ts` → `src/context/architecture-memory/index.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/usecases/RefreshArchitectureMemoryUseCase.ts` → `src/context/architecture-memory/ArchitectureStyleDetector.ts` (application → infrastructure)
+  _application must not import from infrastructure_
+- `src/application/usecases/RefreshArchitectureMemoryUseCase.ts` → `src/context/project-map/NexusFileTreeScanner.ts` (application → infrastructure)
   _application must not import from infrastructure_
 - `src/application/usecases/RunAgentUseCase.ts` → `src/core/runner/IProcessRunner.ts` (application → infrastructure)
   _application must not import from infrastructure_
@@ -139,7 +193,7 @@ Detected style: Clean architecture (heuristic)
 - src/providers/grok/GrokEventAdapter.ts
 - src/providers/grok/GrokStreamAdapter.ts
 
-### Builder (18 files)
+### Builder (22 files)
 - src/application/code-review/CodeReviewContextBuilder.ts
 - src/application/code-review/CodeReviewPromptBuilder.ts
 - src/application/subagents/SubagentContextBuilder.ts
@@ -150,14 +204,17 @@ Detected style: Clean architecture (heuristic)
 - src/context/file-intelligence/FileIntelligenceContextBuilder.ts
 - src/context/history-search/index/HistoryIndexBuilder.ts
 - src/context/history-search/rag/RagContextBuilder.ts
+- src/context/knowledge-base/search/KnowledgeBaseIndexBuilder.ts
+- src/context/knowledge-facts/CanonicalKeyBuilder.ts
+- src/context/knowledge-facts/enrichment/KnowledgeFactPromptBuilder.ts
+- src/context/knowledge-facts/search/FactsIndexBuilder.ts
 - src/context/project-map/NexusProjectMapBuilder.ts
 - src/context/project-map/summary/ProjectMapSummaryPromptBuilder.ts
 - src/context/project-memory/search/ProjectMemoryIndexBuilder.ts
 - src/context/promptAugmentationBuilder.ts
 - src/context/promptBuilder.ts
 - src/context/research/researchPromptBuilder.ts
-- src/debug/react/ReActPromptBuilder.ts
-- src/debug/search/DebugQueryBuilder.ts
+- _(and 2 more)_
 
 ### Controller (2 files)
 - src/auto-review/AutoReviewController.ts
@@ -189,9 +246,12 @@ Detected style: Clean architecture (heuristic)
 - src/webview/handlers/RunTaskHandler.ts
 - src/webview/handlers/SkillPromptHandler.ts
 
-### Loader (6 files)
+### Loader (9 files)
 - src/context/architecture-memory/ArchitectureConfigLoader.ts
 - src/context/architecture-memory/ArchitectureMemoryLoader.ts
+- src/context/knowledge-base/KnowledgeBaseLoader.ts
+- src/context/knowledge-base/ModuleUsageLoader.ts
+- src/context/knowledge-facts/KnowledgeFactsLoader.ts
 - src/context/planLoader.ts
 - src/context/research/researchFolderLoader.ts
 - src/context/research/researchOrchestratorLoader.ts
@@ -235,10 +295,11 @@ Detected style: Clean architecture (heuristic)
 - src/context/project-memory/ProjectMemoryManifestRepository.ts
 - src/context/project-memory/search/ProjectMemoryIndexRepository.ts
 
-### Resolver (3 files)
+### Resolver (4 files)
 - src/application/code-review/ReviewTargetResolver.ts
 - src/application/prompt/PromptSourceResolver.ts
 - src/application/prompt/ProviderAliasResolver.ts
+- src/git/ChangedFilePathResolver.ts
 
 ### Service (7 files)
 - src/analytics/AnalyticsService.ts
@@ -267,8 +328,9 @@ Detected style: Clean architecture (heuristic)
 - src/debug/strategies/TestFailureStrategy.ts
 - src/debug/strategies/TypeScriptErrorStrategy.ts
 
-### Writer (5 files)
+### Writer (6 files)
 - src/context/architecture-memory/ArchitectureMemoryWriter.ts
+- src/context/knowledge-base/KnowledgeBaseWriter.ts
 - src/context/project-map/NexusProjectMapWriter.ts
 - src/context/project-map/summary/ProjectMapSummaryWriter.ts
 - src/debug/writers/DebugPlanWriter.ts
@@ -306,7 +368,7 @@ Detected style: Clean architecture (heuristic)
 - src/core/tokens/TokenUsage.ts
 - src/core/types.ts
 
-### application (102 files)
+### application (117 files)
 - src/application/AgentRegistry.ts [Registry]
 - src/application/AgentRouter.ts
 - src/application/agent-mode/AgentBranchManager.ts
@@ -356,10 +418,10 @@ Detected style: Clean architecture (heuristic)
 - src/application/code-review/synthesis/ReviewDimensionFactory.ts [Factory]
 - src/application/code-review/synthesis/SecurityDimension.ts
 - src/application/code-review/synthesis/TestDimension.ts
-- src/application/nexus/AgentCapabilityMatrix.ts
-- _(and 52 more)_
+- src/application/knowledge-facts/EnrichAndRecordFactsUseCase.ts
+- _(and 67 more)_
 
-### infrastructure (160 files)
+### infrastructure (185 files)
 - src/analytics/AnalyticsAggregator.ts
 - src/analytics/AnalyticsExporter.ts
 - src/analytics/AnalyticsService.ts [Service]
@@ -374,6 +436,7 @@ Detected style: Clean architecture (heuristic)
 - src/context/architecture-memory/ArchitectureMarkdownRenderer.ts
 - src/context/architecture-memory/ArchitectureMemoryBuilder.ts [Builder]
 - src/context/architecture-memory/ArchitectureMemoryLoader.ts [Loader]
+- src/context/architecture-memory/ArchitectureMemoryMerger.ts
 - src/context/architecture-memory/ArchitectureMemoryValidator.ts
 - src/context/architecture-memory/ArchitectureMemoryWriter.ts [Writer]
 - src/context/architecture-memory/ArchitecturePromptBuilder.ts [Builder]
@@ -409,8 +472,7 @@ Detected style: Clean architecture (heuristic)
 - src/context/file-intelligence/types.ts
 - src/context/history-search/HistoryRagFacade.ts
 - src/context/history-search/HistorySearchService.ts [Service]
-- src/context/history-search/HistorySearchStrategy.ts [Strategy]
-- _(and 110 more)_
+- _(and 135 more)_
 
 ### interface (51 files)
 - src/cli/commands/doctorCommand.ts
@@ -470,7 +532,7 @@ Detected style: Clean architecture (heuristic)
 - src/config/DefaultConfig.ts
 - src/config/NexusConfig.ts
 
-### unknown (172 files)
+### unknown (173 files)
 - src/artifacts/ArtifactPreviewer.ts
 - src/artifacts/ArtifactScanner.ts
 - src/artifacts/ArtifactStore.ts
@@ -521,4 +583,4 @@ Detected style: Clean architecture (heuristic)
 - src/debug/steps/ToolSelectionStep.ts
 - src/debug/steps/VerificationStep.ts
 - src/debug/strategies/BuildErrorStrategy.ts [Strategy]
-- _(and 122 more)_
+- _(and 123 more)_
