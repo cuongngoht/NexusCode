@@ -87,6 +87,11 @@ function getRoleListForMode(mode: TaskMode, preset: SubagentPreset, enabledSteps
       }
       return roleList;
     }
+    case 'understand':
+      // Mapping is a read-and-synthesise job: parallel searchers pay off, a
+      // reviewer has nothing to review yet, and an editor has nothing to edit.
+      return preset === 'fast' ? ['search'] : ['search', 'planner'];
+
     default:
       // fallback for ask, brainstorm, scan-project, etc.
       switch (preset) {

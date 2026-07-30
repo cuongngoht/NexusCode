@@ -5549,3 +5549,145 @@ html, body, #root {
   overflow-x: auto;
   border-top: 1px solid var(--vscode-panel-border);
 }
+
+/* Approval cards (permission requests + agent-mode plan approval) */
+.nx-perm-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 8px 10px;
+}
+
+.nx-perm-waiting-status {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, var(--colorNeutralForeground2));
+  font-style: italic;
+}
+
+.nx-perm-card {
+  padding: 12px;
+  border: 1px solid var(--vscode-panel-border, var(--colorNeutralStroke1));
+  border-left-width: 3px;
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background, var(--colorNeutralBackground4));
+  font-size: 12px;
+}
+
+.nx-perm-card.nx-perm-risk-low     { border-left-color: var(--vscode-testing-iconPassed, #73c991); }
+.nx-perm-card.nx-perm-risk-medium  { border-left-color: var(--vscode-testing-iconQueued, #cca700); }
+.nx-perm-card.nx-perm-risk-high    { border-left-color: var(--vscode-testing-iconFailed, #f14c4c); }
+.nx-perm-card.nx-perm-risk-blocked { border-left-color: var(--vscode-testing-iconFailed, #f14c4c); }
+
+.nx-perm-card-header {
+  margin-bottom: 8px;
+}
+
+.nx-perm-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.nx-perm-card-subject {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--colorNeutralForeground1);
+}
+
+.nx-perm-card-risk-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--colorNeutralBackground2);
+}
+
+.nx-perm-card-risk-badge.nx-perm-risk-low     { color: var(--vscode-testing-iconPassed, #73c991); }
+.nx-perm-card-risk-badge.nx-perm-risk-medium  { color: var(--vscode-testing-iconQueued, #cca700); }
+.nx-perm-card-risk-badge.nx-perm-risk-high,
+.nx-perm-card-risk-badge.nx-perm-risk-blocked { color: var(--vscode-testing-iconFailed, #f14c4c); }
+
+.nx-perm-card-title {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, var(--colorNeutralForeground2));
+}
+
+.nx-perm-card-body {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.nx-perm-card-action,
+.nx-perm-card-field,
+.nx-perm-card-reason {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.nx-perm-card-label {
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground, var(--colorNeutralForeground2));
+  opacity: 0.8;
+}
+
+.nx-perm-card-action-type,
+.nx-perm-card-command,
+.nx-perm-card-path {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.nx-perm-card-diff-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.nx-perm-card-diff-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--vscode-textLink-foreground, var(--colorBrandForeground1));
+}
+
+.nx-perm-card-diff {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.nx-perm-card-blocked-msg {
+  font-size: 11px;
+  color: var(--vscode-testing-iconFailed, #f14c4c);
+}
+
+.nx-perm-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.nx-agent-plan-list {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 2px;
+}

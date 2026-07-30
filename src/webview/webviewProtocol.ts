@@ -20,7 +20,7 @@ import type { ProjectMemoryStatusResult } from '../context/project-memory';
 
 export interface ProjectMemoryDocumentView {
   id: string;
-  source: 'project-map' | 'workspace-units' | 'discovery';
+  source: 'project-map' | 'workspace-units' | 'discovery' | 'project-understanding';
   section: string;
   content: string;
 }

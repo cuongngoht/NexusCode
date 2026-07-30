@@ -221,6 +221,7 @@ export type TaskMode =
   | 'ask'
   | 'research'
   | 'scan-project'
+  | 'understand'
   | 'plan'
   | 'brainstorm'
   | 'edit'
@@ -525,7 +526,7 @@ export interface ProjectMemoryStatusResultView {
 
 export interface ProjectMemoryDocumentView {
   id: string;
-  source: 'project-map' | 'workspace-units' | 'discovery';
+  source: 'project-map' | 'workspace-units' | 'discovery' | 'project-understanding';
   section: string;
   content: string;
 }
@@ -805,6 +806,7 @@ export interface AppState {
   agentTimeline: AgentTimelineEventViewModel[];
   pendingAgentPlan?: AgentPlanViewModel;
   pendingAgentPlanText?: string;
+  pendingAgentPlanSessionId?: string;
   pendingAgentCommand?: AgentCommandApprovalViewModel;
   agentTestResult?: AgentTestResultViewModel;
   agentReviewResult?: AgentReviewResultViewModel;
@@ -877,6 +879,7 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
     agentTimeline: [],
     pendingAgentPlan: undefined,
     pendingAgentPlanText: undefined,
+    pendingAgentPlanSessionId: undefined,
     pendingAgentCommand: undefined,
     agentTestResult: undefined,
     agentReviewResult: undefined,
@@ -1285,7 +1288,7 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
 // ── Runtime deserialization guards ────────────────────────────────────────
 
 const VALID_PROVIDER_IDS: ProviderId[] = ['nexus', 'claude', 'codex', 'antigravity', 'copilot', 'aider', 'custom', 'grok', 'auto'];
-const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review', 'agent'];
+const VALID_TASK_MODES: TaskMode[] = ['ask', 'research', 'scan-project', 'understand', 'plan', 'brainstorm', 'edit', 'debug', 'test', 'review', 'agent'];
 
 const LEGACY_PROVIDER_LABELS: Record<string, string> = { 'Gemini': 'Antigravity' };
 function normalizeLegacyProviderLabel(label: string | undefined): string | undefined {
@@ -1409,6 +1412,8 @@ function updateLastAssistant(conv: Conversation, fn: (m: AssistantMessage) => As
   return { ...conv, messages: [...msgs.slice(0, -1), fn(last as AssistantMessage)] };
 }
 
+const MAX_MSG_ACTIVITIES = 20;
+
 function completeRunningActivities(conv: Conversation): Conversation {
   return updateLastAssistant(conv, m => ({
     ...m,
@@ -1418,7 +1423,14 @@ function completeRunningActivities(conv: Conversation): Conversation {
         a.status === 'running' ? { ...a, status: 'done' as const } : a
       ),
     })),
+    activities: (m.activities ?? []).map(a =>
+      a.status === 'running' ? { ...a, status: 'done' as const } : a
+    ),
   }));
+}
+
+function appendMessageActivity(existing: Activity[] | undefined, activity: Activity): Activity[] {
+  return [...(existing ?? []), activity].slice(-MAX_MSG_ACTIVITIES);
 }
 
 // ── Streaming stage helpers ───────────────────────────────────────────────
@@ -1450,19 +1462,19 @@ function stageFromAgentStatus(status: AgentSessionStatus): StreamingStage | unde
     case 'waiting_permission':
       return 'queued';
     case 'scanning':
-      return 'researching';
+      return 'reading';
     case 'planning':
       return 'planning';
     case 'executing':
     case 'recovering':
-    case 'checkpointing':
       return 'editing';
+    case 'checkpointing':
+    case 'collecting_diff':
+      return 'summarizing';
     case 'testing':
       return 'testing';
     case 'reviewing':
       return 'reviewing';
-    case 'collecting_diff':
-      return 'summarizing';
     default:
       return undefined; // completed / failed / cancelled — don't override the live stage
   }
@@ -1526,7 +1538,9 @@ export function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, isStopping: true };
 
     case 'setProvider': {
-      const EXCLUDED_AUTO_MODES: TaskMode[] = ['scan-project'];
+      // Both are deliberate, explicit actions — auto-switching a user *into*
+      // a whole-repo scan on a provider change would be a surprising, slow jump.
+      const EXCLUDED_AUTO_MODES: TaskMode[] = ['scan-project', 'understand'];
       const matrix = state.agentCapabilityMatrix;
 
       const currentFit = matrix.find(
@@ -1729,6 +1743,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
         updateLastAssistant(conv, m => ({
           ...m,
           lines: truncateLines([...m.lines, ...allNewLines]),
+          lastOutputElapsed: state.elapsed,
         })),
       );
     }
@@ -2010,7 +2025,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
               return { ...m, steps, lastOutputElapsed: state.elapsed };
             }
             // No running step (single-shot / agent run) — keep the chip on the message itself.
-            return { ...m, activities: [...(m.activities ?? []), newActivity], lastOutputElapsed: state.elapsed };
+            return {
+              ...m,
+              activities: appendMessageActivity(m.activities, newActivity),
+              lastOutputElapsed: state.elapsed,
+            };
           }),
           actStage,
           msg.label,
@@ -2019,7 +2038,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     }
 
     case 'activityDone': {
-      const resolveActivity = (list: Activity[]): Activity[] => {
+      const resolveActivity = (list: Activity[], cap?: number): Activity[] => {
         const activities = [...list];
         let found = false;
         for (let j = activities.length - 1; j >= 0; j--) {
@@ -2033,7 +2052,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         if (!found) {
           activities.push({ kind: msg.activityKind as Activity['kind'], status: msg.status, label: msg.label });
         }
-        return activities;
+        return cap != null ? activities.slice(-cap) : activities;
       };
       return updateConversationById(state, getRunConvId(state), conv =>
         updateLastAssistant(conv, m => {
@@ -2047,7 +2066,11 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
             return { ...m, steps, lastOutputElapsed: state.elapsed };
           }
           // No running step — resolve against the message-level activity list.
-          return { ...m, activities: resolveActivity(m.activities ?? []), lastOutputElapsed: state.elapsed };
+          return {
+            ...m,
+            activities: resolveActivity(m.activities ?? [], MAX_MSG_ACTIVITIES),
+            lastOutputElapsed: state.elapsed,
+          };
         }),
       );
     }
@@ -2336,8 +2359,10 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
       // streaming message so it stops sitting on a generic "Planning" spinner.
       const stage = stageFromAgentStatus(msg.session.status);
       if (!state.isRunning || !stage) return next;
+      const runningStep = msg.session.steps.find(s => s.status === 'running');
+      const label = runningStep?.title || msg.session.status.replace(/_/g, ' ');
       return updateConversationById(next, getRunConvId(next), conv =>
-        setStreamingStage(conv, stage, undefined),
+        setStreamingStage(conv, stage, label),
       );
     }
 
@@ -2447,6 +2472,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         ...state,
         pendingAgentPlan: msg.plan,
         pendingAgentPlanText: msg.planText,
+        pendingAgentPlanSessionId: msg.sessionId,
       };
 
     case 'agentPlanApproved':
@@ -2454,6 +2480,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         ...state,
         pendingAgentPlan: undefined,
         pendingAgentPlanText: undefined,
+        pendingAgentPlanSessionId: undefined,
       };
 
     case 'agentPlanRejected':
@@ -2461,6 +2488,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         ...state,
         pendingAgentPlan: undefined,
         pendingAgentPlanText: undefined,
+        pendingAgentPlanSessionId: undefined,
         agentFinalSummary: undefined,
       };
 
@@ -2517,6 +2545,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         agentFinalSummary: msg.summary,
         pendingAgentPlan: undefined,
         pendingAgentPlanText: undefined,
+        pendingAgentPlanSessionId: undefined,
         pendingAgentCommand: undefined,
         saveKey: state.saveKey + 1,
       };

@@ -1,4 +1,4 @@
-import type { AgentTask, AgentResult, IAgent } from '../../core/agent';
+import type { AgentTask, AgentResult, IAgent, TaskMode } from '../../core/agent';
 import { AgentTask as AgentTaskClass } from '../../core/agent';
 import type { IEventBus } from '../../core/events/IEventBus';
 import type { IProcessRunner } from '../../core/runner/IProcessRunner';
@@ -10,6 +10,29 @@ import { AgentStreamPipelineFactory } from '../stream/AgentStreamPipelineFactory
 import type { AgentStreamPipeline } from '../stream/AgentStreamPipeline';
 import type { AgentStreamEvent } from '../../core/stream/AgentStreamEvent';
 
+/**
+ * Idle timeout defaults, in ms — how long the CLI may emit *nothing* before it
+ * is treated as hung. Not a total run limit: processRunner resets the timer on
+ * every output chunk.
+ *
+ * Modes that spend long stretches reading and reasoning before they emit
+ * anything need much more headroom than a short question does, so the ceiling is
+ * per-mode rather than global. These are the fallbacks used when no override
+ * resolver is injected (notably the CLI entry point, which has no VS Code
+ * settings to read).
+ */
+const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+const MODE_IDLE_TIMEOUT_MS: Partial<Record<TaskMode, number>> = {
+  // Matches the agent CLI's own --print-timeout of 20m.
+  review: 20 * 60 * 1000,
+  // Mapping a whole codebase reads dozens of files between emissions.
+  understand: 30 * 60 * 1000,
+};
+
+/** Resolves a per-mode idle timeout, or undefined to accept the built-in default. */
+export type IdleTimeoutResolver = (mode: TaskMode) => number | undefined;
+
 export class RunAgentUseCase {
   private activeTask: AgentTask | null = null;
 
@@ -20,7 +43,22 @@ export class RunAgentUseCase {
     private readonly mcpToolUseCase?: McpToolUseCase,
     private readonly configService?: ConfigService,
     private readonly tokenMeter: TokenMeter = new TokenMeter(),
+    /**
+     * Injected by the composition root so user settings can override the
+     * defaults above. Kept as a callback rather than a config object so this
+     * layer never imports the VS Code API, and so a settings change takes effect
+     * on the next run without a reload.
+     */
+    private readonly idleTimeoutResolver?: IdleTimeoutResolver,
   ) { }
+
+  private resolveIdleTimeoutMs(mode: TaskMode): number {
+    const override = this.idleTimeoutResolver?.(mode);
+    if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
+      return override;
+    }
+    return MODE_IDLE_TIMEOUT_MS[mode] ?? DEFAULT_IDLE_TIMEOUT_MS;
+  }
 
   async execute(task: AgentTask): Promise<AgentResult> {
     const agent = await this.router.resolve(task.agentId, task.mode);
@@ -153,8 +191,8 @@ export class RunAgentUseCase {
         onStderr: chunk => this.eventBus.emit({ kind: 'stderr', task, chunk }),
         cwd: task.cwd,
         // Kill the CLI if it produces no output for too long — guards against silent hangs.
-        // Review mode uses 20 min to match agy's --print-timeout 20m; other modes use 5 min.
-        idleTimeoutMs: task.mode === 'review' ? 20 * 60 * 1000 : 5 * 60 * 1000,
+        // Per-mode, and overridable via nexus.execution.*.idleTimeoutMs.
+        idleTimeoutMs: this.resolveIdleTimeoutMs(task.mode),
       });
 
       if (pipeline) {

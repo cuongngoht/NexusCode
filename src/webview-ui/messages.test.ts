@@ -619,6 +619,55 @@ describe('approval gate — planReadyForApproval and planRejected', () => {
   });
 });
 
+// ── Agent Mode plan approval gate ─────────────────────────────────────────
+describe('agent mode approval gate — agentPlanReadyForApproval', () => {
+  const agentPlan = {
+    summary: 'Add a feature',
+    filesToRead: ['src/a.ts'],
+    filesToEdit: ['src/b.ts'],
+    filesToCreate: [],
+    filesToDelete: [],
+    commandsToRun: ['npm test'],
+    risks: [],
+    assumptions: [],
+    testStrategy: [],
+    rollbackStrategy: [],
+    docsImpact: [],
+    securityImpact: [],
+    estimatedComplexity: 'low' as const,
+  };
+
+  function withPendingAgentPlan(): AppState {
+    return act(s(), {
+      type: 'extMsg',
+      msg: { type: 'agentPlanReadyForApproval', sessionId: 'sess-1', plan: agentPlan, planText: '# Plan\ndo x' },
+    });
+  }
+
+  it('agentPlanReadyForApproval: stores plan, planText and sessionId', () => {
+    const state = withPendingAgentPlan();
+    expect(state.pendingAgentPlan).toEqual(agentPlan);
+    expect(state.pendingAgentPlanText).toBe('# Plan\ndo x');
+    expect(state.pendingAgentPlanSessionId).toBe('sess-1');
+  });
+
+  it('agentPlanApproved: clears pending plan state', () => {
+    let state = withPendingAgentPlan();
+    state = act(state, { type: 'extMsg', msg: { type: 'agentPlanApproved', sessionId: 'sess-1' } });
+    expect(state.pendingAgentPlan).toBeUndefined();
+    expect(state.pendingAgentPlanText).toBeUndefined();
+    expect(state.pendingAgentPlanSessionId).toBeUndefined();
+  });
+
+  it('agentPlanRejected: clears pending plan state', () => {
+    let state = withPendingAgentPlan();
+    state = act(state, { type: 'extMsg', msg: { type: 'agentPlanRejected', sessionId: 'sess-1', reason: 'no' } });
+    expect(state.pendingAgentPlan).toBeUndefined();
+    expect(state.pendingAgentPlanText).toBeUndefined();
+    expect(state.pendingAgentPlanSessionId).toBeUndefined();
+  });
+});
+
 // ── Test E: assistant timestamp roundtrips through serialize/deserialize ──
 describe('Test E — assistant message timestamp survives serialize/deserialize', () => {
   it('timestamp on assistant message is preserved through history roundtrip', () => {

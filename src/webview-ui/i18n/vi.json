@@ -106,6 +106,10 @@
       "label": "Quét dự án",
       "desc": "Phân tích workspace"
     },
+    "understand": {
+      "label": "Hiểu dự án",
+      "desc": "Lập bản đồ codebase và lưu lại cho các task sau"
+    },
     "agent": {
       "label": "Chế độ Agent",
       "desc": "Agent lập trình toàn diện với phê duyệt kế hoạch"
@@ -122,6 +126,7 @@
       "plan": "Lập kế hoạch",
       "test": "Agent kiểm thử",
       "scan-project": "Quét dự án",
+      "understand": "Agent hiểu dự án",
       "brainstorm": "Brainstorm",
       "agent": "Chế độ Agent"
     },
@@ -328,6 +333,7 @@
       "code-review-context": "Xây dựng ngữ cảnh review",
       "subagent-architect": "Đánh giá kiến trúc",
       "architecture-memory": "Phân tích kiến trúc",
+      "project-understanding": "Đang tải hiểu biết dự án",
       "file-intelligence": "Bộ nhớ thông minh tệp",
       "review-analyze": "Phân tích code review"
     },
@@ -548,7 +554,8 @@
     "stopped": "Đã dừng",
     "stillWorking": "Vẫn đang xử lý…",
     "thinking": "Đang suy nghĩ…",
-    "waitingForOutput": "Đang chờ phản hồi…"
+    "waitingForOutput": "Đang chờ phản hồi…",
+    "liveOutput": "Output trực tiếp"
   },
   "streamStatus": {
     "running": "Đang chạy",

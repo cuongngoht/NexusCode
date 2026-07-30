@@ -17,6 +17,7 @@ import { BuildProjectMapUseCase } from '../../application/usecases/BuildProjectM
 import { BuildArchitectureMemoryUseCase } from '../../application/usecases/BuildArchitectureMemoryUseCase';
 import { BackfillModuleUsageUseCase } from '../../application/usecases/BackfillModuleUsageUseCase';
 import { RetentionSweepUseCase } from '../../application/knowledge-facts/RetentionSweepUseCase';
+import { ProjectUnderstandingWriter } from '../../context/project-understanding/ProjectUnderstandingWriter';
 import type { EnrichmentConsentGate } from '../../application/knowledge-facts/EnrichmentConsentGate';
 import type { EnrichmentBudgetTracker } from '../../application/knowledge-facts/EnrichmentBudgetTracker';
 import type { EnrichAndRecordFactsUseCase } from '../../application/knowledge-facts/EnrichAndRecordFactsUseCase';
@@ -63,6 +64,7 @@ import type { HistoryRagFacade } from '../../context/history-search/HistoryRagFa
 import type { HistoryRagSourceView } from '../../context/history-search/types';
 import type { DebugOrchestrator } from '../../debug/orchestrator/DebugOrchestrator';
 import type { AgentExecutor } from '../../application/agent-mode/AgentExecutor';
+import type { AgentProjectContext } from '../../application/agent-mode/AgentContextBuilder';
 import { ReviewPanel } from '../../review/ReviewPanel';
 import type { PermissionService } from '../../application/permissions/PermissionService';
 import { NexusDiscoveryOrchestrator } from '../../context/project-map/NexusDiscoveryOrchestrator';
@@ -119,6 +121,9 @@ const SCAN_PROJECT_DEFAULT =
 const REVIEW_DEFAULT =
   'Review the current branch against the selected base branch. Focus on bugs, regressions, security, tests, and maintainability.';
 
+const UNDERSTAND_DEFAULT =
+  'Map this codebase and persist it to .nexus/project-understanding/ so later tasks start informed.';
+
 export class RunTaskHandler {
   private _pipelineActive = false;
   private _stopRequested = false;
@@ -163,6 +168,7 @@ export class RunTaskHandler {
   private readonly buildArchitectureMemory = new BuildArchitectureMemoryUseCase();
   private readonly backfillModuleUsage = new BackfillModuleUsageUseCase();
   private readonly retentionSweep = new RetentionSweepUseCase();
+  private readonly projectUnderstandingWriter = new ProjectUnderstandingWriter();
   private readonly sagaRunner = new SagaRunner();
 
   hasActive(): boolean {
@@ -182,7 +188,7 @@ export class RunTaskHandler {
     reviewTarget?: CodeReviewTarget,
     reviewPreset?: CodeReviewPreset,
   ): Promise<void> {
-    if (!prompt.trim() && mode !== 'scan-project' && mode !== 'review') {
+    if (!prompt.trim() && mode !== 'scan-project' && mode !== 'review' && mode !== 'understand') {
       this.post({ type: 'taskError', taskId: 'pre-task', message: 'Prompt must not be empty.' });
       return;
     }
@@ -200,7 +206,8 @@ export class RunTaskHandler {
     }
 
     const effectivePrompt =
-      prompt.trim() || (mode === 'review' ? REVIEW_DEFAULT : SCAN_PROJECT_DEFAULT);
+      prompt.trim() ||
+      (mode === 'review' ? REVIEW_DEFAULT : mode === 'understand' ? UNDERSTAND_DEFAULT : SCAN_PROJECT_DEFAULT);
 
     const cfg = vscode.workspace.getConfiguration('nexus');
     const enableEnhancement = cfg.get<boolean>('enablePromptEnhancement', true);
@@ -324,6 +331,7 @@ export class RunTaskHandler {
             conversationContext: ctx.conversationContext,
             attachments: resolvedAttachments,
             subagentsEnabled,
+            buildProjectContext: () => this.buildAgentProjectContext(ctx, workspaceRoot),
           });
         } else {
           this.post({ type: 'taskError', taskId: 'agent-mode', message: 'Agent Mode executor is not initialized.' });
@@ -377,6 +385,15 @@ export class RunTaskHandler {
             await this.retentionSweep.execute(workspaceRoot);
           } catch {
             // non-blocking — knowledge-facts retention sweep is best-effort
+          }
+          try {
+            // A fresh structural scan means the saved map may no longer match the
+            // tree. Downgrade rather than delete: layer names, conventions and
+            // gotchas survive most refactors, so a stale map still beats none —
+            // it just gets injected with a warning attached.
+            await this.projectUnderstandingWriter.markStale(workspaceRoot);
+          } catch {
+            // non-blocking — staleness marking is best-effort
           }
           this.post({
             type: 'projectScanCompleted',
@@ -804,6 +821,46 @@ export class RunTaskHandler {
     return result.ok;
   }
 
+  /**
+   * Loads project knowledge for Agent Mode (invoked from its scan_project
+   * step). Runs the 'agent' pre-steps to populate the pipeline context, then
+   * packages the enrichment fields the agent planner/editor/reviewer consume.
+   * Every step failure is non-fatal — Agent Mode continues without that section.
+   */
+  private async buildAgentProjectContext(ctx: PipelineContext, workspaceRoot: string): Promise<AgentProjectContext> {
+    const steps = createPreSteps('agent', {
+      extensionPath: this.extensionPath,
+      fileIntelligenceStore: this.fileIntelligenceDeps?.store,
+      fileIntelligenceIgnoreFilter: this.fileIntelligenceDeps?.ignoreFilter,
+    });
+    for (const step of steps) {
+      try {
+        await step.execute(ctx, () => { /* agent mode has its own timeline — suppress pipeline step events */ });
+      } catch {
+        // Non-fatal: missing knowledge must not prevent the agent session
+      }
+    }
+
+    const workspace = scanWorkspace(workspaceRoot);
+    const packages = detectPackageInfo(workspaceRoot);
+    const workspaceLines = [`Workspace: ${workspace.name}`, `Root: ${workspace.root}`];
+    if (workspace.gitBranch) workspaceLines.push(`Git branch: ${workspace.gitBranch}`);
+    if (packages.manager !== 'unknown') workspaceLines.push(`Package manager: ${packages.manager}`);
+    if (packages.frameworks.length > 0) workspaceLines.push(`Frameworks: ${packages.frameworks.join(', ')}`);
+    if (packages.scripts.length > 0) workspaceLines.push(`Available scripts: ${packages.scripts.join(', ')}`);
+
+    return {
+      workspaceInfo: workspaceLines.join('\n'),
+      rules: loadRules(workspaceRoot) || undefined,
+      projectMap: ctx.projectMap,
+      projectUnderstandingContext: ctx.projectUnderstandingContext,
+      architectureContext: ctx.architectureContext,
+      knowledgeBaseContext: ctx.knowledgeBaseContext,
+      knowledgeFactsContext: ctx.knowledgeFactsContext,
+      fileIntelligenceContext: ctx.fileIntelligenceContext,
+    };
+  }
+
   private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, mcpEnabled: boolean, reviewPreset?: CodeReviewPreset): string {
     const workspace = scanWorkspace(workspaceRoot);
     const packages = detectPackageInfo(workspaceRoot);
@@ -876,6 +933,7 @@ export class RunTaskHandler {
       rules,
       mode,
       projectMap: ctx.projectMap,
+      projectUnderstandingContext: ctx.projectUnderstandingContext,
       sourceContext: ctx.sourceContext,
       conversationContext: ctx.conversationContext,
       brainstormAgents: ctx.brainstormAgents,

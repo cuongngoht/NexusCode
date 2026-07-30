@@ -79,7 +79,12 @@ export function StreamingStatusBar({ stage, label, elapsed, tail, activities, la
       )}
 
       {isActive && tail && tail.length > 0 && (
-        <pre className="nx-streaming-tail" aria-hidden="true">{tail.join('\n')}</pre>
+        <pre
+          className="nx-streaming-tail"
+          aria-label={streaming.liveOutput ?? 'Live output'}
+        >
+          {tail.join('\n')}
+        </pre>
       )}
     </div>
   );

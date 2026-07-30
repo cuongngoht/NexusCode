@@ -14,6 +14,7 @@ export const MODE_FLOW: Record<TaskMode, StageFlow> = {
   ask:            ['plan'],
   brainstorm:     ['plan'],
   'scan-project': ['search'],
+  understand:     ['search'],
   agent:          ['search', 'plan'],
 };
 

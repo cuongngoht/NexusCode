@@ -22,6 +22,7 @@ export type PipelineContext = {
   // Enriched by pre-steps:
   projectMemoryStatus?: PipelineProjectMemoryStatus;
   projectMap?: string;
+  projectUnderstandingContext?: string;
   sourceContext?: string;
   architectureContext?: string;
   knowledgeBaseContext?: string;

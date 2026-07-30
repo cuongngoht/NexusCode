@@ -12,6 +12,7 @@ import { AgentDiffCollector } from './AgentDiffCollector';
 import { AgentFinalReporter } from './AgentFinalReporter';
 import { AgentBranchManager } from './AgentBranchManager';
 import { ProjectLearningCoordinator, type RunHandle } from '../learning/ProjectLearningCoordinator';
+import { formatProjectContextSections, type AgentProjectContext } from './AgentContextBuilder';
 import { loadAgentModePolicy, type AgentModePolicy } from './AgentModePolicy';
 import type { AgentSession, AgentSessionStatus } from './AgentSession';
 import type { AgentStep, AgentStepType } from './AgentStep';
@@ -31,11 +32,20 @@ export interface RunAgentModeInput {
   conversationContext?: string;
   attachments?: unknown[];
   subagentsEnabled?: boolean;
+  /**
+   * Loads project knowledge (rules, project map, knowledge base, file
+   * intelligence, …) during the scan_project step. Failures are non-fatal —
+   * the session continues without enrichment.
+   */
+  buildProjectContext?: () => Promise<AgentProjectContext>;
 }
 
 export class AgentExecutor {
   private readonly sessionStores = new Map<string, AgentSessionStore>();
   private readonly learningHandles = new Map<string, RunHandle>();
+  // Kept between run() and continueAfterApproval() — the approval gate spans
+  // two calls. Lost on extension restart; sessions degrade to no enrichment.
+  private readonly projectContexts = new Map<string, AgentProjectContext>();
 
   constructor(
     private readonly runAgentUseCase: RunAgentUseCase,
@@ -98,6 +108,29 @@ export class AgentExecutor {
       // Step: scan + plan
       await this.runStep(session, store, timeline, 'scan_project', 'Scanning project', async () => {
         this.setSessionStatus(session, store, 'scanning');
+        if (input.buildProjectContext) {
+          try {
+            const projectContext = await input.buildProjectContext();
+            this.projectContexts.set(session.id, projectContext);
+            const loaded = Object.entries(projectContext)
+              .filter(([, v]) => typeof v === 'string' && v.trim().length > 0)
+              .map(([k]) => k);
+            await timeline.append({
+              sessionId: session.id,
+              type: 'step_completed',
+              message: loaded.length > 0
+                ? `Project context loaded: ${loaded.join(', ')}.`
+                : 'No project context available (no rules/knowledge base found).',
+            });
+          } catch (err) {
+            // Enrichment failure must not prevent the session from running
+            await timeline.append({
+              sessionId: session.id,
+              type: 'step_failed',
+              message: `Project context loading failed (continuing without it): ${String(err)}`,
+            });
+          }
+        }
       });
 
       await this.runStep(session, store, timeline, 'plan', 'Creating implementation plan', async () => {
@@ -116,6 +149,7 @@ export class AgentExecutor {
           providerId: input.providerId,
           model: input.model,
           conversationContext: input.conversationContext,
+          projectContext: this.projectContexts.get(session.id),
         });
 
         session.plan = result.plan;
@@ -150,6 +184,7 @@ export class AgentExecutor {
       this.postAgentMessage({ type: 'agentSessionUpdated', session: toSessionViewModel(updated) });
       await timeline.append({ sessionId: session.id, type: 'session_failed', message: `Session failed: ${msg}` });
       this.learningHandles.delete(session.id);
+      this.projectContexts.delete(session.id);
       this.emitError(msg);
     }
   }
@@ -275,7 +310,7 @@ export class AgentExecutor {
             return { diff: d.diff, diffStat: d.diffStat };
           },
         );
-        reviewResult = await reviewer.review(session!);
+        reviewResult = await reviewer.review(session!, this.projectContexts.get(sessionId));
         this.postAgentMessage({ type: 'agentReviewResult', sessionId, result: reviewResult });
         await timeline.append({ sessionId, type: 'review_completed', message: `Review ${reviewResult.passed ? 'passed' : 'found issues'}.` });
       });
@@ -297,6 +332,7 @@ export class AgentExecutor {
         const summary = await reporter.build(session!, { testResult, recoveryResult, reviewResult, diffSummary });
         const learningHandle = this.learningHandles.get(sessionId) ?? this.projectLearning.beginRun(session!.workspaceRoot, 'agent');
         this.learningHandles.delete(sessionId);
+        this.projectContexts.delete(sessionId);
         void this.projectLearning.completeRun(learningHandle, {
           mode: 'agent',
           providerId: session!.providerId,
@@ -322,6 +358,7 @@ export class AgentExecutor {
       this.postAgentMessage({ type: 'agentSessionUpdated', session: toSessionViewModel(failed) });
       await timeline.append({ sessionId, type: 'session_failed', message: `Session failed: ${msg}` });
       this.learningHandles.delete(sessionId);
+      this.projectContexts.delete(sessionId);
       this.emitError(msg);
     }
   }
@@ -342,6 +379,7 @@ export class AgentExecutor {
     session.status = 'cancelled';
     store.update(session);
     this.learningHandles.delete(sessionId);
+    this.projectContexts.delete(sessionId);
 
     const timeline = new AgentTimeline(session.workspaceRoot, this.eventBus);
     await timeline.append({ sessionId, type: 'approval_rejected', message: `Plan rejected${reason ? ': ' + reason : ''}.` });
@@ -398,7 +436,7 @@ export class AgentExecutor {
   }
 
   private async runEdit(session: AgentSession, _policy: AgentModePolicy): Promise<void> {
-    const editPrompt = buildEditPrompt(session);
+    const editPrompt = buildEditPrompt(session, this.projectContexts.get(session.id));
 
     // Use NexusOrchestrator for nexus provider, RunAgentUseCase for direct providers
     const { workspaceRoot, providerId, model } = session;
@@ -533,8 +571,11 @@ function toFinalSummaryViewModel(summary: AgentFinalSummary) {
   };
 }
 
-function buildEditPrompt(session: AgentSession): string {
+function buildEditPrompt(session: AgentSession, projectContext?: AgentProjectContext): string {
   const plan = session.plan;
+  const contextSections = formatProjectContextSections(projectContext, {
+    include: ['rules', 'fileIntelligenceContext', 'knowledgeBaseContext'],
+  });
   return `You are Nexus Agent Mode Executor.
 
 User task:
@@ -556,7 +597,7 @@ Hard rules:
 
 ${plan?.filesToEdit?.length ? `Files expected to edit:\n${plan.filesToEdit.join('\n')}` : ''}
 ${plan?.filesToCreate?.length ? `Files expected to create:\n${plan.filesToCreate.join('\n')}` : ''}
-
+${contextSections ? '\n' + contextSections + '\n' : ''}
 Important:
 - Do not modify binary assets.
 - Do not modify bundled build output unless explicitly required.

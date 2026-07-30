@@ -64,7 +64,8 @@ This pattern makes supporting a brand new CLI response format a matter of:
 - `IPipelineStep` + `PipelineContext` (mutable enrichment bag).
 - `createPreSteps(mode)` (switch today) returns the list for that mode.
 - Used by `RunTaskHandler` before calling `RunAgentUseCase` or `NexusOrchestrator`.
-- Current modes with special pre-steps: scan-project, brainstorm, debug, review.
+- Current modes with special pre-steps: scan-project, brainstorm, debug, review, agent.
+- Agent Mode is special: `RunTaskHandler` does not run the steps itself — it passes a `buildProjectContext` callback into `AgentExecutor.run()`, and the agent's own `scan_project` step executes the `'agent'` pre-steps plus `loadRules`/`scanWorkspace`/`detectPackageInfo`. The resulting `AgentProjectContext` (see `application/agent-mode/AgentContextBuilder.ts`) is injected into the planner, editor, and reviewer prompts.
 
 **Extensibility note**: For many new modes, prefer adding a new pre-step implementation and extending the switch (or migrate to a step registry later).
 

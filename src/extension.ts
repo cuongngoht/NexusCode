@@ -94,7 +94,25 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const mcpToolUseCase = createMcpToolUseCase();
 
-  const runAgent = new RunAgentUseCase(router, runner, eventBus, mcpToolUseCase, configService);
+  // Read per-run rather than at activation, so changing the setting takes effect
+  // on the next task instead of requiring a window reload. A mode-specific key
+  // wins when one is registered; otherwise the shared value applies.
+  const resolveIdleTimeoutMs = (mode: string): number | undefined => {
+    const cfg = vscode.workspace.getConfiguration('nexus');
+    const perMode = cfg.get<number>(`execution.${mode}.idleTimeoutMs`);
+    if (typeof perMode === 'number' && perMode > 0) return perMode;
+    return cfg.get<number>('execution.idleTimeoutMs');
+  };
+
+  const runAgent = new RunAgentUseCase(
+    router,
+    runner,
+    eventBus,
+    mcpToolUseCase,
+    configService,
+    undefined,
+    resolveIdleTimeoutMs,
+  );
   const orchestrator = new NexusOrchestrator(registry, runAgent, eventBus);
 
   const subagentOrchestrator = createSubagentOrchestrator(registry, runner, context.extensionPath);

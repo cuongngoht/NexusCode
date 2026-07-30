@@ -1,5 +1,6 @@
 import type { AgentSession } from './AgentSession';
 import type { AgentPlan, AgentPlanResult } from './AgentPlan';
+import { formatProjectContextSections, type AgentProjectContext } from './AgentContextBuilder';
 
 export interface AgentPlannerInput {
   session: AgentSession;
@@ -9,6 +10,8 @@ export interface AgentPlannerInput {
   model?: string;
   conversationContext?: string;
   attachments?: unknown[];
+  /** Project knowledge (rules, map, knowledge base, …) loaded by the scan_project step. */
+  projectContext?: AgentProjectContext;
 }
 
 export type RunAgentForTextFn = (
@@ -117,8 +120,13 @@ export class AgentPlanner {
   }
 }
 
-function buildPlannerPrompt(input: AgentPlannerInput): string {
+export function buildPlannerPrompt(input: AgentPlannerInput): string {
   const parts: string[] = [PLANNER_PROMPT_HEADER];
+
+  const contextSections = formatProjectContextSections(input.projectContext);
+  if (contextSections) {
+    parts.push('\n' + contextSections);
+  }
 
   if (input.conversationContext) {
     parts.push('\n# Previous Conversation Context\n' + input.conversationContext);

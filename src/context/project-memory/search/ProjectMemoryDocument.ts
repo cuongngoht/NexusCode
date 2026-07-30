@@ -1,6 +1,6 @@
 export interface ProjectMemoryDocument {
   id: string;
-  source: 'project-map' | 'workspace-units' | 'discovery';
+  source: 'project-map' | 'workspace-units' | 'discovery' | 'project-understanding';
   section: string;
   content: string;
   tokens: string[];

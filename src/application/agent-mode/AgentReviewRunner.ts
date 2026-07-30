@@ -1,4 +1,5 @@
 import type { AgentSession } from './AgentSession';
+import { formatProjectContextSections, type AgentProjectContext } from './AgentContextBuilder';
 
 export interface AgentReviewFinding {
   severity: 'info' | 'warning' | 'error';
@@ -30,7 +31,7 @@ export class AgentReviewRunner {
     private readonly collectDiff: CollectDiffForReviewFn,
   ) {}
 
-  async review(session: AgentSession): Promise<AgentReviewResult> {
+  async review(session: AgentSession, projectContext?: AgentProjectContext): Promise<AgentReviewResult> {
     let diffContext = '';
     let diffStat = '';
     try {
@@ -46,6 +47,7 @@ export class AgentReviewRunner {
       planText: session.planText ?? '',
       diff: diffContext,
       diffStat,
+      projectContext,
     });
 
     let rawOutput = '';
@@ -73,7 +75,12 @@ function buildReviewPrompt(params: {
   planText: string;
   diff: string;
   diffStat: string;
+  projectContext?: AgentProjectContext;
 }): string {
+  const contextSections = formatProjectContextSections(params.projectContext, {
+    include: ['rules', 'architectureContext', 'knowledgeBaseContext'],
+    maxSectionChars: 4_000,
+  });
   return `You are Nexus Agent Mode Reviewer.
 
 Original task:
@@ -81,7 +88,7 @@ ${params.originalPrompt}
 
 Approved plan:
 ${params.planText}
-
+${contextSections ? '\n' + contextSections + '\n' : ''}
 Diff stat:
 ${params.diffStat}
 

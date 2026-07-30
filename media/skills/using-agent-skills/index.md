@@ -16,6 +16,9 @@ When a task arrives, identify the development phase and apply the corresponding 
 ```
 Task arrives
     │
+    ├── Unfamiliar codebase? ──────────────→ codebase-mapping
+    │   ├── Onboarding someone? ──────────→ onboarding-guide
+    │   └── What should we refactor? ─────→ code-health-audit
     ├── Don't know what you want yet? ──────→ interview-me
     ├── Have a rough concept, need variants? → idea-refine
     ├── New project/feature/change? ──→ spec-driven-development
@@ -164,6 +167,9 @@ Not every task needs every skill. A bug fix might only need: `debugging-and-erro
 
 | Phase | Skill | One-Line Summary |
 |-------|-------|-----------------|
+| Understand | codebase-mapping | Map an unfamiliar codebase and persist it to `.nexus/project-understanding/` |
+| Understand | code-health-audit | Quantify technical debt with measured evidence, not opinion |
+| Understand | onboarding-guide | Get a new contributor to their first merged change |
 | Define | interview-me | Surface what the user actually wants before any plan, spec, or code exists |
 | Define | idea-refine | Refine ideas through structured divergent and convergent thinking |
 | Define | spec-driven-development | Requirements and acceptance criteria before code |

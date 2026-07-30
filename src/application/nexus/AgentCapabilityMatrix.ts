@@ -32,6 +32,7 @@ const TASK_MODES: readonly TaskMode[] = [
   'ask',
   'research',
   'scan-project',
+  'understand',
   'plan',
   'brainstorm',
   'edit',
@@ -86,6 +87,13 @@ const MODE_RANKINGS: Record<TaskMode, FitRanking> = {
   'scan-project': {
     best: ['antigravity', 'codex'],
     good: ['grok', 'claude'],
+    limited: ['copilot', 'aider', 'custom'],
+  },
+  // Synthesising a whole-codebase map rewards long-context reasoning over
+  // editing power, so this ranks closer to `research` than to `scan-project`.
+  understand: {
+    best: ['claude', 'codex'],
+    good: ['antigravity', 'grok'],
     limited: ['copilot', 'aider', 'custom'],
   },
   agent: {

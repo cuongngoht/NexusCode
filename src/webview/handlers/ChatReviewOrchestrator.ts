@@ -55,6 +55,11 @@ export class ChatReviewOrchestrator {
     // Already in review mode — RunTaskHandler handles it (supplement step via @agent mention).
     if (mode === 'review') return false;
 
+    // `understand` is an explicit whole-repo mapping run. Letting an @agent mention
+    // divert it into the review flow would silently discard the artifact the user
+    // asked for, so it opts out of interception the same way review does.
+    if (mode === 'understand') return false;
+
     const workspaceRoot = requireWorkspaceRoot(this.post);
     if (!workspaceRoot) return false;
 

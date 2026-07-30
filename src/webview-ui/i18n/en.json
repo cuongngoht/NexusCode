@@ -106,6 +106,10 @@
       "label": "Scan Project",
       "desc": "Analyse the workspace"
     },
+    "understand": {
+      "label": "Understand",
+      "desc": "Map the codebase and save it for later tasks"
+    },
     "agent": {
       "label": "Agent Mode",
       "desc": "Stateful coding agent with plan approval"
@@ -122,6 +126,7 @@
       "plan": "Planner",
       "test": "Test Agent",
       "scan-project": "Scan Project",
+      "understand": "Codebase Cartographer",
       "brainstorm": "Brainstorm",
       "agent": "Agent Mode"
     },
@@ -328,6 +333,7 @@
       "code-review-context": "Building review context",
       "subagent-architect": "Architecture review",
       "architecture-memory": "Architecture analysis",
+      "project-understanding": "Loading project understanding",
       "file-intelligence": "File intelligence",
       "review-analyze": "Analyzing code review"
     },
@@ -548,7 +554,8 @@
     "stopped": "Stopped",
     "stillWorking": "Still working…",
     "thinking": "Thinking…",
-    "waitingForOutput": "Waiting for output…"
+    "waitingForOutput": "Waiting for output…",
+    "liveOutput": "Live output"
   },
   "streamStatus": {
     "running": "Running",

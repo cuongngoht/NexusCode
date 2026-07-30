@@ -18,6 +18,7 @@ import { NexusShell } from './components/layout/NexusShell';
 import { uiReducer, createInitialUiState } from './state/uiState';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 import { PermissionApprovalCard } from './components/PermissionApprovalCard';
+import { AgentPlanApprovalCard } from './components/AgentPlanApprovalCard';
 import { ReviewTargetSelectorCard } from './components/review/ReviewTargetSelectorCard';
 
 function getSurface(): MainView {
@@ -660,6 +661,18 @@ export function App() {
                 onRetry={handleRetry}
               />
 
+
+              {state.pendingAgentPlan && state.pendingAgentPlanSessionId && (
+                <div className="nx-perm-cards">
+                  <AgentPlanApprovalCard
+                    plan={state.pendingAgentPlan}
+                    planText={state.pendingAgentPlanText ?? ''}
+                    sessionId={state.pendingAgentPlanSessionId}
+                    onApprove={sessionId => getVsCodeApi().postMessage({ type: 'approveAgentPlan', sessionId })}
+                    onReject={(sessionId, reason) => getVsCodeApi().postMessage({ type: 'rejectAgentPlan', sessionId, reason })}
+                  />
+                </div>
+              )}
 
               {state.pendingPermissions.length > 0 && (
                 <div className="nx-perm-cards">

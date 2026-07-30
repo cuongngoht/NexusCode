@@ -585,6 +585,27 @@
           "maximum": 300000,
           "description": "Timeout (ms) for each review subagent. Defaults to 60 s — longer than the global timeout because review subagents process a full diff."
         },
+        "nexus.execution.idleTimeoutMs": {
+          "type": "number",
+          "default": 300000,
+          "minimum": 30000,
+          "maximum": 3600000,
+          "description": "Idle timeout (ms) for the agent CLI: how long it may produce NO output before Nexus kills it. This is not a total run limit — the timer resets on every chunk of output. Defaults to 5 min. Raise it if long silent thinking phases are being cut short."
+        },
+        "nexus.execution.understand.idleTimeoutMs": {
+          "type": "number",
+          "default": 1800000,
+          "minimum": 30000,
+          "maximum": 3600000,
+          "description": "Idle timeout (ms) for understand mode. Defaults to 30 min because mapping a whole codebase involves long silent stretches while the agent reads many files before emitting anything."
+        },
+        "nexus.execution.review.idleTimeoutMs": {
+          "type": "number",
+          "default": 1200000,
+          "minimum": 30000,
+          "maximum": 3600000,
+          "description": "Idle timeout (ms) for review mode. Defaults to 20 min to match the agent CLI's own print timeout."
+        },
         "nexus.review.openPanelOnCompletion": {
           "type": "boolean",
           "default": true,
@@ -717,6 +738,13 @@
           "minimum": 0,
           "maximum": 6,
           "description": "Maximum subagents for plan mode."
+        },
+        "nexus.subagents.understand.maxRuns": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Maximum subagents for understand mode."
         },
         "nexus.subagents.research.maxRuns": {
           "type": "number",

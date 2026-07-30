@@ -20,6 +20,15 @@ export class ProjectMemoryIndexBuilder {
       documents,
     );
 
+    // The understand-mode map is `## `-sectioned like the other markdown here,
+    // so indexing it costs one call and makes it retrievable through the
+    // existing project-memory RAG with no new retrieval code.
+    this.chunkMarkdownFile(
+      path.join(workspaceRoot, '.nexus', 'project-understanding', 'understanding.md'),
+      'project-understanding',
+      documents,
+    );
+
     const discoveryDir = path.join(workspaceRoot, '.nexus', 'discovery');
     if (fs.existsSync(discoveryDir)) {
       for (const file of fs.readdirSync(discoveryDir)) {

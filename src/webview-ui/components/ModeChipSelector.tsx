@@ -10,7 +10,7 @@ interface Props {
 }
 
 const ALL_MODES: readonly TaskMode[] = [
-  'ask', 'edit', 'agent', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'scan-project',
+  'ask', 'edit', 'agent', 'research', 'brainstorm', 'review', 'debug', 'plan', 'test', 'understand', 'scan-project',
 ];
 
 const DIRECT_PROVIDERS: readonly string[] = [
@@ -23,6 +23,7 @@ const MODE_RISK: Record<TaskMode, RiskLevel> = {
   ask: 'readonly',
   research: 'readonly',
   'scan-project': 'readonly',
+  understand: 'readonly',
   brainstorm: 'readonly',
   plan: 'plan',
   review: 'readonly',

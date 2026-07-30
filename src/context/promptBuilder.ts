@@ -18,6 +18,8 @@ export interface PromptContext {
   rules: string;
   mode: TaskMode;
   projectMap?: string;
+  /** Persisted project map authored by `understand` mode, injected into every mode. */
+  projectUnderstandingContext?: string;
   sourceContext?: string;
   conversationContext?: string;
   brainstormAgents?: string;
@@ -99,6 +101,15 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Brainstorm Agent Definitions');
     lines.push(ctx.brainstormAgents);
+  }
+
+  // Ahead of the raw Project Map on purpose: this is the curated synthesis of
+  // the same territory, so when both are present the model should meet the
+  // interpretation before the file listing.
+  if (ctx.projectUnderstandingContext) {
+    lines.push('');
+    lines.push('# Project Understanding');
+    lines.push(ctx.projectUnderstandingContext);
   }
 
   if (ctx.projectMap) {

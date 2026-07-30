@@ -5,6 +5,8 @@ const CAPABILITY_BY_MODE: Record<TaskMode, Partial<AgentCapabilities>> = {
   ask: {},
   research: { canSearchWeb: true },
   'scan-project': { canEditFiles: true },
+  // Needs to write the map into .nexus/, but touches no project source.
+  understand: { canEditFiles: true },
   plan: {},
   brainstorm: {},
   edit: { canEditFiles: true },

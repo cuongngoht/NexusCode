@@ -57,6 +57,13 @@ const MODE_FALLBACKS: Record<TaskMode, string> = {
   ask: 'Answer the user directly using the provided context. Do not scan the project broadly unless needed.',
   research: 'Research the topic and cite or summarize relevant findings. Prefer external/web knowledge when available.',
   'scan-project': 'Inspect the project read-only. Summarize architecture, risks, missing pieces, and recommended next steps.',
+  understand: [
+    'Build a durable map of this codebase and persist it.',
+    'Read the structure first, then the load-bearing files (entry points, composition roots, high fan-in modules).',
+    'Derive the real layering, trace one request end to end naming actual files, and record conventions and gotchas.',
+    'Write the map to .nexus/project-understanding/understanding.md and its metadata to .nexus/project-understanding/manifest.json.',
+    'Do not modify project source. Every file path you name must exist.',
+  ].join(' '),
   plan: 'Produce an implementation plan only. Do not mutate files or run commands that change project state. Treat attached files and folders as the primary source of truth.',
   brainstorm: [
     'Run an autonomous multi-agent brainstorming session.',

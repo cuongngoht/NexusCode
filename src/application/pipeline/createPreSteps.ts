@@ -6,6 +6,7 @@ import { BrainstormAgentsStep } from './BrainstormAgentsStep';
 import { DebugPreStep } from './DebugPreStep';
 import { ReviewFileContextStep } from './review/ReviewFileContextStep';
 import { ArchitectureMemoryStep } from './ArchitectureMemoryStep';
+import { ProjectUnderstandingStep } from './ProjectUnderstandingStep';
 import { KnowledgeBaseStep } from './KnowledgeBaseStep';
 import { KnowledgeFactsStep } from './KnowledgeFactsStep';
 import { FileIntelligenceContextStep } from './FileIntelligenceContextStep';
@@ -30,6 +31,18 @@ function withFileIntelligence(steps: IPipelineStep[], deps: PreStepDeps): IPipel
 
 export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep[] {
   switch (mode) {
+    case 'understand':
+      // Scan first so the map is authored against fresh structure, then load any
+      // existing understanding so the model can revise rather than start over.
+      return withFileIntelligence(
+        [
+          new ScanProjectStep(deps.extensionPath),
+          new ArchitectureMemoryStep(),
+          new ProjectUnderstandingStep(),
+        ],
+        deps,
+      );
+
     case 'scan-project':
       // NOTE: this branch is unreachable — RunTaskHandler.run() returns early for
       // 'scan-project' before ever calling createPreSteps(). Do not add KnowledgeBaseStep
@@ -52,7 +65,24 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
       );
 
     case 'debug':
-      return withFileIntelligence([new DebugPreStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()], deps);
+      return withFileIntelligence(
+        [new DebugPreStep(), new ProjectUnderstandingStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()],
+        deps,
+      );
+
+    case 'agent':
+      // Agent Mode runs these itself inside its scan_project step (via
+      // RunAgentModeInput.buildProjectContext) — not through runPreSteps().
+      return withFileIntelligence(
+        [
+          new ScanProjectStep(deps.extensionPath),
+          new ProjectUnderstandingStep(),
+          new ArchitectureMemoryStep(),
+          new KnowledgeBaseStep(),
+          new KnowledgeFactsStep(),
+        ],
+        deps,
+      );
 
     case 'review':
       // NOTE: no withFileIntelligence() here — RunTaskHandler never reads
@@ -62,6 +92,16 @@ export function createPreSteps(mode: TaskMode, deps: PreStepDeps): IPipelineStep
       return [new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep(), new ReviewFileContextStep()];
 
     default:
-      return withFileIntelligence([new ArchitectureMemoryStep(), new KnowledgeBaseStep(), new KnowledgeFactsStep()], deps);
+      // ProjectUnderstandingStep is the payoff for `understand` mode: ask, edit,
+      // plan, test and research all start with the saved map in context.
+      return withFileIntelligence(
+        [
+          new ProjectUnderstandingStep(),
+          new ArchitectureMemoryStep(),
+          new KnowledgeBaseStep(),
+          new KnowledgeFactsStep(),
+        ],
+        deps,
+      );
   }
 }
