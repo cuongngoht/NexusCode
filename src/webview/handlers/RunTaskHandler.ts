@@ -18,6 +18,11 @@ import { BuildArchitectureMemoryUseCase } from '../../application/usecases/Build
 import { BackfillModuleUsageUseCase } from '../../application/usecases/BackfillModuleUsageUseCase';
 import { RetentionSweepUseCase } from '../../application/knowledge-facts/RetentionSweepUseCase';
 import { ProjectUnderstandingWriter } from '../../context/project-understanding/ProjectUnderstandingWriter';
+import { ProjectUnderstandingLoader } from '../../context/project-understanding/ProjectUnderstandingLoader';
+import {
+  buildUnderstandingDigest,
+  buildUnderstandingNextSteps,
+} from '../../context/project-understanding/ProjectUnderstandingDigest';
 import type { EnrichmentConsentGate } from '../../application/knowledge-facts/EnrichmentConsentGate';
 import type { EnrichmentBudgetTracker } from '../../application/knowledge-facts/EnrichmentBudgetTracker';
 import type { EnrichAndRecordFactsUseCase } from '../../application/knowledge-facts/EnrichAndRecordFactsUseCase';
@@ -861,6 +866,26 @@ export class RunTaskHandler {
     };
   }
 
+  /**
+   * Reads the map the agent just wrote and condenses it for the knowledge base.
+   * Best-effort: a failed or malformed write must not fail the task, it just
+   * means this run contributes no journal content.
+   */
+  private buildUnderstandingKnowledge(
+    workspaceRoot: string,
+  ): { summary?: string; nextSteps?: string[] } | undefined {
+    try {
+      const loaded = new ProjectUnderstandingLoader().load(workspaceRoot);
+      if (!loaded) return undefined;
+      return {
+        summary: buildUnderstandingDigest(loaded.markdown),
+        nextSteps: buildUnderstandingNextSteps(loaded.markdown),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
   private buildFinalPrompt(ctx: PipelineContext, mode: TaskMode, workspaceRoot: string, mcpEnabled: boolean, reviewPreset?: CodeReviewPreset): string {
     const workspace = scanWorkspace(workspaceRoot);
     const packages = detectPackageInfo(workspaceRoot);
@@ -1093,10 +1118,20 @@ export class RunTaskHandler {
         }
 
         const result = await this.runAgent.execute(task);
+        // An understand run changes no files, so without this its knowledge-base
+        // entry would record only "a scan happened" — useless when the journal is
+        // later searched for what we know about the project. The full map stays
+        // on disk; only a digest goes in the entry.
+        const understanding =
+          mode === 'understand' && result.succeeded
+            ? this.buildUnderstandingKnowledge(workspaceRoot)
+            : undefined;
         void this.projectLearning.completeRun(learningHandle, {
           mode, providerId, model, originalPrompt: ctx.originalPrompt,
           skillIds: ctx.mentionedSkillIds, status: result.succeeded ? 'completed' : 'failed',
           source: 'task-pipeline',
+          implementationSummary: understanding?.summary,
+          nextSteps: understanding?.nextSteps,
         }).catch(() => {});
       },
     };

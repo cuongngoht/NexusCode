@@ -18,3 +18,7 @@ export {
   ProjectUnderstandingPromptBuilder,
   type UnderstandingPromptOptions,
 } from './ProjectUnderstandingPromptBuilder';
+export {
+  buildUnderstandingDigest,
+  buildUnderstandingNextSteps,
+} from './ProjectUnderstandingDigest';
