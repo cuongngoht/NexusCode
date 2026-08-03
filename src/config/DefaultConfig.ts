@@ -21,6 +21,7 @@ export const DEFAULT_CONFIG: NexusConfig = {
       microsoftLearn: { enabled: true },
       context7: { enabled: true, apiKey: '' },
     },
+    customServers: {},
   },
   compact: {
     enabled: true,

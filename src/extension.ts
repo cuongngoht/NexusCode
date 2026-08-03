@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const router = new AgentRouter(registry);
   const configService = new ConfigService();
 
-  const mcpToolUseCase = createMcpToolUseCase();
+  const { useCase: mcpToolUseCase, broker: mcpBroker } = createMcpToolUseCase();
 
   // Read per-run rather than at activation, so changing the setting takes effect
   // on the next task instead of requiring a window reload. A mode-specific key
@@ -199,9 +199,12 @@ export function activate(context: vscode.ExtensionContext): void {
         context.extensionUri,
         configService,
         detector,
-        () => {
-          void provider.refreshProviders();
-          void provider.refreshMcpStatus();
+        {
+          mcpBroker,
+          onSaved: () => {
+            void provider.refreshProviders();
+            void provider.refreshMcpStatus();
+          },
         },
       );
     }),
@@ -382,7 +385,8 @@ function createAgentRegistry(): AgentRegistry {
   return registry;
 }
 
-function createMcpToolUseCase(): McpToolUseCase {
+/** The broker is returned too so the Settings panel can offer "Test Connection". */
+function createMcpToolUseCase(): { useCase: McpToolUseCase; broker: McpBroker } {
   const mcpPresetRegistry = new McpPresetRegistry();
   const mcpPresetSelectionPolicy = new McpPresetSelectionPolicy();
   const mcpToolRouter = new McpToolRouter();
@@ -393,15 +397,18 @@ function createMcpToolUseCase(): McpToolUseCase {
   const httpMcpAdapter = new StreamableHttpMcpClientAdapter();
   const mcpBroker = new McpBroker(stdioMcpAdapter, httpMcpAdapter);
 
-  return new McpToolUseCase(
-    mcpPresetRegistry,
-    mcpPresetSelectionPolicy,
-    mcpToolRouter,
-    mcpIntentParser,
-    mcpExecutionPolicy,
-    mcpBroker,
-    mcpResultCompressor,
-  );
+  return {
+    useCase: new McpToolUseCase(
+      mcpPresetRegistry,
+      mcpPresetSelectionPolicy,
+      mcpToolRouter,
+      mcpIntentParser,
+      mcpExecutionPolicy,
+      mcpBroker,
+      mcpResultCompressor,
+    ),
+    broker: mcpBroker,
+  };
 }
 
 function createProjectMapUseCases(registry: AgentRegistry, runner: ProcessRunner) {

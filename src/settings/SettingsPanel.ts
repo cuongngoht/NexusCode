@@ -2,7 +2,36 @@ import * as vscode from 'vscode';
 import { ConfigService } from '../config/ConfigService';
 import { ProviderDetector } from '../provider-hub/ProviderDetector';
 import type { ProviderId } from '../core/types';
+import type { McpCustomServerConfig } from '../config/NexusConfig';
+import type { IMcpBroker } from '../mcp/McpBroker';
+import { buildCustomPresets } from '../mcp/McpCustomServers';
 import { getSettingsHtml } from './SettingsHtml';
+import { redactConfigSecrets, rehydrateConfigSecrets } from './McpServerModel';
+
+/** A hung HTTP connect or stdio spawn must not leave the Test button spinning. */
+const MCP_TEST_TIMEOUT_MS = 10_000;
+
+export interface SettingsPanelDeps {
+  mcpBroker?: IMcpBroker;
+  onSaved?: () => void;
+}
+
+const TIMEOUT_MESSAGE = 'MCP connection timed out.';
+
+/**
+ * Note: this bounds how long the user waits, not the connection itself —
+ * Promise.race cannot cancel an in-flight connect. Safe for a manual button;
+ * do not reuse it for automatic probing.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(TIMEOUT_MESSAGE)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
+}
 
 export class SettingsPanel {
   static readonly viewType = 'nexus.settings';
@@ -11,6 +40,7 @@ export class SettingsPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly configService: ConfigService;
   private readonly detector: ProviderDetector;
+  private readonly mcpBroker?: IMcpBroker;
   private readonly onSaved?: () => void;
   private readonly disposables: vscode.Disposable[] = [];
 
@@ -18,7 +48,7 @@ export class SettingsPanel {
     extensionUri: vscode.Uri,
     configService: ConfigService,
     detector: ProviderDetector,
-    onSaved?: () => void,
+    deps?: SettingsPanelDeps,
   ): Promise<void> {
     if (SettingsPanel.instance) {
       SettingsPanel.instance.panel.reveal(vscode.ViewColumn.One);
@@ -32,7 +62,7 @@ export class SettingsPanel {
       { enableScripts: true },
     );
 
-    SettingsPanel.instance = new SettingsPanel(panel, extensionUri, configService, detector, onSaved);
+    SettingsPanel.instance = new SettingsPanel(panel, extensionUri, configService, detector, deps);
     await SettingsPanel.instance._update();
   }
 
@@ -41,12 +71,13 @@ export class SettingsPanel {
     _extensionUri: vscode.Uri,
     configService: ConfigService,
     detector: ProviderDetector,
-    onSaved?: () => void,
+    deps?: SettingsPanelDeps,
   ) {
     this.panel = panel;
     this.configService = configService;
     this.detector = detector;
-    this.onSaved = onSaved;
+    this.mcpBroker = deps?.mcpBroker;
+    this.onSaved = deps?.onSaved;
 
     this.panel.webview.onDidReceiveMessage(
       (msg: unknown) => { void this._handleMessage(msg); },
@@ -123,10 +154,21 @@ export class SettingsPanel {
       return;
     }
 
+    // NOTE: any new message type must be registered ABOVE the settings.save
+    // guard below, which drops everything else.
+    if (type === 'settings.testMcpServer') {
+      await this.testMcpServer(msg as Record<string, unknown>);
+      return;
+    }
+
     if (type !== 'settings.save') return;
 
     const payload = (msg as Record<string, unknown>)['payload'];
     try {
+      // Secrets reach the webview as a sentinel; restore the real values from
+      // disk before writing, so an unchanged token survives a round trip.
+      const origins = ((msg as Record<string, unknown>)['mcpSecretOrigins'] ?? {}) as Record<string, string>;
+      rehydrateConfigSecrets(payload, await this.configService.loadConfig(), origins);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.configService.saveConfig(payload as any);
       const vsCfg = vscode.workspace.getConfiguration('nexus');
@@ -200,12 +242,73 @@ export class SettingsPanel {
           }
         }
       }
-      await this.panel.webview.postMessage({ type: 'settings.saved' });
+      // The panel HTML is only rendered once, so echo back what was written
+      // (redacted) to let the webview re-seed its MCP list.
+      await this.panel.webview.postMessage({
+        type: 'settings.saved',
+        mcp: redactConfigSecrets({ mcp: (p['mcp'] ?? {}) as Record<string, unknown> }).mcp,
+      });
       vscode.window.showInformationMessage('Nexus settings saved.');
       this.onSaved?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await this.panel.webview.postMessage({ type: 'settings.error', message });
+    }
+  }
+
+  /**
+   * Probes one custom MCP server with tools/list. Validity is delegated to
+   * buildCustomPresets so the button tests exactly the preset the runtime would
+   * build, with no duplicated rules here.
+   */
+  private async testMcpServer(msg: Record<string, unknown>): Promise<void> {
+    const requestId = String(msg['requestId'] ?? '');
+    const name = String(msg['name'] ?? '');
+    const server = msg['server'] as McpCustomServerConfig | undefined;
+
+    const post = (result: Record<string, unknown>): Promise<boolean> =>
+      Promise.resolve(this.panel.webview.postMessage({
+        type: 'settings.mcpTestResult', requestId, name, ...result,
+      })) as Promise<boolean>;
+
+    if (!server || !this.mcpBroker) {
+      await post({ ok: false, code: 'failed', error: 'MCP testing is unavailable in this session.' });
+      return;
+    }
+
+    // Testing a masked-but-unchanged token has to use the real value.
+    const origName = typeof msg['origName'] === 'string' ? msg['origName'] : name;
+    const wrapped = { mcp: { customServers: { [name]: server } } };
+    rehydrateConfigSecrets(wrapped, await this.configService.loadConfig(), { [name]: origName });
+
+    const presets = buildCustomPresets(wrapped.mcp.customServers);
+    if (presets.length === 0) {
+      await post({
+        ok: false,
+        code: 'invalid',
+        error: 'This server is incomplete: HTTP needs a valid URL, stdio needs a command.',
+      });
+      return;
+    }
+
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    try {
+      const tools = await withTimeout(
+        this.mcpBroker.listTools({ preset: presets[0].preset, cwd }),
+        MCP_TEST_TIMEOUT_MS,
+      );
+      await post({
+        ok: true,
+        toolCount: tools.length,
+        tools: tools.slice(0, 5).map(tool => tool.name),
+      });
+    } catch (err) {
+      const timedOut = err instanceof Error && err.message === TIMEOUT_MESSAGE;
+      await post({
+        ok: false,
+        code: timedOut ? 'timeout' : 'failed',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

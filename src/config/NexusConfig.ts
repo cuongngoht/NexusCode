@@ -11,6 +11,37 @@ export interface Context7McpPresetConfig extends McpPresetConfig {
   apiKey?: string
 }
 
+/**
+ * User-defined MCP server, declared in `.nexus/config.json` using the same
+ * shape as Claude Code's `.mcp.json` entries:
+ *
+ * "portaltalk-docs": {
+ *   "type": "http",
+ *   "url": "https://example.com/mcp",
+ *   "headers": { "Authorization": "Bearer ..." }
+ * }
+ */
+export interface McpCustomServerConfig {
+  /** 'http' → Streamable HTTP transport, 'stdio' → local process. */
+  type: 'http' | 'stdio'
+  /** Required when type === 'http'. */
+  url?: string
+  /** Extra HTTP headers (e.g. Authorization) sent on every request. */
+  headers?: Record<string, string>
+  /** Required when type === 'stdio'. */
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  /** Defaults to true. */
+  enabled?: boolean
+  /** Skip tools/list discovery and always call this tool. */
+  defaultTool?: string
+  /** Keywords that boost auto-selection. Defaults to tokens of the server name. */
+  bestFor?: string[]
+  /** Defaults to 'high' → goes through the approval gate. */
+  risk?: 'low' | 'medium' | 'high'
+}
+
 export interface McpConfig {
   enabled: boolean
   autoSelectPreset: boolean
@@ -22,6 +53,8 @@ export interface McpConfig {
     microsoftLearn: McpPresetConfig
     context7: Context7McpPresetConfig
   }
+  /** User-defined MCP servers, keyed by name. Optional for backward compatibility. */
+  customServers?: Record<string, McpCustomServerConfig>
 }
 
 export interface CompactConfig {

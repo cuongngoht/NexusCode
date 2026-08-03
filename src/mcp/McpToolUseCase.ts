@@ -1,6 +1,8 @@
 import type { NexusConfig } from '../config/NexusConfig';
 import type { AgentTask } from '../core/agent';
 import type { IMcpApprovalGate } from './McpApprovalGate';
+import { buildCustomPresets, isCustomPresetId, pickToolNameForIntent } from './McpCustomServers';
+import type { McpPreset, McpRoute, McpToolDescriptor, McpToolIntent } from './McpTypes';
 import type { IMcpBroker } from './McpBroker';
 import type { IMcpExecutionPolicy } from './McpExecutionPolicy';
 import type { IMcpIntentParser } from './McpIntentParser';
@@ -37,7 +39,7 @@ export class McpToolUseCase {
     const intent = this.parser.parse(input.output);
     if (!intent) return undefined;
 
-    const enabledPresets = this.registry.getAll().filter(preset => {
+    const builtinPresets = this.registry.getAll().filter(preset => {
       if (preset.id === 'microsoftLearn') {
         return input.config.mcp.presets.microsoftLearn.enabled;
       }
@@ -46,6 +48,12 @@ export class McpToolUseCase {
       }
       return false;
     });
+
+    const customPresets = buildCustomPresets(input.config.mcp.customServers)
+      .filter(entry => entry.enabled)
+      .map(entry => entry.preset);
+
+    const enabledPresets = [...builtinPresets, ...customPresets];
 
     const preset = this.selector.select({
       prompt: input.task.prompt,
@@ -58,7 +66,23 @@ export class McpToolUseCase {
       return ['## MCP Request Rejected', 'No enabled MCP preset can satisfy this request.'].join('\n');
     }
 
-    const route = this.router.route(intent, preset);
+    let route = this.router.route(intent, preset);
+
+    // Custom servers without a pinned defaultTool: discover tools/list and
+    // pick one BEFORE the execution policy runs (it rejects empty tool names).
+    if (!route.toolName && isCustomPresetId(preset.id)) {
+      try {
+        route = await this.resolveCustomRoute({
+          preset,
+          route,
+          intent,
+          cwd: input.task.cwd,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return ['## MCP Error', `Tool discovery failed for ${preset.displayName}: ${message}`].join('\n');
+      }
+    }
 
     const decision = this.policy.evaluate({
       mode: input.task.mode,
@@ -121,5 +145,48 @@ export class McpToolUseCase {
       const message = error instanceof Error ? error.message : String(error);
       return ['## MCP Error', `MCP call failed: ${message}`].join('\n');
     }
+  }
+
+  private async resolveCustomRoute(input: {
+    preset: McpPreset;
+    route: McpRoute;
+    intent: McpToolIntent;
+    cwd?: string;
+  }): Promise<McpRoute> {
+    const tools = await this.broker.listTools({ preset: input.preset, cwd: input.cwd });
+    if (tools.length === 0) {
+      throw new Error('The server advertises no tools.');
+    }
+
+    const toolName = pickToolNameForIntent(tools, input.intent) ?? tools[0].name;
+    const tool = tools.find(t => t.name === toolName) ?? tools[0];
+
+    return {
+      ...input.route,
+      toolName: tool.name,
+      arguments: this.buildArgumentsForTool(tool, input.intent),
+    };
+  }
+
+  /**
+   * Custom servers do not necessarily accept `{ query }` — map the intent
+   * query onto the tool's actual input schema when possible.
+   */
+  private buildArgumentsForTool(
+    tool: McpToolDescriptor,
+    intent: McpToolIntent,
+  ): Record<string, unknown> {
+    const properties = tool.inputSchema?.properties;
+    if (!properties || typeof properties !== 'object') {
+      return { query: intent.query };
+    }
+
+    const names = Object.keys(properties);
+    if (names.includes('query')) return { query: intent.query };
+
+    // Prefer the first required property, otherwise the first declared one.
+    const required = tool.inputSchema?.required?.filter(name => names.includes(name)) ?? [];
+    const target = required[0] ?? names[0];
+    return target ? { [target]: intent.query } : { query: intent.query };
   }
 }

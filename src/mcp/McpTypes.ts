@@ -1,6 +1,9 @@
 import type { TaskMode } from '../core/types';
 
-export type McpPresetId = 'microsoftLearn' | 'context7';
+export type McpBuiltinPresetId = 'microsoftLearn' | 'context7';
+
+/** Custom servers are registered as `custom:<name>` from `.nexus/config.json`. */
+export type McpPresetId = McpBuiltinPresetId | `custom:${string}`;
 
 export type McpTransport = 'stdio' | 'streamableHttp';
 
@@ -23,9 +26,23 @@ export interface McpPreset {
   toolGroups: McpToolGroup[];
   risk: McpRiskLevel;
   endpoint?: string;
+  /** Extra HTTP headers (e.g. Authorization) for streamableHttp transports. */
+  headers?: Record<string, string>;
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /** When set, skip tools/list discovery and always call this tool. */
+  defaultTool?: string;
+}
+
+/** A tool advertised by an MCP server via tools/list. */
+export interface McpToolDescriptor {
+  name: string;
+  description?: string;
+  inputSchema?: {
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
 }
 
 export interface McpToolIntent {

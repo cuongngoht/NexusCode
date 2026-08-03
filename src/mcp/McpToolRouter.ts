@@ -1,3 +1,4 @@
+import { isCustomPresetId } from './McpCustomServers';
 import type { McpPreset, McpRoute, McpToolIntent } from './McpTypes';
 
 export interface IMcpToolRouter {
@@ -6,6 +7,17 @@ export interface IMcpToolRouter {
 
 export class McpToolRouter implements IMcpToolRouter {
   route(intent: McpToolIntent, preset: McpPreset): McpRoute {
+    if (isCustomPresetId(preset.id)) {
+      return {
+        presetId: preset.id,
+        // Empty toolName means "resolve via tools/list" — McpToolUseCase
+        // performs the discovery before the execution policy runs.
+        toolName: preset.defaultTool ?? '',
+        arguments: { query: intent.query },
+        reason: intent.reason,
+      };
+    }
+
     if (preset.id === 'microsoftLearn') {
       return {
         presetId: preset.id,

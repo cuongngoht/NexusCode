@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import type { NexusConfig } from '../config/NexusConfig';
 import { DEFAULT_CONFIG } from '../config/DefaultConfig';
+import { redactConfigSecrets } from './McpServerModel';
+import {
+  MCP_SERVERS_CLIENT_SCRIPT,
+  MCP_SERVERS_CSS,
+  renderMcpServersSectionHtml,
+} from './SettingsMcpServersSection';
 
 const PROVIDER_LABELS: Record<string, string> = {
   antigravity: 'Antigravity CLI',
@@ -72,7 +78,9 @@ export function getSettingsHtml(
     ...config,
     mcp: { ...DEFAULT_CONFIG.mcp, ...(config.mcp ?? {}) },
   };
-  const safeJson = JSON.stringify(mergedConfig).replace(/<\/script>/gi, '<\\/script>');
+  // Secrets are masked with a sentinel before the config is inlined into the
+  // webview; SettingsPanel restores them from disk before saving.
+  const safeJson = JSON.stringify(redactConfigSecrets(mergedConfig)).replace(/<\/script>/gi, '<\\/script>');
   const mcpEnabled = mergedConfig.mcp.enabled;
   const mcpAutoSelect = mergedConfig.mcp.autoSelectPreset;
   const mcpMicrosoftLearn = mergedConfig.mcp.presets.microsoftLearn.enabled;
@@ -381,7 +389,7 @@ export function getSettingsHtml(
     }
     .setting-actions button:hover {
       background: var(--vscode-button-secondaryHoverBackground);
-    }
+    }${MCP_SERVERS_CSS}
   </style>
 </head>
 <body>
@@ -416,6 +424,8 @@ export function getSettingsHtml(
       <span>Context7</span>
     </label>
     <p class="description">Up-to-date package/library documentation and code examples.</p>
+
+${renderMcpServersSectionHtml()}
 
     <h3>Behavior</h3>
     <label class="toggle-row">
@@ -732,6 +742,7 @@ export function getSettingsHtml(
       const vscode = acquireVsCodeApi();
       const base = ${safeJson};
       const providerRows = document.getElementById('providers');
+${MCP_SERVERS_CLIENT_SCRIPT}
 
       function setProviderStatus(id, text, className) {
         const el = document.querySelector('[data-provider-status="' + id + '"]');
@@ -827,10 +838,22 @@ export function getSettingsHtml(
             providers[id] = Object.assign({}, providers[id], { enabled: cb.checked });
           }
         });
+        // A draft left open is committed rather than discarded; an invalid one
+        // aborts the save with inline field errors instead of losing the input.
+        if (!document.getElementById('mcp-server-form').hidden) {
+          if (!mcpCommitDraft()) { return; }
+        }
+        const customServers = {};
+        const mcpSecretOrigins = {};
+        mcpServers.forEach(function (entry) {
+          customServers[entry.name] = entry.cfg;
+          mcpSecretOrigins[entry.name] = entry.origName;
+        });
         const mcp = {
           enabled: document.getElementById('mcp-enabled').checked,
           autoSelectPreset: document.getElementById('mcp-auto-select').checked,
           requireApprovalForHighRiskTools: base.mcp.requireApprovalForHighRiskTools,
+          approvalTimeoutMs: base.mcp.approvalTimeoutMs,
           maxResultChars: parseInt(document.getElementById('mcp-max-chars').value, 10) || base.mcp.maxResultChars,
           maxRoundsPerTask: parseInt(document.getElementById('mcp-max-rounds').value, 10) || base.mcp.maxRoundsPerTask,
           presets: {
@@ -840,6 +863,7 @@ export function getSettingsHtml(
               apiKey: base.mcp.presets.context7.apiKey || '',
             },
           },
+          customServers: customServers,
         };
         const historyRag = {
           enabled: document.getElementById('history-rag-enabled').checked,
@@ -894,7 +918,7 @@ export function getSettingsHtml(
           retentionMaxAgeDays:       parseInt(document.getElementById('autoReview-retentionMaxAgeDays').value, 10) || 30,
         };
         const config = Object.assign({}, base, { providers: providers, mcp: mcp, historyRag: historyRag, subagents: subagents });
-        vscode.postMessage({ type: 'settings.save', payload: config, reviewSteps: reviewSteps, reviewSettings: reviewSettings, contextSettings: contextSettings, projectMapSettings: projectMapSettings, autoReviewSettings: autoReviewSettings });
+        vscode.postMessage({ type: 'settings.save', payload: config, mcpSecretOrigins: mcpSecretOrigins, reviewSteps: reviewSteps, reviewSettings: reviewSettings, contextSettings: contextSettings, projectMapSettings: projectMapSettings, autoReviewSettings: autoReviewSettings });
       });
 
       document.getElementById('autoReview-runNow')?.addEventListener('click', function() {
@@ -937,9 +961,26 @@ export function getSettingsHtml(
           return;
         }
 
+        if (msg.type === 'settings.mcpTestResult') {
+          mcpHandleTestResult(msg);
+          return;
+        }
+
         if (msg.type === 'settings.saved') {
           status.textContent = 'Settings saved.';
           status.className = 'status ok';
+          // The panel HTML is never re-rendered, so re-seed from what was
+          // actually written — otherwise a second save would still send the
+          // stale origName map and lose secrets after a rename.
+          if (msg.mcp) {
+            base.mcp = msg.mcp;
+            mcpServers = Object.keys(msg.mcp.customServers || {}).map(function (name) {
+              return { name: name, origName: name, cfg: msg.mcp.customServers[name] || {} };
+            });
+            mcpPendingDelete = null;
+            mcpCloseForm();
+            mcpRenderList();
+          }
         } else if (msg.type === 'settings.error') {
           status.textContent = 'Error: ' + msg.message;
           status.className = 'status err';
