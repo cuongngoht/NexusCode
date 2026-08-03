@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { parsePromptAttachmentRefs, buildPromptAttachmentContext } from '../promptAttachments';
+import {
+  parsePromptAttachmentRefs,
+  buildPromptAttachmentContext,
+  collectImageAttachmentPaths,
+  listWorkspaceFiles,
+  MAX_IMAGE_ATTACHMENTS,
+} from '../promptAttachments';
 
 // ── parsePromptAttachmentRefs ──────────────────────────────────────────────
 
@@ -177,5 +183,125 @@ describe('buildPromptAttachmentContext – secret skipping', () => {
   it('skips .key', () => {
     const ctx = buildPromptAttachmentContext(tmp, '', [{ type: 'file', path: 'app.key' }]);
     expect(ctx).toContain('secret file');
+  });
+});
+
+// ── image attachments ──────────────────────────────────────────────────────
+
+describe('image attachments', () => {
+  let itmp: string;
+
+  beforeEach(() => {
+    itmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-img-att-'));
+    fs.mkdirSync(path.join(itmp, 'docs'), { recursive: true });
+    // 8-byte PNG signature — enough to be a real binary file on disk.
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    fs.writeFileSync(path.join(itmp, 'shot.png'), pngBytes);
+    fs.writeFileSync(path.join(itmp, 'docs', 'mock.png'), pngBytes);
+    fs.writeFileSync(path.join(itmp, 'notes.md'), '# hi\n', 'utf8');
+  });
+
+  afterEach(() => {
+    fs.rmSync(itmp, { recursive: true, force: true });
+  });
+
+  it('does not emit a binary-file comment for an attached image', () => {
+    const ctx = buildPromptAttachmentContext(itmp, '', [{ type: 'image', path: 'shot.png' }]);
+    expect(ctx).not.toContain('binary file');
+  });
+
+  it('does not emit a fenced content block for an attached image', () => {
+    const ctx = buildPromptAttachmentContext(itmp, '', [{ type: 'image', path: 'shot.png' }]);
+    expect(ctx).not.toContain('## shot.png');
+  });
+
+  it('still emits text attachments alongside an image', () => {
+    const ctx = buildPromptAttachmentContext(itmp, '', [
+      { type: 'image', path: 'shot.png' },
+      { type: 'file', path: 'notes.md' },
+    ]);
+    expect(ctx).toContain('## notes.md');
+    expect(ctx).not.toContain('## shot.png');
+  });
+
+  it('collects an explicitly attached image', () => {
+    const paths = collectImageAttachmentPaths(itmp, '', [{ type: 'image', path: 'shot.png' }]);
+    expect(paths).toEqual(['shot.png']);
+  });
+
+  it('collects images classified as type file (e.g. dragged in)', () => {
+    const paths = collectImageAttachmentPaths(itmp, '', [{ type: 'file', path: 'shot.png' }]);
+    expect(paths).toEqual(['shot.png']);
+  });
+
+  it('collects an image from an @ref in the prompt', () => {
+    const paths = collectImageAttachmentPaths(itmp, 'look at @docs/mock.png please', []);
+    expect(paths).toEqual(['docs/mock.png']);
+  });
+
+  it('ignores non-image attachments', () => {
+    const paths = collectImageAttachmentPaths(itmp, '', [{ type: 'file', path: 'notes.md' }]);
+    expect(paths).toEqual([]);
+  });
+
+  it('rejects path traversal', () => {
+    const paths = collectImageAttachmentPaths(itmp, '', [{ type: 'image', path: '../x.png' }]);
+    expect(paths).toEqual([]);
+  });
+
+  it('rejects absolute paths', () => {
+    const paths = collectImageAttachmentPaths(itmp, '', [{ type: 'image', path: '/etc/x.png' }]);
+    expect(paths).toEqual([]);
+  });
+
+  it('skips images that do not exist', () => {
+    const paths = collectImageAttachmentPaths(itmp, '', [{ type: 'image', path: 'gone.png' }]);
+    expect(paths).toEqual([]);
+  });
+
+  it('deduplicates repeated paths', () => {
+    const paths = collectImageAttachmentPaths(itmp, 'see @shot.png', [
+      { type: 'image', path: 'shot.png' },
+    ]);
+    expect(paths).toEqual(['shot.png']);
+  });
+
+  it('caps the number of images', () => {
+    const attachments = [];
+    for (let i = 0; i < MAX_IMAGE_ATTACHMENTS + 4; i++) {
+      const name = `img-${i}.png`;
+      fs.writeFileSync(path.join(itmp, name), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+      attachments.push({ type: 'image' as const, path: name });
+    }
+    const paths = collectImageAttachmentPaths(itmp, '', attachments);
+    expect(paths).toHaveLength(MAX_IMAGE_ATTACHMENTS);
+  });
+});
+
+describe('listWorkspaceFiles — pasted images', () => {
+  let ltmp: string;
+
+  beforeEach(() => {
+    ltmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-lwf-'));
+    fs.mkdirSync(path.join(ltmp, '.nexus', 'attachments'), { recursive: true });
+    fs.mkdirSync(path.join(ltmp, '.nexus', 'plans'), { recursive: true });
+    fs.writeFileSync(path.join(ltmp, '.nexus', 'attachments', 'pasted-1-0.png'), 'x');
+    fs.writeFileSync(path.join(ltmp, '.nexus', 'plans', 'plan.md'), 'x');
+    fs.writeFileSync(path.join(ltmp, 'app.ts'), 'x');
+  });
+
+  afterEach(() => {
+    fs.rmSync(ltmp, { recursive: true, force: true });
+  });
+
+  it('excludes pasted screenshots from the picker list', () => {
+    const files = listWorkspaceFiles(ltmp);
+    expect(files.some(f => f.includes('.nexus/attachments'))).toBe(false);
+  });
+
+  it('still lists .nexus/plans and normal workspace files', () => {
+    const files = listWorkspaceFiles(ltmp);
+    expect(files).toContain('.nexus/plans/plan.md');
+    expect(files).toContain('app.ts');
   });
 });

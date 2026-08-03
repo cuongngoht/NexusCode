@@ -51,10 +51,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [
         vscode.Uri.joinPath(this.extensionUri, 'media'),
         vscode.Uri.joinPath(this.extensionUri, 'media', 'webview'),
+        // Needed to render attachment thumbnails from `.nexus/attachments/`.
+        ...(vscode.workspace.workspaceFolders ?? []).map(f => f.uri),
       ],
     };
 
-    webviewView.webview.html = getHtml(webviewView.webview, this.extensionUri);
+    webviewView.webview.html = getHtml(
+      webviewView.webview,
+      this.extensionUri,
+      'chat',
+      vscode.workspace.workspaceFolders?.[0]?.uri,
+    );
 
     this.controller = new ChatController(
       this.runAgent,

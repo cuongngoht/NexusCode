@@ -101,7 +101,13 @@ export type ExtensionMessage =
   | { type: 'planReadyForApproval'; taskId: string; planPath?: string; plan: string; mode: string; model?: string }
   | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
+  /** Resolved attachments from a drop, a clipboard paste, or the file picker. */
   | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
+  /**
+   * Attachment-specific failure. Deliberately NOT `taskError` — that one stamps the error
+   * onto the last assistant message and clears `isRunning`, which is wrong for a paste.
+   */
+  | { type: 'attachmentError'; message: string }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
   | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
@@ -335,6 +341,8 @@ export type WebviewMessage =
   | { type: 'refreshMcpStatus' }
   | { type: 'loginProvider'; providerId: ProviderId }
   | { type: 'resolveDroppedFiles'; paths: string[] }
+  /** Clipboard-pasted image bytes — base64 because webview IPC is JSON, so Blobs cannot survive. */
+  | { type: 'savePastedImages'; images: { mimeType: string; base64: string }[] }
   | { type: 'openWorkspaceFile'; path: string }
   | { type: 'attachWorkspaceFiles'; paths: string[] }
   | { type: 'getAgentPrompts' }

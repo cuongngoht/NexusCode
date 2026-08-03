@@ -47,6 +47,8 @@ export class ChatPanel {
         localResourceRoots: [
           vscode.Uri.joinPath(extensionUri, 'media'),
           vscode.Uri.joinPath(extensionUri, 'media', 'webview'),
+          // Needed to render attachment thumbnails from `.nexus/attachments/`.
+          ...(vscode.workspace.workspaceFolders ?? []).map(f => f.uri),
         ],
         retainContextWhenHidden: true,
       },
@@ -85,7 +87,12 @@ export class ChatPanel {
       workspaceState,
     );
 
-    this.panel.webview.html = getHtml(this.panel.webview, extensionUri);
+    this.panel.webview.html = getHtml(
+      this.panel.webview,
+      extensionUri,
+      'chat',
+      vscode.workspace.workspaceFolders?.[0]?.uri,
+    );
 
     this.panel.webview.onDidReceiveMessage(
       (msg: WebviewMessage) => this.controller.handleMessage(msg),

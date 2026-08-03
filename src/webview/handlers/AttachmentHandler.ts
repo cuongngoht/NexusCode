@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import type { ExtensionMessage } from '../webviewProtocol';
 import type { PromptAttachment } from '../../core/types';
 import { listWorkspaceFiles } from '../../context/promptAttachments';
+import { isImageAttachmentPath } from '../../context/attachments/imageAttachments';
 import { normalizeDroppedPath } from './workspaceUtils';
 
 const SECRET_PATTERNS =
@@ -40,7 +41,10 @@ export class AttachmentHandler {
     const relPath = vscode.workspace.asRelativePath(uri, false);
     this.post({
       type: 'promptAttachmentPicked',
-      attachment: { type: isFolder ? 'folder' : 'file', path: relPath },
+      attachment: {
+        type: isFolder ? 'folder' : isImageAttachmentPath(relPath) ? 'image' : 'file',
+        path: relPath,
+      },
     });
   }
 
@@ -79,7 +83,10 @@ export class AttachmentHandler {
         continue;
       }
 
-      attachments.push({ type: stat.isDirectory() ? 'folder' : 'file', path: rel });
+      attachments.push({
+        type: stat.isDirectory() ? 'folder' : isImageAttachmentPath(rel) ? 'image' : 'file',
+        path: rel,
+      });
     }
 
     if (rawPaths.length > 0) {
@@ -87,10 +94,10 @@ export class AttachmentHandler {
     }
 
     if (attachments.length === 0 && rawPaths.length > 0) {
-      // Give visible feedback instead of total silence
+      // Visible feedback instead of total silence. Not `taskError` — that marks the last
+      // assistant message failed and clears `isRunning`, which is wrong for an attachment.
       this.post({
-        type: 'taskError',
-        taskId: 'attachment',
+        type: 'attachmentError',
         message: `Dropped ${rawPaths.length} path(s) but none were attached (outside workspace, secrets, or inaccessible). See extension host logs for details.`,
       });
     }
@@ -116,7 +123,10 @@ export class AttachmentHandler {
   }
 
   attachWorkspaceFiles(paths: string[]): void {
-    const attachments: PromptAttachment[] = paths.map(p => ({ type: 'file', path: p }));
+    const attachments: PromptAttachment[] = paths.map(p => ({
+      type: isImageAttachmentPath(p) ? 'image' : 'file',
+      path: p,
+    }));
     this.post({ type: 'droppedFilesResolved', attachments });
   }
 }

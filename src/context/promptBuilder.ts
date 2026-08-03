@@ -3,6 +3,7 @@ import { WorkspaceInfo } from './workspaceScanner';
 import { PackageInfo } from './packageDetector';
 import type { DebugContext } from '../core/debug/DebugContext';
 import { buildDebugPrompt } from '../debug/debugPrompt';
+import { buildImageAttachmentList } from './attachments/imageAttachments';
 import {
   loadModeInstruction,
   loadWorkflowPrompt,
@@ -26,6 +27,8 @@ export interface PromptContext {
   debugContext?: DebugContext;
   planContent?: string;
   attachmentContext?: string;
+  /** Workspace-relative image paths — rendered as a pointer list, never inlined as text. */
+  imageAttachmentPaths?: string[];
   /** Path to the VS Code extension root — used to resolve bundled media/prompts. */
   extensionRoot?: string;
   /** Template ref names for future Product Owner wiring — dormant until a controller selects them. */
@@ -89,6 +92,14 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     lines.push('');
     lines.push('# Attached Files');
     lines.push(ctx.attachmentContext);
+  }
+
+  // Kept separate from `# Attached Files`: that block is a content dump of fenced file bodies,
+  // while this is a pointer list plus an instruction to go read them.
+  if (ctx.imageAttachmentPaths && ctx.imageAttachmentPaths.length > 0) {
+    lines.push('');
+    lines.push('# Attached Images');
+    lines.push(buildImageAttachmentList(ctx.workspace.root, ctx.imageAttachmentPaths));
   }
 
   if (ctx.sourceContext) {

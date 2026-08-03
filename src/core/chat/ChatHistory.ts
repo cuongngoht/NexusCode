@@ -1,3 +1,5 @@
+import type { PromptAttachment } from '../types';
+
 export interface SerializedUserMessage {
   id: string;
   role: 'user';
@@ -6,6 +8,8 @@ export interface SerializedUserMessage {
   mode: string;
   model?: string;
   timestamp: number;
+  /** Paths only — image bytes are never persisted. Added after v1; may be absent. */
+  attachments?: PromptAttachment[];
 }
 
 import type { TokenRunUsage } from '../tokens/TokenUsage';

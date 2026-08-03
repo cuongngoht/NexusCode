@@ -1,8 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { PromptAttachment } from '../core/types';
+import { isImageAttachmentPath } from './attachments/imageAttachments';
 
 export type { PromptAttachment };
+
+export const MAX_IMAGE_ATTACHMENTS = 8;
+
+/** Kept in sync with `ATTACHMENTS_DIR` in ./attachments/pastedImageStore.ts. */
+const PASTED_IMAGES_DIR = '.nexus/attachments';
 
 const MAX_FILES = 30;
 const MAX_TOTAL_CHARS = 120_000;
@@ -135,10 +141,12 @@ export function listWorkspaceFiles(workspaceRoot: string): string[] {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (isIgnoredDir(entry.name)) continue;
-        walk(
-          path.join(absDir, entry.name),
-          relDir ? `${relDir}/${entry.name}` : entry.name,
-        );
+        const childRel = relDir ? `${relDir}/${entry.name}` : entry.name;
+        // Pasted screenshots are a Nexus implementation detail — keep them out of the
+        // `@`/file-picker list, which would otherwise grow with every paste. `.nexus/plans`
+        // and the other `.nexus` subdirectories stay visible.
+        if (childRel === PASTED_IMAGES_DIR) continue;
+        walk(path.join(absDir, entry.name), childRel);
       } else if (entry.isFile()) {
         results.push(relDir ? `${relDir}/${entry.name}` : entry.name);
       }
@@ -183,18 +191,9 @@ export function parsePromptAttachmentRefs(prompt: string): PromptAttachment[] {
   return results;
 }
 
-/**
- * Resolve all attachments (explicit + @ref parsed) and return a markdown block
- * with file/folder contents, ready to inject into the enhanced prompt.
- */
-export function buildPromptAttachmentContext(
-  workspaceRoot: string,
-  prompt: string,
-  attachments: PromptAttachment[],
-): string {
+/** Merge explicit attachments + `@ref` parsed ones, deduplicating by path. */
+function mergeAttachments(prompt: string, attachments: PromptAttachment[]): PromptAttachment[] {
   const refs = parsePromptAttachmentRefs(prompt);
-
-  // Merge explicit attachments + parsed refs, deduplicating by path
   const seen = new Set<string>();
   const all: PromptAttachment[] = [];
   for (const a of [...attachments, ...refs]) {
@@ -203,6 +202,23 @@ export function buildPromptAttachmentContext(
       all.push(a);
     }
   }
+  return all;
+}
+
+/**
+ * Resolve all attachments (explicit + @ref parsed) and return a markdown block
+ * with file/folder contents, ready to inject into the enhanced prompt.
+ *
+ * Image files are excluded — they are handled by `collectImageAttachmentPaths` and rendered
+ * as a `# Attached Images` pointer list instead. Without this, `readFileSafe` would hit the
+ * binary check and emit a confusing `<!-- skipped: …: binary file -->` comment.
+ */
+export function buildPromptAttachmentContext(
+  workspaceRoot: string,
+  prompt: string,
+  attachments: PromptAttachment[],
+): string {
+  const all = mergeAttachments(prompt, attachments);
 
   if (all.length === 0) return '';
 
@@ -231,6 +247,10 @@ export function buildPromptAttachmentContext(
       continue;
     }
 
+    if (stat.isFile() && isImageAttachmentPath(att.path)) {
+      continue; // surfaced via the `# Attached Images` section
+    }
+
     if (stat.isFile()) {
       const block = readFileSafe(absPath, att.path, state);
       if (block) {
@@ -253,4 +273,32 @@ export function buildPromptAttachmentContext(
   }
 
   return parts.join('\n\n');
+}
+
+/**
+ * Workspace-relative paths of attached image files (explicit + `@ref` parsed), for the
+ * `# Attached Images` prompt section. Applies the same path-safety rules as the text path.
+ */
+export function collectImageAttachmentPaths(
+  workspaceRoot: string,
+  prompt: string,
+  attachments: PromptAttachment[],
+): string[] {
+  const results: string[] = [];
+
+  for (const att of mergeAttachments(prompt, attachments)) {
+    if (results.length >= MAX_IMAGE_ATTACHMENTS) break;
+    if (!isImageAttachmentPath(att.path)) continue;
+    if (!isSafePath(workspaceRoot, att.path).safe) continue;
+
+    try {
+      if (!fs.statSync(path.resolve(workspaceRoot, att.path)).isFile()) continue;
+    } catch {
+      continue; // not found or unreadable
+    }
+
+    results.push(att.path);
+  }
+
+  return results;
 }

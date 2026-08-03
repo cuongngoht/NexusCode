@@ -37,6 +37,8 @@ export type PipelineContext = {
   reviewFileContents?: string;
   promptAttachments?: PromptAttachment[];
   attachmentContext?: string;
+  /** Workspace-relative image paths — rendered as a pointer list, never inlined. */
+  imageAttachmentPaths?: string[];
   subagentResults?: SubagentContextEntry[];
   reviewEmptyDiff?: boolean;
   enhancedPrompt: string;

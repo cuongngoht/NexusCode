@@ -11,6 +11,12 @@ import { ReviewHistoryPanel } from './components/review/ReviewHistoryPanel';
 import { ConversationHistory } from './components/ConversationHistory';
 import { ProjectMemoryIndexPanel } from './components/ProjectMemoryIndexPanel';
 import { Composer, type ComposerRef, extractDroppedPaths } from './components/Composer';
+import {
+  harvestClipboard,
+  readImageAsBase64,
+  MAX_PASTED_IMAGE_BYTES,
+  MAX_PASTED_IMAGES_PER_PASTE,
+} from './clipboardImages';
 import { IconDoc } from './NexusIcons';
 import { ErrorBanner } from './components/ErrorBanner';
 import { I18nContext, LOCALES, interp, type Locale, useT } from './i18n';
@@ -62,6 +68,7 @@ export function App() {
     setLocale(next);
   }, []);
   const [composerAttachments, setComposerAttachments] = useState<PromptAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | undefined>(undefined);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [isGlobalDragOver, setIsGlobalDragOver] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -99,10 +106,17 @@ export function App() {
       }
       if (msg.type === 'droppedFilesResolved') {
         console.log('[App] droppedFilesResolved:', msg.attachments);
+        // Deliberately does NOT clear `attachmentError`: a single paste can both save one image
+        // and reject another (too large / over the count cap), and that warning must survive.
+        // Errors are cleared when a new paste/drop starts, on send, or on dismiss.
         setComposerAttachments(prev => {
           const existing = new Set(prev.map(a => a.path));
           return [...prev, ...msg.attachments.filter(a => !existing.has(a.path))];
         });
+        return;
+      }
+      if (msg.type === 'attachmentError') {
+        setAttachmentError(msg.message);
         return;
       }
       if (msg.type === 'workspaceFiles') {
@@ -175,6 +189,7 @@ export function App() {
         mode: state.mode,
         model: state.selectedModel,
         timestamp,
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
       });
       getVsCodeApi().postMessage({
         type: 'runTask',
@@ -189,6 +204,7 @@ export function App() {
         conversationContext: buildConversationContextForPrompt(currentState, currentState.activeConvId),
       });
       setComposerAttachments([]);
+      setAttachmentError(undefined);
       if (state.subagentsEnabled) dispatch({ type: 'resetSubagents' });
     },
     [state.provider, state.mode, state.selectedModel, state.subagentsEnabled, state.activeConvId],
@@ -399,23 +415,70 @@ export function App() {
       if (!e.dataTransfer) return;
       const paths = extractDroppedPaths(e.dataTransfer);
       console.log('[App] drop paths:', paths, 'types:', Array.from(e.dataTransfer.types));
-      if (paths.length > 0) getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths });
+      if (paths.length > 0) {
+        setAttachmentError(undefined); // a fresh attempt supersedes any earlier warning
+        getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths });
+      }
     };
 
-    // Clipboard paste — file(s) copied from Finder/Explorer (Cmd+C → Cmd+V).
-    // This goes directly to the focused webview, bypassing VS Code's drag interception.
+    // Clipboard paste — files copied from Finder/Explorer, and images pasted as raw bytes
+    // (screenshots, browser copies). This goes directly to the focused webview, bypassing
+    // VS Code's drag interception.
+    //
+    // One document-level handler rather than a textarea-local one: `paste` bubbles, so this
+    // already sees textarea pastes, and a single code path behaves the same wherever focus is.
     const onPaste = (e: ClipboardEvent) => {
-      const files = e.clipboardData?.files;
-      if (!files || files.length === 0) return;
-      const paths: string[] = [];
-      for (const file of Array.from(files)) {
-        const p = (file as unknown as { path?: string }).path;
-        if (p) paths.push(p);
+      if (!e.clipboardData) return;
+      // Must run synchronously — DataTransferItemList is detached after this event turn.
+      const { paths, imageFiles, hasText, oversized } = harvestClipboard(e.clipboardData);
+
+      // A fresh attempt supersedes any earlier attachment warning.
+      if (paths.length > 0 || imageFiles.length > 0 || oversized.length > 0) {
+        setAttachmentError(undefined);
       }
-      if (paths.length === 0) return;
-      e.preventDefault(); // prevent pasting filename text
-      console.log('[App] paste paths:', paths);
-      getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths });
+
+      if (paths.length > 0) {
+        e.preventDefault(); // prevent pasting filename text
+        console.log('[App] paste paths:', paths);
+        getVsCodeApi().postMessage({ type: 'resolveDroppedFiles', paths });
+      }
+
+      if (oversized.length > 0) {
+        setAttachmentError(
+          interp(LOCALES[locale].composer.imageTooLarge, {
+            name: oversized.join(', '),
+            limit: `${Math.round(MAX_PASTED_IMAGE_BYTES / (1024 * 1024))} MB`,
+          }),
+        );
+      }
+
+      if (imageFiles.length === 0) return;
+
+      if (imageFiles.length > MAX_PASTED_IMAGES_PER_PASTE) {
+        setAttachmentError(
+          interp(LOCALES[locale].composer.tooManyImages, { n: MAX_PASTED_IMAGES_PER_PASTE }),
+        );
+      }
+
+      // Pure image paste → swallow it so no junk filename lands in the textarea.
+      // Mixed text+image → let the text insert normally AND attach the image.
+      if (!hasText) e.preventDefault();
+
+      void (async () => {
+        const images: { mimeType: string; base64: string }[] = [];
+        for (const file of imageFiles.slice(0, MAX_PASTED_IMAGES_PER_PASTE)) {
+          try {
+            images.push(await readImageAsBase64(file));
+          } catch (err) {
+            setAttachmentError(
+              interp(LOCALES[locale].composer.imagePasteFailed, { message: String(err) }),
+            );
+          }
+        }
+        if (images.length > 0) {
+          getVsCodeApi().postMessage({ type: 'savePastedImages', images });
+        }
+      })();
     };
 
     document.addEventListener('dragenter', onDragEnter);
@@ -430,7 +493,7 @@ export function App() {
       document.removeEventListener('drop', onDrop);
       document.removeEventListener('paste', onPaste);
     };
-  }, []);
+  }, [locale]); // locale is read when formatting paste error messages
 
   return (
     <I18nContext.Provider value={LOCALES[locale]}>
@@ -742,6 +805,8 @@ export function App() {
                   reviewContextError={state.reviewContextError}
                   attachments={composerAttachments}
                   onAttachmentsChange={setComposerAttachments}
+                  attachmentError={attachmentError}
+                  onDismissAttachmentError={() => setAttachmentError(undefined)}
                   workspaceFiles={workspaceFiles}
                   onRequestWorkspaceFiles={() => getVsCodeApi().postMessage({ type: 'getWorkspaceFiles' })}
                   onRun={handleRun}

@@ -31,7 +31,8 @@ import { readKnowledgeFactsConfig } from '../../application/knowledge-facts/Know
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
 import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
-import { buildPromptAttachmentContext } from '../../context/promptAttachments';
+import { buildPromptAttachmentContext, collectImageAttachmentPaths } from '../../context/promptAttachments';
+import { buildImageAttachmentList } from '../../context/attachments/imageAttachments';
 import { ensureWorkspaceAgents, listAgentPrompts, loadAgentPromptBundle, loadAgentMetadata } from '../../context/agentPromptLibrary';
 import { parseAgentMentions } from '../../context/agentMentionParser';
 import { listSkillPrompts, loadSkillPromptBundle } from '../../context/skillPromptLibrary';
@@ -239,9 +240,17 @@ export class RunTaskHandler {
     const resolvedAttachments = attachments ?? [];
     if (resolvedAttachments.length > 0 || effectivePrompt.includes('@')) {
       const attachmentContext = buildPromptAttachmentContext(workspaceRoot, effectivePrompt, resolvedAttachments);
-      if (attachmentContext) {
+      const imagePaths = collectImageAttachmentPaths(workspaceRoot, effectivePrompt, resolvedAttachments);
+      // Checked independently: an image-only attachment yields an empty `attachmentContext`,
+      // so nesting these under `if (attachmentContext)` would silently drop the image.
+      if (attachmentContext || imagePaths.length > 0) {
         ctx.promptAttachments = resolvedAttachments;
+      }
+      if (attachmentContext) {
         ctx.attachmentContext = attachmentContext;
+      }
+      if (imagePaths.length > 0) {
+        ctx.imageAttachmentPaths = imagePaths;
       }
     }
 
@@ -327,8 +336,13 @@ export class RunTaskHandler {
       // Agent Mode takes precedence over normal routing
       if (mode === 'agent') {
         if (this.agentExecutor) {
+          // Agent mode bypasses buildEnhancedPrompt, and AgentExecutor never reads
+          // `attachments` — so images must be injected into the prompt text here.
+          const imageBlock = ctx.imageAttachmentPaths?.length
+            ? `# Attached Images\n${buildImageAttachmentList(workspaceRoot, ctx.imageAttachmentPaths)}\n\n`
+            : '';
           await this.agentExecutor.run({
-            prompt: effectivePrompt,
+            prompt: imageBlock + effectivePrompt,
             workspaceRoot,
             providerId,
             model,
@@ -965,6 +979,7 @@ export class RunTaskHandler {
       debugContext: ctx.debugContext,
       planContent,
       attachmentContext: ctx.attachmentContext,
+      imageAttachmentPaths: ctx.imageAttachmentPaths,
       extensionRoot: this.extensionPath,
       researchContext,
       architectureContext: ctx.architectureContext,

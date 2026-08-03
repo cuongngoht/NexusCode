@@ -61,7 +61,8 @@ export interface CodeReviewTarget {
 }
 
 export interface PromptAttachment {
-  type: 'file' | 'folder';
+  /** `image` files are handed to the agent as paths, never inlined as text. */
+  type: 'file' | 'folder' | 'image';
   /** Workspace-relative path — never absolute, never contains `..` */
   path: string;
 }

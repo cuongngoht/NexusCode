@@ -332,7 +332,8 @@ export interface UserMessage {
   mode: TaskMode;
   model?: string;
   timestamp: number;
-  attachmentPaths?: string[];
+  /** Paths only — image bytes are never persisted; thumbnails reload from disk. */
+  attachments?: PromptAttachment[];
 }
 
 export interface OutputLine {
@@ -894,7 +895,7 @@ export function createInitialState(mainView: MainView = 'chat'): AppState {
 
 // Mirror of src/core/types.ts PromptAttachment — keep in sync
 export interface PromptAttachment {
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'image';
   path: string;
 }
 
@@ -959,6 +960,7 @@ export type ExtMsg =
   | { type: 'planRejected'; planPath?: string }
   | { type: 'promptAttachmentPicked'; attachment: PromptAttachment }
   | { type: 'droppedFilesResolved'; attachments: PromptAttachment[] }
+  | { type: 'attachmentError'; message: string }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
   | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
@@ -1079,6 +1081,7 @@ export type AppAction =
     mode: TaskMode;
     model?: string;
     timestamp: number;
+    attachments?: PromptAttachment[];
   }
   | { type: 'setAgentMention'; state: AgentMentionState | undefined }
   | { type: 'setSkillMention'; state: SkillMentionState | undefined }
@@ -1245,6 +1248,7 @@ function serializeConversation(c: Conversation, now = Date.now()): SerializedCon
           mode: u.mode,
           model: u.model,
           timestamp: u.timestamp,
+          attachments: u.attachments,
         };
       }
       const a = m as AssistantMessage;
@@ -1305,6 +1309,22 @@ function toTaskMode(v: unknown): TaskMode {
   return VALID_TASK_MODES.includes(v as TaskMode) ? (v as TaskMode) : 'ask';
 }
 
+const VALID_ATTACHMENT_TYPES: ReadonlyArray<PromptAttachment['type']> = ['file', 'folder', 'image'];
+
+/** Persisted history may be corrupt or from an older version — validate defensively. */
+function toAttachments(v: unknown): PromptAttachment[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v.filter((a): a is PromptAttachment => {
+    if (!a || typeof a !== 'object') return false;
+    const c = a as PromptAttachment;
+    return VALID_ATTACHMENT_TYPES.includes(c.type)
+      && typeof c.path === 'string'
+      && c.path.length > 0
+      && !c.path.includes('..');
+  });
+  return out.length > 0 ? out : undefined;
+}
+
 function deserializeConversation(sc: SerializedConversation): Conversation {
   const messages: ChatMessage[] = sc.messages.map(m => {
     if (m.role === 'user') {
@@ -1316,6 +1336,7 @@ function deserializeConversation(sc: SerializedConversation): Conversation {
         mode: toTaskMode(m.mode),
         model: m.model,
         timestamp: m.timestamp,
+        attachments: toAttachments((m as { attachments?: unknown }).attachments),
       } satisfies UserMessage;
     }
     const lines = m.content
@@ -1651,6 +1672,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
         mode: action.mode,
         model: action.model,
         timestamp: action.timestamp,
+        attachments: action.attachments,
       };
       return {
         ...updateActiveConversation(state, conv => ({

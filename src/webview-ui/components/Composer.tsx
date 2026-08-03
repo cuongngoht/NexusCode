@@ -6,6 +6,7 @@ import type { AgentModeCapability, AgentRecommendation, ProviderId, TaskMode, Pr
 import { InlineRecommendationBanner } from './InlineRecommendationBanner';
 import { AgentChipSelector } from './AgentChipSelector';
 import { ErrorBanner } from './ErrorBanner';
+import { AttachmentThumb } from './AttachmentThumb';
 import { filterPromptReferenceCandidates } from '../../context/promptReferenceCompletion';
 
 type RiskLevel = 'readonly' | 'plan' | 'mutate';
@@ -44,6 +45,9 @@ interface Props {
   reviewContextError?: string;
   attachments: PromptAttachment[];
   onAttachmentsChange: (attachments: PromptAttachment[]) => void;
+  /** Attachment-specific failure (e.g. a pasted image was too large). */
+  attachmentError?: string;
+  onDismissAttachmentError?: () => void;
   workspaceFiles: string[];
   onRequestWorkspaceFiles: () => void;
   onRun: (prompt: string, baseBranch?: string, attachments?: PromptAttachment[]) => void;
@@ -96,7 +100,7 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
   availableProviders, providerDetection,
   agentCapabilityMatrix, agentRecommendations,
   reviewContext, reviewContextError,
-  attachments, onAttachmentsChange,
+  attachments, onAttachmentsChange, attachmentError, onDismissAttachmentError,
   workspaceFiles, onRequestWorkspaceFiles,
   onRun, onStop, onProviderChange, onModeChange,
   onRefreshReviewContext, onOpenReviewAgentFile,
@@ -564,11 +568,20 @@ export const Composer = forwardRef<ComposerRef, Props>(function Composer({
       </div>
     )}
     <div className="fl-composer">
+      {attachmentError && (
+        <ErrorBanner
+          severity="warning"
+          message={attachmentError}
+          onDismiss={onDismissAttachmentError}
+        />
+      )}
       {attachments.length > 0 && (
         <div className="fl-composer-atts">
           {attachments.map((a, i) => (
-            <span key={i} className="fl-att-chip">
-              <IconDoc size={13} />
+            <span key={i} className={`fl-att-chip${a.type === 'image' ? ' fl-att-chip--image' : ''}`}>
+              {a.type === 'image'
+                ? <AttachmentThumb path={a.path} size={28} />
+                : <IconDoc size={13} />}
               <span className="fl-att-chip-type">{a.type}</span>
               {a.path}
               <button

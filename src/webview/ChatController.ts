@@ -14,6 +14,7 @@ import { ProviderHandler } from './handlers/ProviderHandler';
 import { ReviewHandler } from './handlers/ReviewHandler';
 import { ChatReviewOrchestrator } from './handlers/ChatReviewOrchestrator';
 import { AttachmentHandler } from './handlers/AttachmentHandler';
+import { PastedImageHandler } from './handlers/PastedImageHandler';
 import { LoginHandler } from './handlers/LoginHandler';
 import { NavigationHandler } from './handlers/NavigationHandler';
 import { EventForwarder } from './handlers/EventForwarder';
@@ -74,6 +75,7 @@ export class ChatController {
   private readonly reviewHandler: ReviewHandler;
   private readonly chatReviewOrchestrator: ChatReviewOrchestrator;
   private readonly attachmentHandler: AttachmentHandler;
+  private readonly pastedImageHandler: PastedImageHandler;
   private readonly loginHandler: LoginHandler;
   private readonly navigationHandler: NavigationHandler;
   private readonly agentPromptHandler: AgentPromptHandler;
@@ -154,6 +156,7 @@ export class ChatController {
       extensionPath,
     );
     this.attachmentHandler    = new AttachmentHandler(post);
+    this.pastedImageHandler   = new PastedImageHandler(post);
     this.loginHandler         = new LoginHandler(detector, this.providerHandler);
     this.navigationHandler    = new NavigationHandler();
     this.agentPromptHandler      = new AgentPromptHandler(extensionPath, post);
@@ -343,6 +346,7 @@ export class ChatController {
       case 'pickPromptAttachment':   await this.attachmentHandler.pickAttachment(); break;
       case 'getWorkspaceFiles':      this.attachmentHandler.getWorkspaceFiles(); break;
       case 'resolveDroppedFiles':    await this.attachmentHandler.resolveDropped(msg.paths); break;
+      case 'savePastedImages':       await this.pastedImageHandler.save(msg.images); break;
       case 'openWorkspaceFile':      await this.attachmentHandler.openFile(msg.path); break;
       case 'attachWorkspaceFiles':   this.attachmentHandler.attachWorkspaceFiles(msg.paths); break;
       case 'loginProvider':          await this.loginHandler.handle(msg.providerId); break;
