@@ -15,7 +15,7 @@ import type { McpCustomServerConfig } from '../config/NexusConfig';
 
 function draft(overrides: Partial<McpServerDraft> = {}): McpServerDraft {
   return {
-    name: 'portaltalk-docs',
+    name: 'nexus-docs',
     type: 'http',
     url: 'https://example.com/mcp',
     headers: [{ key: 'Authorization', value: 'Bearer secret-token' }],

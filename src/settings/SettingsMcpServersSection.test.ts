@@ -87,7 +87,7 @@ describe('custom MCP servers section — list rendering', () => {
 
   it('renders a saved http server without ever showing the header value', () => {
     mount({
-      'portaltalk-docs': {
+      'nexus-docs': {
         type: 'http',
         url: 'https://example.com/mcp',
         headers: { Authorization: 'Bearer SUPERSECRET' },
@@ -95,7 +95,7 @@ describe('custom MCP servers section — list rendering', () => {
     });
 
     expect(rows()).toHaveLength(1);
-    expect(rows()[0].querySelector('.provider-name')?.textContent).toBe('portaltalk-docs');
+    expect(rows()[0].querySelector('.provider-name')?.textContent).toBe('nexus-docs');
     expect(rows()[0].querySelector('.provider-command')?.textContent)
       .toBe('HTTP · https://example.com/mcp · 1 header');
     expect(document.body.textContent).not.toContain('SUPERSECRET');
@@ -131,7 +131,7 @@ describe('custom MCP servers section — add flow', () => {
     const harness = mount();
     $('mcp-add-server').click();
     fillForm({
-      name: 'portaltalk-docs',
+      name: 'nexus-docs',
       url: 'https://example.com/mcp',
       headerKey: 'Authorization',
       headerValue: 'Bearer tok',
@@ -140,7 +140,7 @@ describe('custom MCP servers section — add flow', () => {
 
     expect($('mcp-server-form').hidden).toBe(true);
     expect(harness.servers).toHaveLength(1);
-    expect(harness.servers[0]).toMatchObject({ name: 'portaltalk-docs', origName: 'portaltalk-docs' });
+    expect(harness.servers[0]).toMatchObject({ name: 'nexus-docs', origName: 'nexus-docs' });
     expect(harness.servers[0].cfg).toEqual({
       type: 'http',
       url: 'https://example.com/mcp',

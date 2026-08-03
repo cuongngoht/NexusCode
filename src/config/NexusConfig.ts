@@ -15,7 +15,7 @@ export interface Context7McpPresetConfig extends McpPresetConfig {
  * User-defined MCP server, declared in `.nexus/config.json` using the same
  * shape as Claude Code's `.mcp.json` entries:
  *
- * "portaltalk-docs": {
+ * "nexus-docs": {
  *   "type": "http",
  *   "url": "https://example.com/mcp",
  *   "headers": { "Authorization": "Bearer ..." }

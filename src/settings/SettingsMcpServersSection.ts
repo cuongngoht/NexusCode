@@ -34,7 +34,7 @@ export function renderMcpServersSectionHtml(): string {
       <div class="setting-row">
         <label for="mcp-f-name">Name</label>
         <input class="mcp-text" type="text" id="mcp-f-name" spellcheck="false"
-               placeholder="portaltalk-docs" aria-describedby="mcp-e-name" />
+               placeholder="nexus-docs" aria-describedby="mcp-e-name" />
         <span class="setting-hint">Server id, and the keywords used to auto-pick it.</span>
       </div>
       <p class="field-error" id="mcp-e-name" hidden></p>

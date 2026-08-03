@@ -64,7 +64,7 @@ export function buildCustomPresets(
         priority: CUSTOM_PRESET_PRIORITY,
         enabledByDefault: true,
         // Auto-selection keywords: explicit bestFor, or tokens of the server
-        // name ("portaltalk-docs" → ["portaltalk", "docs"]).
+        // name ("nexus-docs" → ["nexus", "docs"]).
         bestFor: cfg.bestFor?.length ? cfg.bestFor : nameTokens(name),
         // Custom servers answer generic doc intents, never 'microsoft-docs'.
         toolGroups: ['docs', 'samples', 'library-api'],

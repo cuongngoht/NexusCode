@@ -12,13 +12,13 @@ const httpServer: McpCustomServerConfig = {
 
 describe('buildCustomPresets', () => {
   it('builds a streamableHttp preset with headers from an http entry', () => {
-    const entries = buildCustomPresets({ 'portaltalk-docs': httpServer });
+    const entries = buildCustomPresets({ 'nexus-docs': httpServer });
 
     expect(entries).toHaveLength(1);
     const { preset, enabled } = entries[0];
     expect(enabled).toBe(true);
-    expect(preset.id).toBe('custom:portaltalk-docs');
-    expect(preset.displayName).toBe('portaltalk-docs');
+    expect(preset.id).toBe('custom:nexus-docs');
+    expect(preset.displayName).toBe('nexus-docs');
     expect(preset.transport).toBe('streamableHttp');
     expect(preset.endpoint).toBe('https://example.com/mcp');
     expect(preset.headers).toEqual({ Authorization: 'Bearer secret-token' });
@@ -39,7 +39,7 @@ describe('buildCustomPresets', () => {
   });
 
   it('defaults to high risk so calls go through the approval gate', () => {
-    const entries = buildCustomPresets({ 'portaltalk-docs': httpServer });
+    const entries = buildCustomPresets({ 'nexus-docs': httpServer });
     expect(entries[0].preset.risk).toBe('high');
   });
 
@@ -49,8 +49,8 @@ describe('buildCustomPresets', () => {
   });
 
   it('derives bestFor keywords from the server name when not provided', () => {
-    const entries = buildCustomPresets({ 'portaltalk-docs': httpServer });
-    expect(entries[0].preset.bestFor).toEqual(['portaltalk', 'docs']);
+    const entries = buildCustomPresets({ 'nexus-docs': httpServer });
+    expect(entries[0].preset.bestFor).toEqual(['nexus', 'docs']);
   });
 
   it('prefers explicit bestFor keywords', () => {
@@ -83,7 +83,7 @@ describe('buildCustomPresets', () => {
 
 describe('custom preset ids', () => {
   it('round-trips through customPresetId / isCustomPresetId', () => {
-    expect(isCustomPresetId(customPresetId('portaltalk-docs'))).toBe(true);
+    expect(isCustomPresetId(customPresetId('nexus-docs'))).toBe(true);
     expect(isCustomPresetId('microsoftLearn')).toBe(false);
     expect(isCustomPresetId('context7')).toBe(false);
   });
@@ -91,7 +91,7 @@ describe('custom preset ids', () => {
 
 describe('McpToolRouter with custom presets', () => {
   const router = new McpToolRouter();
-  const intent: McpToolIntent = { group: 'docs', query: 'portaltalk auth flow', reason: 'need docs' };
+  const intent: McpToolIntent = { group: 'docs', query: 'nexus auth flow', reason: 'need docs' };
 
   it('routes to the pinned defaultTool when configured', () => {
     const entries = buildCustomPresets({ pt: { ...httpServer, defaultTool: 'search_docs' } });
@@ -99,7 +99,7 @@ describe('McpToolRouter with custom presets', () => {
 
     expect(route.presetId).toBe('custom:pt');
     expect(route.toolName).toBe('search_docs');
-    expect(route.arguments).toEqual({ query: 'portaltalk auth flow' });
+    expect(route.arguments).toEqual({ query: 'nexus auth flow' });
   });
 
   it('leaves toolName empty for discovery when no defaultTool is set', () => {
