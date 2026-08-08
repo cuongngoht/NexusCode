@@ -909,7 +909,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^12.1.0",
     "gpt-tokenizer": "^3.4.0",
-    "mermaid": "^11.15.0",
+    "mermaid": "^11.16.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
