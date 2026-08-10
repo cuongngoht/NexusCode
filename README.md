@@ -248,13 +248,18 @@ Supported preset configuration includes:
 
 - **Microsoft Learn** preset for official Microsoft documentation;
 - **Context7** preset for up-to-date library documentation;
-- optional Context7 API key;
+- optional Context7 API key (passed to the server as `CONTEXT7_API_KEY`);
+- **custom MCP servers** (`http` or `stdio`) defined under `mcp.customServers` in `.nexus/config.json` and manageable from the Settings panel;
 - automatic preset selection by task intent;
 - max result size limits;
 - max MCP rounds per task;
 - approval requirement for high-risk tools.
 
-When MCP is enabled, Nexus can inspect an agent's output for tool intent, run the selected MCP tool, compress the result, and inject that result into a follow-up agent run.
+Nexus is itself the MCP client — it does **not** hand a `.mcp.json` to the provider CLIs. When MCP is enabled, Nexus appends a short protocol instruction to the prompt; if the agent decides it needs external references it emits a single `<NEXUS_TOOL_INTENT>` block, and Nexus then calls the selected MCP tool, compresses the result, and re-runs the agent with that result attached. The tag is stripped from the chat transcript, and the "MCP" chip above the composer reports the preset and tool actually used — or that a call was blocked.
+
+Because the protocol lives in the prompt, MCP works uniformly across every provider CLI. It applies to all modes that run an agent (`ask`, `edit`, `plan`, `test`, `research`, `brainstorm`, `understand`, `debug`, `review`, and Agent Mode); `scan-project` runs no agent and so has no MCP. Subagents and the standalone `nexus` CLI do not run MCP.
+
+`mcp.maxRoundsPerTask` counts **follow-up** rounds (the first run is free) and is clamped to `0..5`. It is a per-*task* budget, so under the `nexus` provider — which runs several staged tasks per turn — the total across a turn can exceed it. A round loop also stops early if the agent repeats a request it already made, or if a call is rejected, denied, or errors.
 
 ---
 
@@ -399,11 +404,21 @@ Default workspace config shape:
     "enabled": false,
     "autoSelectPreset": true,
     "requireApprovalForHighRiskTools": true,
+    "approvalTimeoutMs": 120000,
     "maxResultChars": 6000,
     "maxRoundsPerTask": 1,
     "presets": {
       "microsoftLearn": { "enabled": true },
       "context7": { "enabled": true, "apiKey": "" }
+    },
+    "customServers": {
+      "nexus-docs": {
+        "type": "http",
+        "url": "https://example.com/mcp",
+        "headers": { "Authorization": "Bearer <token>" },
+        "enabled": true,
+        "risk": "high"
+      }
     }
   },
   "compact": {

@@ -2668,6 +2668,13 @@ html, body, #root {
   font-style: italic;
 }
 
+/* A rejected/denied/errored MCP round is surfaced too — a silent denial is what
+   previously made a broken approval timeout look like "MCP just does nothing". */
+.nx-mcp-blocked {
+  color: var(--vscode-testing-iconFailed, #f14c4c);
+  font-style: italic;
+}
+
 .nx-project-memory-btn[data-status="ready"] {
   color: var(--vscode-testing-iconPassed, #73c991);
 }

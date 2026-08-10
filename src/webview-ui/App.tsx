@@ -597,8 +597,10 @@ export function App() {
                       : 'MCP: On (no presets)')
                     : 'MCP: Off'}
                   {state.lastMcpUsed && (
-                    <span className="nx-mcp-used">
-                      {` Used: ${state.lastMcpUsed.presetName} / ${state.lastMcpUsed.toolName}`}
+                    <span className={state.lastMcpUsed.status === 'executed' ? 'nx-mcp-used' : 'nx-mcp-blocked'}>
+                      {state.lastMcpUsed.status === 'executed'
+                        ? ` Used: ${state.lastMcpUsed.presetName} / ${state.lastMcpUsed.toolName}`
+                        : ` Blocked: ${state.lastMcpUsed.presetName} (${state.lastMcpUsed.status})`}
                     </span>
                   )}
                 </div>

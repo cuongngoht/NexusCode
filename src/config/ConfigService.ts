@@ -1,15 +1,7 @@
 import * as vscode from 'vscode';
 import type { NexusConfig } from './NexusConfig';
 import { DEFAULT_CONFIG } from './DefaultConfig';
-
-function migrateConfig(raw: Record<string, unknown>): NexusConfig {
-  const providers = (raw['providers'] ?? {}) as Record<string, unknown>;
-  if ('gemini' in providers && !('antigravity' in providers)) {
-    providers['antigravity'] = providers['gemini'];
-    delete providers['gemini'];
-  }
-  return { ...structuredClone(DEFAULT_CONFIG), ...raw, providers: { ...DEFAULT_CONFIG.providers, ...providers } } as NexusConfig;
-}
+import { migrateConfig } from './mergeConfig';
 
 export class ConfigService {
   private get configUri(): vscode.Uri | undefined {

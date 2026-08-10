@@ -39,6 +39,19 @@ export class McpExecutionPolicy implements IMcpExecutionPolicy {
       };
     }
 
+    // Medium always prompts. The settings UI labels this level "Medium — approve every
+    // call", and it previously did not: medium fell through to the low-risk branch and
+    // ran unapproved. Deliberately NOT gated on requireApprovalForHighRiskTools — that
+    // flag is named for high risk, so a user who disables it is opting out of
+    // high-risk prompts, not of every prompt.
+    if (input.preset.risk === 'medium') {
+      return {
+        allowed: true,
+        requiresApproval: true,
+        reason: 'Medium-risk MCP tool requires approval.',
+      };
+    }
+
     return {
       allowed: true,
       requiresApproval: false,

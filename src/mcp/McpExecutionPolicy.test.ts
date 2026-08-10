@@ -23,6 +23,11 @@ const highRiskPreset: McpPreset = {
   risk: 'high',
 };
 
+const mediumRiskPreset: McpPreset = {
+  ...lowRiskPreset,
+  risk: 'medium',
+};
+
 const validRoute: McpRoute = {
   presetId: 'context7',
   toolName: 'query-docs',
@@ -84,6 +89,48 @@ describe('McpExecutionPolicy', () => {
     });
     expect(result.allowed).toBe(true);
     expect(result.requiresApproval).toBe(false);
+  });
+
+  // The settings UI advertises medium as "approve every call", but medium used to fall
+  // through to the low-risk branch and run with no prompt at all.
+  describe('medium risk', () => {
+    it('requires approval when requireApprovalForHighRiskTools is true', () => {
+      const result = policy.evaluate({
+        mode: 'ask',
+        preset: mediumRiskPreset,
+        route: validRoute,
+        mcpEnabled: true,
+        requireApprovalForHighRiskTools: true,
+      });
+      expect(result.allowed).toBe(true);
+      expect(result.requiresApproval).toBe(true);
+    });
+
+    // That flag is scoped to high risk by name, so turning it off must not also silence
+    // medium-risk prompts.
+    it('still requires approval when requireApprovalForHighRiskTools is false', () => {
+      const result = policy.evaluate({
+        mode: 'ask',
+        preset: mediumRiskPreset,
+        route: validRoute,
+        mcpEnabled: true,
+        requireApprovalForHighRiskTools: false,
+      });
+      expect(result.allowed).toBe(true);
+      expect(result.requiresApproval).toBe(true);
+      expect(result.reason).toMatch(/medium/i);
+    });
+
+    it('is still rejected outright when MCP is disabled', () => {
+      const result = policy.evaluate({
+        mode: 'ask',
+        preset: mediumRiskPreset,
+        route: validRoute,
+        mcpEnabled: false,
+        requireApprovalForHighRiskTools: false,
+      });
+      expect(result.allowed).toBe(false);
+    });
   });
 
   it('rejects when tool name is missing', () => {

@@ -266,7 +266,9 @@
         "nexus.mcp.maxRoundsPerTask": {
           "type": "number",
           "default": 1,
-          "description": "Maximum MCP tool-use rounds per task."
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Maximum MCP follow-up rounds per task (the first agent run is not counted). Clamped to 0-5. This is a per-task budget, so the 'nexus' provider — which runs several staged tasks per turn — can exceed it across one turn. A run also stops early if the agent repeats a request it already made, or if a call is denied."
         },
         "nexus.mcp.presets.microsoftLearn.enabled": {
           "type": "boolean",

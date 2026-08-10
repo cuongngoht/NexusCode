@@ -37,7 +37,18 @@ export type NexusEvent =
   | { kind: 'debug_summary_ready'; summary: string }
   | { kind: 'subagent_started';   role: string; runId: string; displayName?: string }
   | { kind: 'subagent_completed'; role: string; runId: string; durationMs: number; confidence?: number; findingCount?: number }
-  | { kind: 'subagent_failed';    role: string; runId: string; durationMs?: number; error: string };
+  | { kind: 'subagent_failed';    role: string; runId: string; durationMs?: number; error: string }
+  /** One MCP follow-up round finished. `status` is forwarded so a denial is visible in
+   *  the UI rather than silent — silent denial is what hid the approval-timeout bug. */
+  | {
+      kind: 'mcp_tool_used';
+      task: AgentTask;
+      presetId: string;
+      presetDisplayName: string;
+      toolName: string;
+      round: number;
+      status: 'executed' | 'rejected' | 'denied' | 'error';
+    };
 
 export type NexusEventKind = NexusEvent['kind'];
 

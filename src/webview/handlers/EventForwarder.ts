@@ -272,6 +272,15 @@ export class EventForwarder {
       case 'subagent_failed':
         this.post({ type: 'subagentFailed', runId: event.runId, role: event.role, durationMs: event.durationMs, error: event.error });
         break;
+      case 'mcp_tool_used':
+        this.post({
+          type: 'mcpUsed',
+          presetId: event.presetId,
+          presetName: event.presetDisplayName,
+          toolName: event.toolName,
+          status: event.status,
+        });
+        break;
     }
   }
 }

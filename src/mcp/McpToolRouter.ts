@@ -44,6 +44,14 @@ export class McpToolRouter implements IMcpToolRouter {
     return 'microsoft_docs_search';
   }
 
+  /**
+   * context7 exposes `resolve-library-id` and `query-docs`. `query-docs` is the
+   * documentation call, but it also requires a `libraryId` that only
+   * `resolve-library-id` can produce — McpToolUseCase.resolveContext7Route fills that
+   * in before the call is made. Routing straight to `query-docs` here is intentional:
+   * it is the tool whose result the user actually wants, and so the one the execution
+   * decision should describe.
+   */
   private context7Tool(_group: string): string {
     return 'query-docs';
   }

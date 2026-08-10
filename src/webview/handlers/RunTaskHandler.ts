@@ -30,7 +30,7 @@ import { evaluateEnrichmentTrigger, type EnrichmentTriggerInput } from '../../ap
 import { readKnowledgeFactsConfig } from '../../application/knowledge-facts/KnowledgeFactsConfig';
 import { createPreSteps } from '../../application/pipeline/createPreSteps';
 import { buildEnhancedPrompt } from '../../context/promptBuilder';
-import { buildAugmentedPrompt } from '../../context/promptAugmentationBuilder';
+import { appendRunInstructions, buildAugmentedPrompt, buildBundlePrefixedPrompt } from '../../context/promptAugmentationBuilder';
 import { buildPromptAttachmentContext, collectImageAttachmentPaths } from '../../context/promptAttachments';
 import { buildImageAttachmentList } from '../../context/attachments/imageAttachments';
 import { ensureWorkspaceAgents, listAgentPrompts, loadAgentPromptBundle, loadAgentMetadata } from '../../context/agentPromptLibrary';
@@ -938,7 +938,10 @@ export class RunTaskHandler {
         const block = new SubagentSummary().buildInjectionBlock(ctx.subagentResults, { maxChars: injectMaxChars });
         if (block) reviewPrompt = `${reviewPrompt}\n\n${block}`;
       }
-      return reviewPrompt;
+      // `json-only` because the review prompt's output contract demands ONLY a JSON
+      // block — the narrative wording ("emit a block before your final answer") would
+      // invite the model to inline the tag into that JSON or refuse outright.
+      return appendRunInstructions(reviewPrompt, { mcpEnabled, style: 'json-only' });
     }
 
     const planContent = loadPlanContent(workspaceRoot) || undefined;
@@ -1019,12 +1022,10 @@ export class RunTaskHandler {
         }
       }
 
-      prompt = buildAugmentedPrompt({
+      prompt = buildBundlePrefixedPrompt({
         agentMarkdownBundle: agentBundle,
         skillMarkdownBundle: skillBundle,
-        userPrompt: taskPrompt,
         existingEnhancedPrompt: prompt,
-        mcpEnabled,
       });
 
       const sections: Array<{ title: string; content: string }> = [];
@@ -1032,6 +1033,12 @@ export class RunTaskHandler {
       if (agentBundle) sections.push({ title: 'Agent Instructions', content: agentBundle });
       ctx.enhancedPromptSections = sections.length > 0 ? sections : undefined;
     }
+
+    // Run-level instructions apply to EVERY run, not just ones with @agent/#skill
+    // mentions. Keeping this inside the branch above is what left MCP inert in all the
+    // default modes: without it the agent is never taught the NEXUS_TOOL_INTENT
+    // protocol, so it never emits a tag and the MCP round never triggers.
+    prompt = appendRunInstructions(prompt, { mcpEnabled });
 
     if (ctx.subagentResults && ctx.subagentResults.length > 0) {
       const injectMaxChars = vscode.workspace.getConfiguration('nexus').get<number>('subagents.injectMaxChars', 8000);

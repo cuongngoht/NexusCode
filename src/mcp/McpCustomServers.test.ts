@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildCustomPresets, customPresetId, isCustomPresetId } from './McpCustomServers';
+import { buildCustomPresets, customPresetId, isCustomPresetId, pickToolNameForIntent } from './McpCustomServers';
 import { McpToolRouter } from './McpToolRouter';
 import type { McpCustomServerConfig } from '../config/NexusConfig';
-import type { McpToolIntent } from './McpTypes';
+import type { McpToolDescriptor, McpToolIntent } from './McpTypes';
 
 const httpServer: McpCustomServerConfig = {
   type: 'http',
@@ -106,5 +106,58 @@ describe('McpToolRouter with custom presets', () => {
     const entries = buildCustomPresets({ pt: httpServer });
     const route = router.route(intent, entries[0].preset);
     expect(route.toolName).toBe('');
+  });
+});
+
+describe('pickToolNameForIntent', () => {
+  const tool = (name: string, description?: string): McpToolDescriptor => ({ name, description });
+  const docsIntent: McpToolIntent = { group: 'docs', query: 'q', reason: 'r' };
+  const samplesIntent: McpToolIntent = { group: 'samples', query: 'q', reason: 'r' };
+
+  it('prefers a retrieval tool over an unrelated one', () => {
+    const tools = [tool('list_projects'), tool('search_docs')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBe('search_docs');
+  });
+
+  it('prefers a sample-specific tool for the samples group', () => {
+    const tools = [tool('search_docs'), tool('search_code_samples')];
+    expect(pickToolNameForIntent(tools, samplesIntent)).toBe('search_code_samples');
+  });
+
+  it('prefers the docs tool over the samples tool for a docs intent', () => {
+    const tools = [tool('search_code_samples'), tool('search_docs')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBe('search_docs');
+  });
+
+  it('keeps the server-advertised order on a genuine tie', () => {
+    const tools = [tool('search_alpha'), tool('search_beta')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBe('search_alpha');
+  });
+
+  // A documentation intent must never trip a write on an arbitrary user-configured
+  // server, so mutating verbs are penalised rather than merely unranked.
+  it('avoids a mutating tool even when its name also contains a retrieval verb', () => {
+    const tools = [tool('create_doc'), tool('find_doc')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBe('find_doc');
+  });
+
+  it('returns undefined when only mutating tools are advertised', () => {
+    const tools = [tool('delete_page'), tool('update_record')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBeUndefined();
+  });
+
+  it('returns undefined when nothing scores, so the caller can fall back to tools[0]', () => {
+    expect(pickToolNameForIntent([tool('alpha'), tool('beta')], docsIntent)).toBeUndefined();
+    expect(pickToolNameForIntent([], docsIntent)).toBeUndefined();
+  });
+
+  it('scores a name match above a description-only match', () => {
+    const tools = [tool('alpha', 'can search the docs'), tool('search_alpha')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBe('search_alpha');
+  });
+
+  it('can still select on description alone when no name matches', () => {
+    const tools = [tool('alpha'), tool('beta', 'Search the knowledge base')];
+    expect(pickToolNameForIntent(tools, docsIntent)).toBe('beta');
   });
 });

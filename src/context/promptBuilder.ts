@@ -36,8 +36,6 @@ export interface PromptContext {
   clarificationGate?: string;
   recommendations?: string;
   outputFormat?: string;
-  /** MCP tool intent instructions injected when MCP is enabled. */
-  mcpIntentPrompt?: string;
   /** Research workflow context injected when @research is active. */
   researchContext?: string;
   /** Architecture memory context injected when architecture analysis is available. */
@@ -216,11 +214,9 @@ export function buildEnhancedPrompt(userPrompt: string, ctx: PromptContext): str
     }
   }
 
-  if (ctx.mcpIntentPrompt) {
-    lines.push('');
-    lines.push(ctx.mcpIntentPrompt);
-  }
-
+  // MCP tool-intent instructions are NOT injected here. They are appended once, at the
+  // very end of prompt assembly, by appendRunInstructions() — see core/mcp/McpIntentProtocol.
+  // Keeping a second channel here would risk double-injection and wording drift.
   return lines.join('\n');
 }
 

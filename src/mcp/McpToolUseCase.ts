@@ -2,7 +2,9 @@ import type { NexusConfig } from '../config/NexusConfig';
 import type { AgentTask } from '../core/agent';
 import type { IMcpApprovalGate } from './McpApprovalGate';
 import { buildCustomPresets, isCustomPresetId, pickToolNameForIntent } from './McpCustomServers';
-import type { McpPreset, McpRoute, McpToolDescriptor, McpToolIntent } from './McpTypes';
+import { applyPresetSecrets } from './McpPresetSecrets';
+import { guessLibraryName, parseContext7LibraryId } from './Context7LibraryResolver';
+import type { McpPreset, McpRoundOutcome, McpRoute, McpToolDescriptor, McpToolIntent } from './McpTypes';
 import type { IMcpBroker } from './McpBroker';
 import type { IMcpExecutionPolicy } from './McpExecutionPolicy';
 import type { IMcpIntentParser } from './McpIntentParser';
@@ -31,20 +33,39 @@ export class McpToolUseCase {
     this.approvalGate = gate;
   }
 
+  /** Detects a tool intent in agent output. Split from execution so callers can
+   *  dedup a repeated request before paying for a network round trip. */
+  parseIntent(output: string): McpToolIntent | undefined {
+    return this.parser.parse(output);
+  }
+
   async tryHandleToolIntent(input: {
     task: AgentTask;
     output: string;
     config: NexusConfig;
   }): Promise<string | undefined> {
-    const intent = this.parser.parse(input.output);
+    const intent = this.parseIntent(input.output);
     if (!intent) return undefined;
+    const outcome = await this.runIntent({ task: input.task, intent, config: input.config });
+    return outcome.contextText;
+  }
 
+  async runIntent(input: {
+    task: AgentTask;
+    intent: McpToolIntent;
+    config: NexusConfig;
+  }): Promise<McpRoundOutcome> {
+    const intent = input.intent;
+
+    // Optional-chained: `.nexus/config.json` is hand-editable, and a config with
+    // `"mcp": { "enabled": true }` and no `presets` key must degrade to "no built-ins
+    // available", not throw and fail the whole task.
     const builtinPresets = this.registry.getAll().filter(preset => {
       if (preset.id === 'microsoftLearn') {
-        return input.config.mcp.presets.microsoftLearn.enabled;
+        return input.config.mcp.presets?.microsoftLearn?.enabled ?? true;
       }
       if (preset.id === 'context7') {
-        return input.config.mcp.presets.context7.enabled;
+        return input.config.mcp.presets?.context7?.enabled ?? true;
       }
       return false;
     });
@@ -53,7 +74,11 @@ export class McpToolUseCase {
       .filter(entry => entry.enabled)
       .map(entry => entry.preset);
 
-    const enabledPresets = [...builtinPresets, ...customPresets];
+    // Credentials are applied here, where the config is in hand, so the registry stays
+    // config-free and the adapters see a ready-to-use preset.
+    const enabledPresets = [...builtinPresets, ...customPresets].map(preset =>
+      applyPresetSecrets(preset, input.config.mcp),
+    );
 
     const preset = this.selector.select({
       prompt: input.task.prompt,
@@ -63,10 +88,20 @@ export class McpToolUseCase {
     });
 
     if (!preset) {
-      return ['## MCP Request Rejected', 'No enabled MCP preset can satisfy this request.'].join('\n');
+      return {
+        status: 'rejected',
+        contextText: ['## MCP Request Rejected', 'No enabled MCP preset can satisfy this request.'].join('\n'),
+      };
     }
 
     let route = this.router.route(intent, preset);
+    // Identifies the preset/tool for every outcome below, so a blocked round names the
+    // server it was blocked on rather than falling back to the bare intent group.
+    const describe = () => ({
+      presetId: preset.id,
+      presetDisplayName: preset.displayName,
+      toolName: route.toolName,
+    });
 
     // Custom servers without a pinned defaultTool: discover tools/list and
     // pick one BEFORE the execution policy runs (it rejects empty tool names).
@@ -80,9 +115,14 @@ export class McpToolUseCase {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return ['## MCP Error', `Tool discovery failed for ${preset.displayName}: ${message}`].join('\n');
+        return {
+          status: 'error',
+          contextText: ['## MCP Error', `Tool discovery failed for ${preset.displayName}: ${message}`].join('\n'),
+          used: describe(),
+        };
       }
     }
+
 
     const decision = this.policy.evaluate({
       mode: input.task.mode,
@@ -93,17 +133,25 @@ export class McpToolUseCase {
     });
 
     if (!decision.allowed) {
-      return ['## MCP Request Rejected', decision.reason].join('\n');
+      return {
+        status: 'rejected',
+        contextText: ['## MCP Request Rejected', decision.reason].join('\n'),
+        used: describe(),
+      };
     }
 
     if (decision.requiresApproval) {
       if (!this.approvalGate) {
-        return [
-          '## MCP Request Denied',
-          decision.reason,
-          '',
-          'This tool requires approval, but no approval UI is attached. The tool was not executed.',
-        ].join('\n');
+        return {
+          status: 'denied',
+          contextText: [
+            '## MCP Request Denied',
+            decision.reason,
+            '',
+            'This tool requires approval, but no approval UI is attached. The tool was not executed.',
+          ].join('\n'),
+          used: describe(),
+        };
       }
 
       const outcome = await this.approvalGate.requestApproval(
@@ -122,16 +170,29 @@ export class McpToolUseCase {
         const detail = outcome === 'timeout'
           ? 'The approval request timed out.'
           : 'The user denied the request.';
-        return [
-          '## MCP Request Denied',
-          decision.reason,
-          '',
-          `${detail} The tool was not executed.`,
-        ].join('\n');
+        return {
+          status: 'denied',
+          contextText: [
+            '## MCP Request Denied',
+            decision.reason,
+            '',
+            `${detail} The tool was not executed.`,
+          ].join('\n'),
+          used: describe(),
+        };
       }
     }
 
     try {
+      // context7's query-docs needs a libraryId that only resolve-library-id can
+      // produce. Deliberately resolved AFTER the approval gate: resolution sends the
+      // user's query text to the server, so it must not happen while the request is
+      // still pending or already denied. The approval card describes `query-docs`,
+      // which remains accurate — that is the call whose result the user receives.
+      if (preset.id === 'context7' && !route.arguments['libraryId']) {
+        route = await this.resolveContext7Route({ preset, route, intent, cwd: input.task.cwd });
+      }
+
       const rawText = await this.broker.call({ preset, route, cwd: input.task.cwd });
 
       const compressed = this.compressor.compress({
@@ -140,11 +201,48 @@ export class McpToolUseCase {
         sourceLabel: `${preset.displayName} / ${route.toolName}`,
       });
 
-      return compressed.compactText;
+      return {
+        status: 'executed',
+        contextText: compressed.compactText,
+        used: describe(),
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return ['## MCP Error', `MCP call failed: ${message}`].join('\n');
+      return {
+        status: 'error',
+        contextText: ['## MCP Error', `MCP call failed: ${message}`].join('\n'),
+        used: describe(),
+      };
     }
+  }
+
+  /** Turns the intent's free-text query into `{ libraryId, query }` for query-docs. */
+  private async resolveContext7Route(input: {
+    preset: McpPreset;
+    route: McpRoute;
+    intent: McpToolIntent;
+    cwd?: string;
+  }): Promise<McpRoute> {
+    const rawText = await this.broker.call({
+      preset: input.preset,
+      route: {
+        ...input.route,
+        toolName: 'resolve-library-id',
+        arguments: { query: input.intent.query, libraryName: guessLibraryName(input.intent.query) },
+      },
+      cwd: input.cwd,
+    });
+
+    const libraryId = parseContext7LibraryId(rawText);
+    if (!libraryId) {
+      throw new Error(`No Context7 library matched "${input.intent.query}".`);
+    }
+
+    return {
+      ...input.route,
+      toolName: 'query-docs',
+      arguments: { libraryId, query: input.intent.query },
+    };
   }
 
   private async resolveCustomRoute(input: {

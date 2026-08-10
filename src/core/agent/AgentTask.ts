@@ -38,6 +38,34 @@ export class AgentTask {
     this.startedAt = Date.now();
   }
 
+  /**
+   * Same task, new prompt — for MCP follow-up rounds.
+   *
+   * Preserves `id` and `startedAt` on purpose. A dozen listeners filter events with
+   * `event.task.id === task.id` (the review report parser, agent-mode text collectors,
+   * git status, file intelligence), and the webview keys its streaming assistant
+   * message off the id too. Minting a fresh id for round 2 would strand all of them on
+   * round 1's output — which is just the bare intent tag.
+   */
+  withEnhancedPrompt(enhancedPrompt: string): AgentTask {
+    const next = new AgentTask(
+      this.prompt,
+      enhancedPrompt,
+      this.agentId,
+      this.mode,
+      this.model,
+      this.cwd,
+      this.skillIds,
+      this.mentionedAgentIds,
+      this.enhancedPromptSections,
+    );
+    // Writing through the readonly surface from inside the class: the whole point of
+    // this factory is to carry identity across rounds.
+    (next as { id: string }).id = this.id;
+    (next as { startedAt: number }).startedAt = this.startedAt;
+    return next;
+  }
+
   get status(): TaskStatus { return this._status; }
   get result(): AgentResult | undefined { return this._result; }
 

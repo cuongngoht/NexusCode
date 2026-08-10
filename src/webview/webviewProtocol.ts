@@ -110,7 +110,7 @@ export type ExtensionMessage =
   | { type: 'attachmentError'; message: string }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
-  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string; status: 'executed' | 'rejected' | 'denied' | 'error' }
   | { type: 'agentPrompts'; agents: AgentPrompt[] }
   | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
   | { type: 'agentPromptError'; message: string }

@@ -756,7 +756,8 @@ export interface AppState {
   historyTrimmedCount?: number;
   mcpEnabled: boolean;
   mcpActivePresets: string[];
-  lastMcpUsed?: { presetId: string; presetName: string; toolName: string };
+  /** Cleared when a new run starts, so the chip reflects the current turn only. */
+  lastMcpUsed?: { presetId: string; presetName: string; toolName: string; status: 'executed' | 'rejected' | 'denied' | 'error' };
   projectMemoryStatus?: ProjectMemoryStatusResultView;
   projectMemoryError?: string;
   showProjectMemoryIndex: boolean;
@@ -963,7 +964,7 @@ export type ExtMsg =
   | { type: 'attachmentError'; message: string }
   | { type: 'workspaceFiles'; files: string[] }
   | { type: 'mcpStatus'; enabled: boolean; presets: McpPresetStatusView[] }
-  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string }
+  | { type: 'mcpUsed'; presetId: string; presetName: string; toolName: string; status: 'executed' | 'rejected' | 'denied' | 'error' }
   | { type: 'agentPrompts'; agents: AgentPrompt[] }
   | { type: 'agentsReloaded'; count: number; agents: AgentPrompt[] }
   | { type: 'agentPromptError'; message: string }
@@ -1829,6 +1830,8 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           })),
           isRunning: true,
           elapsed: 0,
+          // A new run starts: the previous turn's MCP chip must not linger.
+          lastMcpUsed: undefined,
         };
       }
       // Subsequent steps: add to existing streaming message and update stage
@@ -1910,6 +1913,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
           activeCodeReviewReport: null,
           showReviewHistory: false,
           pendingReviewSelection: null,
+          lastMcpUsed: undefined,
         };
       }
       // Direct (non-pipeline) mode: create AssistantMessage now
@@ -1944,6 +1948,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
         activeSubagentSynthesis: null,
         activeCodeReviewReport: null,
         showReviewHistory: false,
+        lastMcpUsed: undefined,
       };
     }
 
@@ -2192,7 +2197,7 @@ function applyExtMsg(state: AppState, msg: ExtMsg): AppState {
     case 'mcpUsed':
       return {
         ...state,
-        lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName },
+        lastMcpUsed: { presetId: msg.presetId, presetName: msg.presetName, toolName: msg.toolName, status: msg.status },
       };
 
     case 'projectMemoryStatus':

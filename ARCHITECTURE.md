@@ -72,7 +72,13 @@ This pattern makes supporting a brand new CLI response format a matter of:
 ### Orchestration Layers (multiple, intentional)
 The system evolved several cooperating orchestrators because different flows have very different needs:
 
-- **RunAgentUseCase** — single agent execution + MCP follow-up + token metering + dual-path emission (raw stdout + stream pipeline + legacy parser).
+- **RunAgentUseCase** — single agent execution + bounded MCP round loop + token metering + dual-path emission (raw stdout + stream pipeline + legacy parser).
+  - Owns the whole task lifecycle (`task_started` → `task_completed`). `_runRound` emits **no** lifecycle events, so a multi-round run stays **one** task with **one** id — roughly ten listeners filter on `event.task.id`, and the webview keys its streaming message off it. Follow-up rounds use `AgentTask.withEnhancedPrompt()`, which preserves `id` and `startedAt`.
+  - Round 0 is the plain run and is not charged against `mcp.maxRoundsPerTask` (clamped `0..5`). A round loop stops on three independent conditions: budget exhausted, an intent deduplicated on `(group, normalized query)`, or a non-`executed` outcome.
+  - The stdout collector receives **decoded** `content_delta` text, not raw transport frames — a `NEXUS_TOOL_INTENT` tag inside a JSONL envelope (codex, grok) is not parseable.
+  - MCP is fail-open: a malformed `.nexus/config.json` degrades to "no MCP" rather than failing the task.
+  - `McpIntentTagScrubber` strips the tag from the transcript while the collector keeps it.
+  - **Not covered by MCP**: subagents (`SubagentOrchestrator` drives `IProcessRunner` directly) and the CLI entry point (`src/cli/commands/runCommand.ts` constructs `RunAgentUseCase` without an `McpToolUseCase`).
 - **NexusOrchestrator** (`application/nexus/`) — multi-stage flows (search → plan → code) with approval gate, using `MODE_FLOW` and priority tables.
 - **SubagentOrchestrator** + planner/executor/registry — dynamic sub-agents, DAG planning, preset policies, intent classification.
 - **DebugOrchestrator** + DebugChain + ReActLoop + many Strategy classes (`debug/strategies/*`, `debug/steps/*`) — specialized investigation loop.

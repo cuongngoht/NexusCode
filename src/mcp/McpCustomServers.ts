@@ -96,6 +96,52 @@ function nameTokens(name: string): string[] {
     .filter(token => token.length >= 3);
 }
 
+/** Retrieval verbs — what a documentation intent legitimately wants. */
+const DOC_HINTS = ['search', 'doc', 'query', 'fetch', 'lookup', 'get', 'find', 'read'];
+
+/** Sample-specific hints, used only for the `samples` group. */
+const SAMPLE_HINTS = ['sample', 'example', 'snippet', 'code'];
+
+/**
+ * Side-effecting verbs. Penalised hard rather than merely unranked: every intent that
+ * reaches this function is a *documentation* request, so calling a mutating tool on an
+ * arbitrary user-configured server would be both useless and unsafe.
+ */
+const MUTATING_HINTS = [
+  'write', 'create', 'delete', 'remove', 'update', 'insert', 'upsert',
+  'exec', 'run', 'send', 'publish', 'deploy', 'drop', 'modify', 'patch',
+];
+
+const NAME_MATCH_SCORE = 3;
+const DESCRIPTION_MATCH_SCORE = 1;
+const MUTATING_PENALTY = 5;
+
+function scoreTool(tool: McpToolDescriptor, intent: McpToolIntent): number {
+  const name = tool.name.toLowerCase();
+  const description = (tool.description ?? '').toLowerCase();
+
+  // Name is a far more reliable signal than prose: descriptions routinely mention
+  // "search" while describing a write operation.
+  const hits = (hints: string[]) =>
+    hints.reduce(
+      (sum, hint) =>
+        sum +
+        (name.includes(hint) ? NAME_MATCH_SCORE : 0) +
+        (description.includes(hint) ? DESCRIPTION_MATCH_SCORE : 0),
+      0,
+    );
+
+  let score = hits(DOC_HINTS);
+  if (intent.group === 'samples') {
+    score += hits(SAMPLE_HINTS);
+  }
+  if (MUTATING_HINTS.some(hint => name.includes(hint))) {
+    score -= MUTATING_PENALTY;
+  }
+
+  return score;
+}
+
 /**
  * Picks which discovered tool to call for a given intent when the custom
  * server config does not pin a `defaultTool`.
@@ -107,16 +153,15 @@ export function pickToolNameForIntent(
   tools: McpToolDescriptor[],
   intent: McpToolIntent,
 ): string | undefined {
-  // TODO(user): implement the selection heuristic.
-  //
-  // Ideas to consider:
-  //  - intent.group === 'samples' → prefer tools whose name/description
-  //    mentions "sample", "example", "snippet", "code"
-  //  - generic doc intents → prefer names containing "search", "docs",
-  //    "query", "fetch", "lookup"
-  //  - score name matches higher than description matches
-  //  - return undefined when nothing matches (caller uses tools[0])
-  void tools;
-  void intent;
-  return undefined;
+  let best: { name: string; score: number } | undefined;
+
+  for (const tool of tools) {
+    const score = scoreTool(tool, intent);
+    // Strictly greater, so ties keep the server's own ordering (advertised first wins).
+    if (!best || score > best.score) {
+      best = { name: tool.name, score };
+    }
+  }
+
+  return best && best.score > 0 ? best.name : undefined;
 }

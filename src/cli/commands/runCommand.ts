@@ -75,6 +75,9 @@ export async function runCommandCore(options: RunOptions): Promise<{ exitCode: n
   const eventBus = new EventBus();
   const runner = new ProcessRunner();
   const router = new AgentRouter(registry);
+  // Intentionally no McpToolUseCase/ConfigService: MCP is extension-only. ConfigService
+  // reads `.nexus/config.json` through the VS Code filesystem API, which does not exist
+  // here, so wiring MCP into the CLI needs a plain-fs sibling first.
   const runUseCase = new RunAgentUseCase(router, runner, eventBus);
   const orchestrator = new NexusOrchestrator(registry, runUseCase, eventBus);
 

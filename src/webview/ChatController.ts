@@ -143,7 +143,16 @@ export class ChatController {
     // active chat is the one running the task that can trigger MCP approvals.
     mcpToolUseCase?.setApprovalGate(new PermissionMcpApprovalGate(permissionService));
     const projectLearning = new ProjectLearningCoordinator();
-    const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService, projectLearning);
+    // Resolved per run so a settings change lands on the next task without a reload.
+    // Mirrors RunTaskHandler.isMcpEnabled: `.nexus/config.json` is the source of truth.
+    const isMcpEnabled = async (): Promise<boolean> => {
+      try {
+        return (await configService.loadConfig()).mcp.enabled;
+      } catch {
+        return false;
+      }
+    };
+    const agentExecutor = new AgentExecutor(runAgent, eventBus, post as (msg: unknown) => void, permissionService, projectLearning, isMcpEnabled);
     this.runTaskHandler  = new RunTaskHandler(runAgent, orchestrator, eventBus, post, buildProjectMap, extensionPath, extensionUri, workspaceState ?? globalState, subagentOrchestrator, this.historyRagFacade, debugOrchestrator, agentExecutor, permissionService, projectMemoryStatusService, projectMemoryRagFacade, fileIntelligenceDeps, projectLearning, knowledgeFactsDeps, configService);
     this.historyHandler  = new HistoryHandler(post, historyStore);
     this.providerHandler = new ProviderHandler(post, detector, configService, this.globalState);

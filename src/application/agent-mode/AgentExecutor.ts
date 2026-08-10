@@ -1,5 +1,6 @@
 import type { IEventBus, NexusEvent } from '../../core/events/IEventBus';
 import { AgentTask } from '../../core/agent';
+import { appendRunInstructions, type RunInstructionStyle } from '../../core/mcp/McpIntentProtocol';
 import type { RunAgentUseCase } from '../usecases/RunAgentUseCase';
 import { AgentSessionStore } from './AgentSessionStore';
 import { AgentTimeline } from './AgentTimeline';
@@ -53,7 +54,22 @@ export class AgentExecutor {
     private readonly post: (msg: unknown) => void,
     private readonly permissionService?: PermissionService,
     private readonly projectLearning: ProjectLearningCoordinator = new ProjectLearningCoordinator(),
+    /**
+     * Resolves whether MCP is enabled, per run. A callback rather than a ConfigService
+     * so this layer stays free of config/VS Code coupling (same rationale as
+     * RunAgentUseCase's idleTimeoutResolver) and so a settings change takes effect on
+     * the next run without a reload.
+     */
+    private readonly isMcpEnabled?: () => Promise<boolean>,
   ) {}
+
+  private async resolveMcpEnabled(): Promise<boolean> {
+    try {
+      return (await this.isMcpEnabled?.()) ?? false;
+    } catch {
+      return false;
+    }
+  }
 
   private getStore(workspaceRoot: string): AgentSessionStore {
     if (!this.sessionStores.has(workspaceRoot)) {
@@ -138,7 +154,8 @@ export class AgentExecutor {
 
         const planner = new AgentPlanner(
           async (prompt, workspaceRoot, providerId, model) => {
-            return await this.runAgentForText(prompt, workspaceRoot, providerId, model);
+            // json-only: the planner's output is parsed into MARKDOWN_PLAN + JSON sections.
+            return await this.runAgentForText(prompt, workspaceRoot, providerId, model, 'json-only');
           },
         );
 
@@ -280,7 +297,10 @@ export class AgentExecutor {
             const permSvc = this.permissionService;
             const recovery = new AgentRecovery(
               async (prompt, workspaceRoot, providerId, model) => {
-                await this.runAgentForText(prompt, workspaceRoot, providerId, model);
+                // MCP deliberately off: recovery is a tight fix-the-failing-test loop where
+                // the signal is local test output, not external docs. An MCP round here
+                // would double latency on the hot path for no diagnostic gain.
+                await this.runAgentForText(prompt, workspaceRoot, providerId, model, 'narrative', false);
               },
               async (s, p) => new AgentTestRunner().run(s, p, permSvc),
               async (s) => {
@@ -303,7 +323,8 @@ export class AgentExecutor {
         const diffCollector = new AgentDiffCollector();
         const reviewer = new AgentReviewRunner(
           async (prompt, workspaceRoot, providerId, model) => {
-            return await this.runAgentForText(prompt, workspaceRoot, providerId, model);
+            // json-only: the review runner parses findings out of a JSON block.
+            return await this.runAgentForText(prompt, workspaceRoot, providerId, model, 'json-only');
           },
           async (s) => {
             const d = await diffCollector.collect(s, policy);
@@ -436,7 +457,12 @@ export class AgentExecutor {
   }
 
   private async runEdit(session: AgentSession, _policy: AgentModePolicy): Promise<void> {
-    const editPrompt = buildEditPrompt(session, this.projectContexts.get(session.id));
+    // narrative: the edit turn produces free-form prose and tool use, so the tag may
+    // sit alongside the answer rather than replacing it.
+    const editPrompt = appendRunInstructions(
+      buildEditPrompt(session, this.projectContexts.get(session.id)),
+      { mcpEnabled: await this.resolveMcpEnabled(), style: 'narrative' },
+    );
 
     // Use NexusOrchestrator for nexus provider, RunAgentUseCase for direct providers
     const { workspaceRoot, providerId, model } = session;
@@ -453,17 +479,29 @@ export class AgentExecutor {
     await this.runAgentUseCase.execute(task);
   }
 
+  /**
+   * Runs one inner agent turn and returns its text.
+   *
+   * MCP instructions are injected here (per inner run) rather than once at the entry
+   * prompt, because the entry prompt is embedded as *user task* text inside the
+   * planner/edit/review headers — injected there it reads as user content, not as a
+   * protocol. Each inner run also has its own output contract, so the style differs.
+   */
   private async runAgentForText(
     prompt: string,
     workspaceRoot: string,
     providerId: string,
     model?: string,
+    style: RunInstructionStyle = 'json-only',
+    mcpEnabled?: boolean,
   ): Promise<string> {
     const chunks: string[] = [];
+    const useMcp = mcpEnabled ?? (await this.resolveMcpEnabled());
+    const finalPrompt = appendRunInstructions(prompt, { mcpEnabled: useMcp, style });
 
     const task = new AgentTask(
-      prompt,
-      prompt,
+      finalPrompt,
+      finalPrompt,
       providerId as any,
       'ask',
       model,
