@@ -906,7 +906,7 @@
   "dependencies": {
     "@fluentui/react-components": "^9.74.1",
     "@fluentui/react-icons": "^2.0.328",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "commander": "^12.1.0",
     "gpt-tokenizer": "^3.4.0",
     "mermaid": "^11.15.0",
